@@ -1,0 +1,223 @@
+import type { CoursePack, LessonStep } from "../core/index.js";
+
+const commonFlow = (
+  utteranceId: string,
+  knowledgeIds: readonly string[],
+): readonly LessonStep[] => [
+  {
+    id: "diagnose",
+    phase: "diagnostic",
+    title: { "zh-CN": "检查已有知识" },
+    knowledgeRefs: knowledgeIds,
+    utteranceRefs: [],
+    exerciseRefs: [],
+    next: ["preteach"],
+  },
+  {
+    id: "preteach",
+    phase: "preteach",
+    title: { "zh-CN": "最小知识预教" },
+    supportLevel: "full",
+    knowledgeRefs: knowledgeIds,
+    utteranceRefs: [],
+    exerciseRefs: [],
+    next: ["supported-input"],
+  },
+  {
+    id: "supported-input",
+    phase: "supported-input",
+    title: { "zh-CN": "带翻译理解场景" },
+    supportLevel: "full",
+    knowledgeRefs: knowledgeIds,
+    utteranceRefs: [utteranceId],
+    exerciseRefs: [],
+    next: ["target-input"],
+  },
+  {
+    id: "target-input",
+    phase: "supported-input",
+    title: { "zh-CN": "只看目标语言" },
+    supportLevel: "target-language-only",
+    knowledgeRefs: knowledgeIds,
+    utteranceRefs: [utteranceId],
+    exerciseRefs: [],
+    next: ["independent-input"],
+  },
+  {
+    id: "independent-input",
+    phase: "comprehension",
+    title: { "zh-CN": "无文字独立理解" },
+    supportLevel: "none",
+    knowledgeRefs: knowledgeIds,
+    utteranceRefs: [utteranceId],
+    exerciseRefs: ["understand-request"],
+    next: ["guided-output"],
+  },
+  {
+    id: "guided-output",
+    phase: "guided-output",
+    title: { "zh-CN": "替换并重组表达" },
+    supportLevel: "target-language-only",
+    knowledgeRefs: knowledgeIds,
+    utteranceRefs: [utteranceId],
+    exerciseRefs: ["guided-request"],
+    next: ["independent-task"],
+  },
+  {
+    id: "independent-task",
+    phase: "independent-task",
+    title: { "zh-CN": "独立完成点单" },
+    supportLevel: "none",
+    knowledgeRefs: knowledgeIds,
+    utteranceRefs: [],
+    exerciseRefs: ["independent-request"],
+    next: ["feedback-retry"],
+  },
+  {
+    id: "feedback-retry",
+    phase: "feedback-retry",
+    title: { "zh-CN": "根据反馈重新表达" },
+    supportLevel: "none",
+    knowledgeRefs: knowledgeIds,
+    utteranceRefs: [],
+    exerciseRefs: ["independent-request"],
+    next: ["delayed-transfer"],
+  },
+  {
+    id: "delayed-transfer",
+    phase: "delayed-transfer",
+    title: { "zh-CN": "换场景延迟迁移" },
+    supportLevel: "none",
+    knowledgeRefs: knowledgeIds,
+    utteranceRefs: [],
+    exerciseRefs: ["independent-request"],
+    next: [],
+  },
+];
+
+export const japaneseCafeCourse: CoursePack = {
+  schemaVersion: 1,
+  manifest: {
+    id: "official.ja.cafe-request",
+    version: "0.1.0",
+    languageId: "ja",
+    title: { "zh-CN": "日语咖啡店点单" },
+    description: { "zh-CN": "在咖啡店请求一杯饮料。" },
+    author: { id: "learn-language", displayName: "LearnLanguage" },
+    visibility: "official",
+    status: "draft",
+    source: { kind: "original" },
+  },
+  goals: [
+    {
+      id: "order-drink",
+      description: { "zh-CN": "能够在咖啡店请求一杯饮料。" },
+    },
+  ],
+  knowledge: [
+    {
+      id: "coffee",
+      kind: "lexeme",
+      form: "コーヒー",
+      reading: { kana: "コーヒー", hepburn: "kōhī" },
+      meaning: { "zh-CN": "咖啡" },
+    },
+    {
+      id: "request-pattern",
+      kind: "grammar",
+      form: "～をお願いします",
+      meaning: { "zh-CN": "礼貌地请求某物" },
+      usage: { "zh-CN": "用于商店、餐厅等服务场景。" },
+    },
+  ],
+  utterances: [
+    {
+      id: "request-coffee",
+      text: "コーヒーを一つお願いします。",
+      translation: { "zh-CN": "请给我一杯咖啡。" },
+      reading: { kana: "コーヒーをひとつおねがいします。" },
+      knowledgeRefs: ["coffee", "request-pattern"],
+    },
+  ],
+  exercises: [
+    {
+      id: "understand-request",
+      kind: "single-choice",
+      prompt: { "zh-CN": "说话人想要什么？" },
+      knowledgeRefs: ["coffee"],
+      utteranceRefs: ["request-coffee"],
+    },
+    {
+      id: "guided-request",
+      kind: "substitution",
+      prompt: { "zh-CN": "把咖啡替换成你想要的饮料。" },
+      knowledgeRefs: ["request-pattern"],
+      utteranceRefs: ["request-coffee"],
+    },
+    {
+      id: "independent-request",
+      kind: "role-play",
+      prompt: { "zh-CN": "向店员点一杯饮料。" },
+      knowledgeRefs: ["coffee", "request-pattern"],
+      utteranceRefs: [],
+      rubricRef: "request-rubric",
+    },
+  ],
+  rubrics: [
+    {
+      id: "request-rubric",
+      dimensions: [
+        "task-completion",
+        "comprehensibility",
+        "target-language",
+        "prompt-dependence",
+      ],
+      retryRequired: true,
+    },
+  ],
+  lessons: [
+    {
+      id: "cafe-request",
+      title: { "zh-CN": "在咖啡店提出请求" },
+      canDoGoalRefs: ["order-drink"],
+      entryStepId: "diagnose",
+      steps: commonFlow("request-coffee", ["coffee", "request-pattern"]),
+    },
+  ],
+};
+
+export const cantoneseCafeCourse: CoursePack = {
+  ...japaneseCafeCourse,
+  manifest: {
+    ...japaneseCafeCourse.manifest,
+    id: "official.yue.cafe-request",
+    languageId: "yue-Hant-HK",
+    title: { "zh-CN": "粤语咖啡店点单" },
+  },
+  knowledge: [
+    {
+      id: "coffee",
+      kind: "lexeme",
+      form: "咖啡",
+      reading: { jyutping: "gaa3 fe1" },
+      meaning: { "zh-CN": "咖啡" },
+    },
+    {
+      id: "request-pattern",
+      kind: "grammar",
+      form: "我想要～",
+      reading: { jyutping: "ngo5 soeng2 jiu3" },
+      meaning: { "zh-CN": "表达自己想要某物" },
+      usage: { "zh-CN": "可以配合唔該在服务场景中礼貌提出请求。" },
+    },
+  ],
+  utterances: [
+    {
+      id: "request-coffee",
+      text: "唔該，我想要一杯咖啡。",
+      translation: { "zh-CN": "麻烦了，我想要一杯咖啡。" },
+      reading: { jyutping: "m4 goi1, ngo5 soeng2 jiu3 jat1 bui1 gaa3 fe1." },
+      knowledgeRefs: ["coffee", "request-pattern"],
+    },
+  ],
+};
