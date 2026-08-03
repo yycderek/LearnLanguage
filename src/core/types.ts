@@ -119,6 +119,13 @@ export type ExerciseKind =
   | "reconstruction"
   | "role-play";
 
+export type RubricDimension =
+  | "task-completion"
+  | "comprehensibility"
+  | "target-language"
+  | "prompt-dependence"
+  | "fluency";
+
 export interface Exercise {
   readonly id: string;
   readonly kind: ExerciseKind;
@@ -130,13 +137,7 @@ export interface Exercise {
 
 export interface FeedbackRubric {
   readonly id: string;
-  readonly dimensions: readonly (
-    | "task-completion"
-    | "comprehensibility"
-    | "target-language"
-    | "prompt-dependence"
-    | "fluency"
-  )[];
+  readonly dimensions: readonly RubricDimension[];
   readonly retryRequired: boolean;
 }
 
@@ -151,11 +152,13 @@ export type LessonPhase =
   | "feedback-retry"
   | "delayed-transfer";
 
+export type SupportLevel = "full" | "target-language-only" | "none";
+
 export interface LessonStep {
   readonly id: string;
   readonly phase: LessonPhase;
   readonly title: LocalizedText;
-  readonly supportLevel?: "full" | "target-language-only" | "none";
+  readonly supportLevel?: SupportLevel;
   readonly knowledgeRefs: readonly string[];
   readonly utteranceRefs: readonly string[];
   readonly exerciseRefs: readonly string[];
