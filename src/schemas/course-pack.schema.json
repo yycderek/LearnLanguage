@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://learnlanguage.local/schemas/course-pack.schema.json",
+  "title": "LearnLanguage CoursePack",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "manifest",
+    "goals",
+    "knowledge",
+    "utterances",
+    "exercises",
+    "rubrics",
+    "lessons"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "manifest": { "$ref": "#/$defs/manifest" },
+    "goals": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/goal" }
+    },
+    "knowledge": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/knowledgeItem" }
+    },
+    "utterances": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/utterance" }
+    },
+    "exercises": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/exercise" }
+    },
+    "rubrics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rubric" }
+    },
+    "lessons": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/lesson" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "localizedText": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "reading": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string" }
+    },
+    "references": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "languageId",
+        "title",
+        "description",
+        "author",
+        "visibility",
+        "status",
+        "source"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
+        },
+        "languageId": {
+          "type": "string",
+          "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+        },
+        "title": { "$ref": "#/$defs/localizedText" },
+        "description": { "$ref": "#/$defs/localizedText" },
+        "author": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "displayName"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "displayName": { "type": "string", "minLength": 1 }
+          }
+        },
+        "visibility": {
+          "enum": ["official", "community", "private"]
+        },
+        "status": {
+          "enum": ["draft", "review", "published", "archived"]
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "enum": ["original", "imported", "ai-assisted"]
+            },
+            "title": { "type": "string" },
+            "url": { "type": "string" },
+            "license": { "type": "string" }
+          }
+        }
+      }
+    },
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "description": { "$ref": "#/$defs/localizedText" },
+        "framework": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "level": { "type": "string" },
+            "reference": { "type": "string" }
+          }
+        }
+      }
+    },
+    "knowledgeItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "form", "meaning"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": {
+          "enum": ["lexeme", "grammar", "pronunciation", "script", "pragmatics"]
+        },
+        "form": { "type": "string", "minLength": 1 },
+        "reading": { "$ref": "#/$defs/reading" },
+        "meaning": { "$ref": "#/$defs/localizedText" },
+        "usage": { "$ref": "#/$defs/localizedText" },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "utterance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "knowledgeRefs"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "text": { "type": "string", "minLength": 1 },
+        "translation": { "$ref": "#/$defs/localizedText" },
+        "reading": { "$ref": "#/$defs/reading" },
+        "knowledgeRefs": { "$ref": "#/$defs/references" },
+        "audio": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["assetId"],
+          "properties": {
+            "assetId": { "$ref": "#/$defs/id" },
+            "speaker": { "type": "string" },
+            "speed": { "enum": ["slow", "natural"] }
+          }
+        }
+      }
+    },
+    "exercise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "prompt", "knowledgeRefs", "utteranceRefs"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": {
+          "enum": [
+            "single-choice",
+            "ordering",
+            "dictation",
+            "repeat",
+            "substitution",
+            "reconstruction",
+            "role-play"
+          ]
+        },
+        "prompt": { "$ref": "#/$defs/localizedText" },
+        "knowledgeRefs": { "$ref": "#/$defs/references" },
+        "utteranceRefs": { "$ref": "#/$defs/references" },
+        "rubricRef": { "$ref": "#/$defs/id" }
+      }
+    },
+    "rubric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "dimensions", "retryRequired"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "dimensions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "task-completion",
+              "comprehensibility",
+              "target-language",
+              "prompt-dependence",
+              "fluency"
+            ]
+          }
+        },
+        "retryRequired": { "type": "boolean" }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "phase",
+        "title",
+        "knowledgeRefs",
+        "utteranceRefs",
+        "exerciseRefs",
+        "next"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "phase": {
+          "enum": [
+            "diagnostic",
+            "preteach",
+            "supported-input",
+            "comprehension",
+            "noticing",
+            "guided-output",
+            "independent-task",
+            "feedback-retry",
+            "delayed-transfer"
+          ]
+        },
+        "title": { "$ref": "#/$defs/localizedText" },
+        "supportLevel": {
+          "enum": ["full", "target-language-only", "none"]
+        },
+        "knowledgeRefs": { "$ref": "#/$defs/references" },
+        "utteranceRefs": { "$ref": "#/$defs/references" },
+        "exerciseRefs": { "$ref": "#/$defs/references" },
+        "next": { "$ref": "#/$defs/references" }
+      }
+    },
+    "lesson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "canDoGoalRefs", "entryStepId", "steps"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "$ref": "#/$defs/localizedText" },
+        "canDoGoalRefs": { "$ref": "#/$defs/references" },
+        "entryStepId": { "$ref": "#/$defs/id" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/step" }
+        }
+      }
+    }
+  }
+}
