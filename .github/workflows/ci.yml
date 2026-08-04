@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "agent/**"
+      - "codex/**"
   pull_request:
 
 permissions:
@@ -40,3 +41,34 @@ jobs:
 
       - name: Run project checks
         run: pnpm check
+
+  web:
+    name: Web build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.10
+        with:
+          version: 11.9.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install Web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and test Web app
+        run: pnpm test

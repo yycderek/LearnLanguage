@@ -8,6 +8,8 @@ node_modules/
 .pnpm-store/
 dist/
 build/
+!apps/web/build/
+!apps/web/build/sites-vite-plugin.ts
 coverage/
 .cache/
 *.tsbuildinfo
