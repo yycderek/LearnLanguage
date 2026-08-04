@@ -1,4 +1,6 @@
 export * from "./catalog.js";
+export * from "./course-draft.js";
+export * from "./course-import.js";
 export * from "./event-store.js";
 export * from "./mastery.js";
 export * from "./review.js";
