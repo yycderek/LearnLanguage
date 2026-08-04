@@ -15,6 +15,9 @@ test("build contains the course studio and no starter skeleton", async () => {
   assert.match(studio, /课程编辑器/);
   assert.match(studio, /导入与校验/);
   assert.match(studio, /课程流程预览/);
+  assert.match(studio, /AI 设置/);
+  assert.match(studio, /无需登录/);
+  assert.match(studio, /learn-language-ai-settings-v1/);
   assert.match(css, /studio-shell/);
   assert.doesNotMatch(`${page}${studio}`, /Your site is taking shape|SkeletonPreview/);
 });

@@ -52,10 +52,15 @@ button { color: inherit; }
 .topbar h1 { margin: 5px 0 0; font-family: "Noto Serif SC", "Songti SC", serif; font-size: clamp(24px, 2.5vw, 34px); font-weight: 650; letter-spacing: -.035em; }
 .eyebrow { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; letter-spacing: .08em; }
 .status-dot { width: 7px; height: 7px; background: #5aa37d; border-radius: 50%; box-shadow: 0 0 0 4px rgba(90,163,125,.13); }
+.top-actions { display: flex; align-items: center; gap: 9px; }
 .save-button, .primary-button { border: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--green); color: white; border-radius: 9px; cursor: pointer; font-weight: 650; box-shadow: 0 5px 16px rgba(31,90,77,.18); transition: transform .15s ease, background .15s ease; }
 .save-button { padding: 11px 16px; }
 .save-button:hover, .primary-button:hover { transform: translateY(-1px); background: #174a3f; }
 .save-button:disabled { opacity: .65; cursor: wait; }
+.ai-button { position: relative; min-height: 41px; display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border: 1px solid #cfd6d1; background: rgba(255,255,255,.65); color: var(--green); border-radius: 9px; cursor: pointer; font-weight: 650; }
+.ai-button:hover { background: white; }
+.ai-state { width: 7px; height: 7px; margin-left: 2px; background: #c0c6c2; border-radius: 50%; }
+.ai-state.configured { background: #54a17a; box-shadow: 0 0 0 3px rgba(84,161,122,.13); }
 .status-strip { max-width: 1440px; margin: 0 auto 18px; min-height: 37px; padding: 8px 11px; display: flex; align-items: center; justify-content: space-between; background: #e8eee9; border: 1px solid #d8e1da; border-radius: 9px; color: #47645c; font-size: 11px; }
 .status-strip > div { display: flex; align-items: center; gap: 7px; }
 .schema-pill { padding: 3px 7px; background: rgba(255,255,255,.65); border-radius: 5px; font-family: var(--mono); font-size: 9px; }
@@ -116,6 +121,24 @@ button { color: inherit; }
 .history-list small { margin-top: 2px; color: #9a9f9c; font-size: 8px; }
 .history-list svg { color: #8c9692; }
 
+.modal-backdrop { position: fixed; z-index: 50; inset: 0; padding: 22px; display: grid; place-items: center; background: rgba(17,35,32,.58); backdrop-filter: blur(5px); }
+.ai-dialog { width: min(520px, 100%); max-height: calc(100vh - 44px); overflow: auto; background: var(--card); border: 1px solid rgba(255,255,255,.45); border-radius: 16px; box-shadow: 0 28px 90px rgba(8,28,24,.32); }
+.dialog-heading { min-height: 79px; display: grid; grid-template-columns: 42px 1fr 34px; align-items: center; gap: 11px; padding: 16px 18px; border-bottom: 1px solid #e7e8e1; }
+.dialog-heading h2 { margin: 4px 0 0; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 20px; }
+.dialog-icon { width: 40px; height: 40px; display: grid; place-items: center; background: var(--yellow); color: var(--green); border-radius: 11px; }
+.icon-button { width: 32px; height: 32px; display: grid; place-items: center; border: 0; background: #eff1ec; color: #66716d; border-radius: 8px; cursor: pointer; }
+.dialog-body { padding: 18px; display: grid; gap: 14px; }
+.dialog-body label { display: grid; gap: 6px; color: #52615d; font-size: 11px; font-weight: 650; }
+.dialog-body input, .dialog-body select { width: 100%; height: 42px; padding: 0 11px; border: 1px solid #d5d9d3; background: white; color: var(--ink); border-radius: 8px; outline: 0; font-size: 12px; }
+.dialog-body input:focus, .dialog-body select:focus { border-color: #7da394; box-shadow: 0 0 0 3px rgba(31,90,77,.08); }
+.key-input { position: relative; }
+.key-input svg { position: absolute; left: 11px; top: 13px; color: #87928e; }
+.key-input input { padding-left: 36px; }
+.privacy-note { display: flex; align-items: flex-start; gap: 9px; padding: 12px; background: #eaf1ec; color: #52675f; border-radius: 9px; }
+.privacy-note svg { flex: 0 0 auto; color: var(--green); }
+.privacy-note p { margin: 0; font-size: 10px; line-height: 1.6; }
+.dialog-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 13px 18px 17px; border-top: 1px solid #e7e8e1; }
+
 @media (max-width: 1050px) {
   .studio-shell { grid-template-columns: 210px 1fr; }
   .workspace { padding: 24px 22px 40px; }
@@ -132,6 +155,8 @@ button { color: inherit; }
   .workspace { padding: 18px 13px 32px; }
   .topbar { align-items: flex-start; gap: 10px; }
   .topbar h1 { font-size: 22px; }
+  .top-actions { align-items: stretch; flex-direction: column-reverse; }
+  .ai-button { min-height: 36px; justify-content: center; padding: 7px 9px; font-size: 10px; }
   .save-button { padding: 9px 11px; font-size: 11px; }
   .status-strip { align-items: flex-start; gap: 8px; }
   .course-card { grid-template-columns: 105px 1fr; }
