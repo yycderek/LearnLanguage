@@ -35,5 +35,7 @@ pnpm check
 - 无需登录的 Web 课程工作台
 - 可视化 Course Pack 编辑器与 JSON 高级编辑模式
 - 自定义 Language Pack 快速创建、JSON 导入和设备本地保存
+- Web 课程播放器、反馈重试和课程完成总结
+- 设备本地学习进度、掌握度投影与复习任务生成
 
 详细设计见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。

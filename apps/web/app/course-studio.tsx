@@ -11,6 +11,7 @@ import {
   FileJson,
   KeyRound,
   Languages,
+  Play,
   Plus,
   RotateCcw,
   Save,
@@ -22,6 +23,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { LearningPlayer } from "@/app/learning-player";
 import {
   displayText,
   sampleCourse,
@@ -36,6 +38,12 @@ import {
   type LanguageDirection,
   type LanguagePack,
 } from "@/lib/language-pack";
+import {
+  learningPercent,
+  reviewsDue,
+  startLearning,
+  type LearningProgress,
+} from "@/lib/learning";
 
 type HistoryItem = {
   draftId: string;
@@ -62,6 +70,7 @@ type LanguageForm = {
 const DRAFTS_STORAGE_KEY = "learn-language-drafts-v1";
 const AI_STORAGE_KEY = "learn-language-ai-settings-v1";
 const LANGUAGE_PACKS_STORAGE_KEY = "learn-language-packs-v1";
+const LEARNING_PROGRESS_STORAGE_KEY = "learn-language-progress-v1";
 
 const defaultAiSettings: AiSettings = { provider: "openai", model: "", endpoint: "", apiKey: "" };
 const defaultLanguageForm: LanguageForm = {
@@ -132,6 +141,8 @@ export function CourseStudio() {
   const [languageForm, setLanguageForm] = useState<LanguageForm>(defaultLanguageForm);
   const [languageJson, setLanguageJson] = useState("");
   const [languageError, setLanguageError] = useState("");
+  const [progressByCourse, setProgressByCourse] = useState<Record<string, LearningProgress>>({});
+  const [learningOpen, setLearningOpen] = useState(false);
 
   const stats = useMemo(
     () => [
@@ -148,10 +159,12 @@ export function CourseStudio() {
       const storedHistory = readJson<HistoryItem[]>(DRAFTS_STORAGE_KEY, []);
       const storedAi = readJson<AiSettings>(AI_STORAGE_KEY, defaultAiSettings);
       const customPacks = readJson<LanguagePack[]>(LANGUAGE_PACKS_STORAGE_KEY, []);
+      const storedProgress = readJson<Record<string, LearningProgress>>(LEARNING_PROGRESS_STORAGE_KEY, {});
       setHistory(storedHistory);
       setAiSettings(storedAi);
       setAiConfigured(Boolean(storedAi.model || storedAi.apiKey));
       setLanguagePacks([...builtInLanguagePacks, ...customPacks.filter((pack) => !builtInLanguagePacks.some((item) => item.id === pack.id))]);
+      setProgressByCourse(storedProgress);
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -233,6 +246,22 @@ export function CourseStudio() {
     setAiConfigured(Boolean(aiSettings.model || aiSettings.apiKey));
     setAiOpen(false);
     setNotice(`${providerLabels[aiSettings.provider]} 配置已保存到当前设备`);
+  }
+
+  function storeLearningProgress(next: LearningProgress) {
+    const updated = { ...progressByCourse, [next.courseId]: next };
+    setProgressByCourse(updated);
+    localStorage.setItem(LEARNING_PROGRESS_STORAGE_KEY, JSON.stringify(updated));
+  }
+
+  function openLearning() {
+    const existing = progressByCourse[course.manifest.id];
+    const compatible = existing?.courseVersion === course.manifest.version
+      && existing.lessonId === course.lessons[0]?.id
+      && (existing.status === "completed" || course.lessons[0]?.steps.some((step) => step.id === existing.currentStepId));
+    const next = compatible ? existing : startLearning(course);
+    if (next !== existing) storeLearningProgress(next);
+    setLearningOpen(true);
   }
 
   function addKnowledge() {
@@ -349,6 +378,13 @@ export function CourseStudio() {
 
   const currentLanguage = languagePacks.find((item) => item.id === language);
   const flow = course.lessons[0]?.steps ?? [];
+  const currentProgress = progressByCourse[course.manifest.id];
+  const currentPercent = learningPercent(course, currentProgress);
+  const dueReviewCount = currentProgress ? reviewsDue(currentProgress).length : 0;
+
+  if (learningOpen && currentProgress) {
+    return <LearningPlayer course={course} initialProgress={currentProgress} onProgress={storeLearningProgress} onExit={() => setLearningOpen(false)} />;
+  }
 
   return (
     <main className="studio-shell">
@@ -555,6 +591,10 @@ export function CourseStudio() {
                 <div className="course-meta"><span>{currentLanguage ? languageName(currentLanguage, "native") : language}</span><span>·</span><span>{course.manifest.status}</span></div>
                 <h2>{displayText(course.manifest.title)}</h2><p>{displayText(course.manifest.description)}</p>
                 <div className="stat-grid">{stats.map(([value, label]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
+                <div className="learning-launch">
+                  {currentProgress && <div className="mini-progress"><span><i style={{ width: `${currentPercent}%` }} /></span><small>{currentProgress.status === "completed" ? `已完成 · ${currentProgress.reviews.length} 个复习任务` : `学习进度 ${currentPercent}%`}{dueReviewCount > 0 ? ` · ${dueReviewCount} 个待复习` : ""}</small></div>}
+                  <button onClick={openLearning}><Play size={15} fill="currentColor" />{currentProgress?.status === "active" ? "继续学习" : currentProgress?.status === "completed" ? "查看学习记录" : "开始学习"}</button>
+                </div>
               </div>
             </section>
             <section className="flow-panel panel">

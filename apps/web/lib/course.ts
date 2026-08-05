@@ -27,7 +27,17 @@ export interface CoursePack {
   goals: Array<{ id: string; description: LocalizedText }>;
   knowledge: Array<{ id: string; kind: string; form: string; meaning: LocalizedText }>;
   utterances: Array<{ id: string; text: string; translation?: LocalizedText; knowledgeRefs: string[] }>;
-  exercises: Array<{ id: string; kind: string; prompt: LocalizedText; knowledgeRefs: string[]; utteranceRefs: string[]; rubricRef?: string }>;
+  exercises: Array<{
+    id: string;
+    kind: string;
+    prompt: LocalizedText;
+    options?: LocalizedText[];
+    correctOptionIndex?: number;
+    guidance?: LocalizedText;
+    knowledgeRefs: string[];
+    utteranceRefs: string[];
+    rubricRef?: string;
+  }>;
   rubrics: Array<{ id: string; dimensions: string[]; retryRequired: boolean }>;
   lessons: Array<{ id: string; title: LocalizedText; canDoGoalRefs: string[]; entryStepId: string; steps: CourseStep[] }>;
 }
@@ -140,8 +150,25 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
     ],
     utterances: [{ id: "request-drink", text: utterance, translation: { "zh-CN": "请给我一杯咖啡。" }, knowledgeRefs: ["drink", "request-pattern"] }],
     exercises: [
-      { id: "understand-request", kind: "single-choice", prompt: { "zh-CN": "说话人想要什么？" }, knowledgeRefs: ["drink"], utteranceRefs: ["request-drink"] },
-      { id: "independent-request", kind: "role-play", prompt: { "zh-CN": "向店员点一杯饮料。" }, knowledgeRefs: ["drink", "request-pattern"], utteranceRefs: [], rubricRef: "request-rubric" },
+      {
+        id: "understand-request",
+        kind: "single-choice",
+        prompt: { "zh-CN": "说话人想要什么？" },
+        options: [{ "zh-CN": "一杯咖啡" }, { "zh-CN": "一杯茶" }, { "zh-CN": "一份甜点" }],
+        correctOptionIndex: 0,
+        guidance: { "zh-CN": "留意句子中的饮料名称。" },
+        knowledgeRefs: ["drink"],
+        utteranceRefs: ["request-drink"],
+      },
+      {
+        id: "independent-request",
+        kind: "role-play",
+        prompt: { "zh-CN": "向店员点一杯饮料。" },
+        guidance: { "zh-CN": "尝试使用课程中的饮料词汇和礼貌请求句型。" },
+        knowledgeRefs: ["drink", "request-pattern"],
+        utteranceRefs: [],
+        rubricRef: "request-rubric",
+      },
     ],
     rubrics: [{ id: "request-rubric", dimensions: ["task-completion", "comprehensibility", "target-language"], retryRequired: true }],
     lessons: [{ id: "cafe-request", title: { "zh-CN": "在咖啡店提出请求" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps }],
