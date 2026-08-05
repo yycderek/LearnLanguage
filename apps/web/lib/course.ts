@@ -26,7 +26,7 @@ export interface CoursePack {
   };
   goals: Array<{ id: string; description: LocalizedText }>;
   knowledge: Array<{ id: string; kind: string; form: string; meaning: LocalizedText }>;
-  utterances: Array<{ id: string; text: string; knowledgeRefs: string[] }>;
+  utterances: Array<{ id: string; text: string; translation?: LocalizedText; knowledgeRefs: string[] }>;
   exercises: Array<{ id: string; kind: string; prompt: LocalizedText; knowledgeRefs: string[]; utteranceRefs: string[]; rubricRef?: string }>;
   rubrics: Array<{ id: string; dimensions: string[]; retryRequired: boolean }>;
   lessons: Array<{ id: string; title: LocalizedText; canDoGoalRefs: string[]; entryStepId: string; steps: CourseStep[] }>;
@@ -118,22 +118,27 @@ const steps: CourseStep[] = [
   next: index < all.length - 1 ? [all[index + 1][0]] : [],
 }));
 
-export function sampleCourse(languageId = "ja"): CoursePack {
+export function sampleCourse(languageId = "ja", languageName?: string): CoursePack {
   const japanese = languageId === "ja";
+  const cantonese = languageId === "yue-Hant-HK";
+  const targetName = languageName ?? (japanese ? "日语" : cantonese ? "粤语" : languageId);
+  const drink = japanese ? "コーヒー" : cantonese ? "咖啡" : "目标语词汇";
+  const requestPattern = japanese ? "〜をお願いします" : cantonese ? "我想要〜" : "目标语请求句型";
+  const utterance = japanese ? "コーヒーを一つお願いします。" : cantonese ? "唔該，我想要一杯咖啡。" : "请在这里填写目标语言示例表达。";
   return {
     schemaVersion: 1,
     manifest: {
       id: `private.${languageId}.cafe-request`, version: "0.1.0", languageId,
-      title: { "zh-CN": japanese ? "日语咖啡店点单" : "粤语咖啡店点单" },
+      title: { "zh-CN": `${targetName}咖啡店点单` },
       description: { "zh-CN": "在咖啡店礼貌地请求一杯饮料。" },
       author: { id: "local-author", displayName: "课程作者" }, visibility: "private", status: "draft", source: { kind: "original" },
     },
     goals: [{ id: "order-drink", description: { "zh-CN": "能够在咖啡店请求一杯饮料。" } }],
     knowledge: [
-      { id: "drink", kind: "lexeme", form: japanese ? "コーヒー" : "咖啡", meaning: { "zh-CN": "咖啡" } },
-      { id: "request-pattern", kind: "grammar", form: japanese ? "〜をお願いします" : "我想要〜", meaning: { "zh-CN": "礼貌提出请求" } },
+      { id: "drink", kind: "lexeme", form: drink, meaning: { "zh-CN": "咖啡" } },
+      { id: "request-pattern", kind: "grammar", form: requestPattern, meaning: { "zh-CN": "礼貌提出请求" } },
     ],
-    utterances: [{ id: "request-drink", text: japanese ? "コーヒーを一つお願いします。" : "唔該，我想要一杯咖啡。", knowledgeRefs: ["drink", "request-pattern"] }],
+    utterances: [{ id: "request-drink", text: utterance, translation: { "zh-CN": "请给我一杯咖啡。" }, knowledgeRefs: ["drink", "request-pattern"] }],
     exercises: [
       { id: "understand-request", kind: "single-choice", prompt: { "zh-CN": "说话人想要什么？" }, knowledgeRefs: ["drink"], utteranceRefs: ["request-drink"] },
       { id: "independent-request", kind: "role-play", prompt: { "zh-CN": "向店员点一杯饮料。" }, knowledgeRefs: ["drink", "request-pattern"], utteranceRefs: [], rubricRef: "request-rubric" },
