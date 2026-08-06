@@ -37,5 +37,6 @@ pnpm check
 - 自定义 Language Pack 快速创建、JSON 导入和设备本地保存
 - Web 课程播放器、反馈重试和课程完成总结
 - 设备本地学习进度、掌握度投影与复习任务生成
+- 学习首页、多课节解锁、课程总进度和可执行复习队列
 
 详细设计见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。

@@ -161,7 +161,7 @@ export function LearningPlayer({
   }
 
   function restart() {
-    const next = startLearning(course);
+    const next = startLearning(course, progress.lessonId);
     persist(next);
     setReviewPlanOpen(false);
     resetStepUi();
