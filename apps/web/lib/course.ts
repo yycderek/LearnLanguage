@@ -135,6 +135,14 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
   const drink = japanese ? "コーヒー" : cantonese ? "咖啡" : "目标语词汇";
   const requestPattern = japanese ? "〜をお願いします" : cantonese ? "我想要〜" : "目标语请求句型";
   const utterance = japanese ? "コーヒーを一つお願いします。" : cantonese ? "唔該，我想要一杯咖啡。" : "请在这里填写目标语言示例表达。";
+  const lessonSteps = () => steps.map((step) => ({
+    ...step,
+    title: { ...step.title },
+    knowledgeRefs: [...step.knowledgeRefs],
+    utteranceRefs: [...step.utteranceRefs],
+    exerciseRefs: [...step.exerciseRefs],
+    next: [...step.next],
+  }));
   return {
     schemaVersion: 1,
     manifest: {
@@ -171,6 +179,10 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
       },
     ],
     rubrics: [{ id: "request-rubric", dimensions: ["task-completion", "comprehensibility", "target-language"], retryRequired: true }],
-    lessons: [{ id: "cafe-request", title: { "zh-CN": "在咖啡店提出请求" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps }],
+    lessons: [
+      { id: "cafe-request", title: { "zh-CN": "在咖啡店提出请求" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps: lessonSteps() },
+      { id: "polite-variation", title: { "zh-CN": "变化饮料与礼貌程度" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps: lessonSteps() },
+      { id: "transfer-scenario", title: { "zh-CN": "迁移到新的点单场景" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps: lessonSteps() },
+    ],
   };
 }

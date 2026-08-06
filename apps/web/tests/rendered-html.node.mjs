@@ -5,10 +5,12 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, studio, player, css, languagePack, learning] = await Promise.all([
+  const [page, studio, player, dashboard, reviewPlayer, css, languagePack, learning] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/course-studio.tsx", root), "utf8"),
     readFile(new URL("app/learning-player.tsx", root), "utf8"),
+    readFile(new URL("app/learning-dashboard.tsx", root), "utf8"),
+    readFile(new URL("app/review-player.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL("lib/language-pack.ts", root), "utf8"),
     readFile(new URL("lib/learning.ts", root), "utf8"),
@@ -30,15 +32,23 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /learn-language-ai-settings-v1/);
   assert.match(studio, /learn-language-packs-v1/);
   assert.match(studio, /learn-language-progress-v1/);
-  assert.match(studio, /开始学习/);
+  assert.match(studio, /learn-language-progress-v2/);
+  assert.match(studio, /进入学习中心/);
   assert.match(languagePack, /validateLanguagePack/);
   assert.match(player, /本课学习完成/);
   assert.match(player, /根据提示重试/);
   assert.match(player, /已生成的复习任务/);
+  assert.match(dashboard, /今日复习/);
+  assert.match(dashboard, /课程目录/);
+  assert.match(reviewPlayer, /显示答案/);
+  assert.match(reviewPlayer, /提高掌握度并延长间隔/);
   assert.match(learning, /submitLearningStep/);
   assert.match(learning, /scheduleReviews/);
+  assert.match(learning, /completeReviewTask/);
   assert.match(css, /studio-shell/);
   assert.match(css, /visual-editor/);
   assert.match(css, /learner-shell/);
+  assert.match(css, /learning-home-shell/);
+  assert.match(css, /review-player-shell/);
   assert.doesNotMatch(`${page}${studio}`, /Your site is taking shape|SkeletonPreview/);
 });
