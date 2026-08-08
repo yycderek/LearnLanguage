@@ -27,6 +27,7 @@ import {
 import { LearningPlayer } from "@/app/learning-player";
 import { LearningDashboard } from "@/app/learning-dashboard";
 import { ReviewPlayer } from "@/app/review-player";
+import { testAiConnection, type AiProvider, type AiSettings } from "@/lib/ai";
 import {
   displayText,
   sampleCourse,
@@ -62,8 +63,6 @@ type HistoryItem = {
   payload: string;
 };
 
-type AiProvider = "openai" | "anthropic" | "gemini" | "compatible";
-type AiSettings = { provider: AiProvider; model: string; endpoint: string; apiKey: string };
 type EditorSection = "overview" | "knowledge" | "utterances" | "exercises" | "flow";
 type LanguageForm = {
   id: string;
@@ -72,11 +71,11 @@ type LanguageForm = {
   accent: string;
   scriptCode: string;
   direction: LanguageDirection;
-  locale: string;
 };
 
 const DRAFTS_STORAGE_KEY = "learn-language-drafts-v1";
 const AI_STORAGE_KEY = "learn-language-ai-settings-v1";
+const AI_SESSION_KEY = "learn-language-ai-key-session-v1";
 const LANGUAGE_PACKS_STORAGE_KEY = "learn-language-packs-v1";
 const LEGACY_LEARNING_PROGRESS_STORAGE_KEY = "learn-language-progress-v1";
 const LEARNING_RECORDS_STORAGE_KEY = "learn-language-progress-v2";
@@ -89,7 +88,6 @@ const defaultLanguageForm: LanguageForm = {
   accent: "Aa",
   scriptCode: "Latn",
   direction: "ltr",
-  locale: "",
 };
 
 const providerLabels: Record<AiProvider, string> = {
@@ -130,6 +128,10 @@ function splitRefs(value: string) {
   return [...new Set(value.split(",").map((item) => item.trim()).filter(Boolean))];
 }
 
+function aiIsReady(settings: AiSettings) {
+  return Boolean(settings.model.trim() && (settings.provider === "compatible" ? settings.endpoint.trim() : settings.apiKey.trim()));
+}
+
 export function CourseStudio() {
   const [language, setLanguage] = useState("ja");
   const [languagePacks, setLanguagePacks] = useState<LanguagePack[]>(builtInLanguagePacks);
@@ -145,6 +147,7 @@ export function CourseStudio() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiSettings, setAiSettings] = useState<AiSettings>(defaultAiSettings);
   const [aiConfigured, setAiConfigured] = useState(false);
+  const [aiConnection, setAiConnection] = useState<{ state: "idle" | "testing" | "success" | "error"; message?: string }>({ state: "idle" });
   const [languageOpen, setLanguageOpen] = useState(false);
   const [languageMode, setLanguageMode] = useState<"quick" | "import">("quick");
   const [languageForm, setLanguageForm] = useState<LanguageForm>(defaultLanguageForm);
@@ -169,6 +172,9 @@ export function CourseStudio() {
     const timer = window.setTimeout(() => {
       const storedHistory = readJson<HistoryItem[]>(DRAFTS_STORAGE_KEY, []);
       const storedAi = readJson<AiSettings>(AI_STORAGE_KEY, defaultAiSettings);
+      const legacyKey = storedAi.apiKey?.trim() ?? "";
+      const sessionKey = sessionStorage.getItem(AI_SESSION_KEY) ?? legacyKey;
+      const hydratedAi = { ...defaultAiSettings, ...storedAi, apiKey: sessionKey };
       const customPacks = readJson<LanguagePack[]>(LANGUAGE_PACKS_STORAGE_KEY, []);
       const storedRecords = readJson<Record<string, unknown>>(LEARNING_RECORDS_STORAGE_KEY, {});
       const legacyProgress = readJson<Record<string, unknown>>(LEGACY_LEARNING_PROGRESS_STORAGE_KEY, {});
@@ -178,8 +184,12 @@ export function CourseStudio() {
         if (normalized) normalizedRecords[courseId] = normalized;
       }
       setHistory(storedHistory);
-      setAiSettings(storedAi);
-      setAiConfigured(Boolean(storedAi.model || storedAi.apiKey));
+      setAiSettings(hydratedAi);
+      setAiConfigured(aiIsReady(hydratedAi));
+      if (legacyKey) {
+        sessionStorage.setItem(AI_SESSION_KEY, legacyKey);
+        localStorage.setItem(AI_STORAGE_KEY, JSON.stringify({ ...hydratedAi, apiKey: "" }));
+      }
       setLanguagePacks([...builtInLanguagePacks, ...customPacks.filter((pack) => !builtInLanguagePacks.some((item) => item.id === pack.id))]);
       setRecordsByCourse(normalizedRecords);
       if (Object.keys(normalizedRecords).length > 0) localStorage.setItem(LEARNING_RECORDS_STORAGE_KEY, JSON.stringify(normalizedRecords));
@@ -260,10 +270,22 @@ export function CourseStudio() {
   }
 
   function saveAiSettings() {
-    localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(aiSettings));
-    setAiConfigured(Boolean(aiSettings.model || aiSettings.apiKey));
+    localStorage.setItem(AI_STORAGE_KEY, JSON.stringify({ ...aiSettings, apiKey: "" }));
+    if (aiSettings.apiKey.trim()) sessionStorage.setItem(AI_SESSION_KEY, aiSettings.apiKey.trim());
+    else sessionStorage.removeItem(AI_SESSION_KEY);
+    setAiConfigured(aiIsReady(aiSettings));
     setAiOpen(false);
-    setNotice(`${providerLabels[aiSettings.provider]} 配置已保存到当前设备`);
+    setNotice(`${providerLabels[aiSettings.provider]} 配置已保存；密钥将在关闭标签页后清除`);
+  }
+
+  async function testCurrentAi() {
+    setAiConnection({ state: "testing", message: "正在连接所选 AI 服务……" });
+    try {
+      await testAiConnection(aiSettings);
+      setAiConnection({ state: "success", message: "连接成功，可以用于文本学习反馈。" });
+    } catch (error) {
+      setAiConnection({ state: "error", message: error instanceof Error ? error.message : "连接失败，请检查配置。" });
+    }
   }
 
   function storeCourseRecord(next: CourseLearningRecord) {
@@ -378,7 +400,6 @@ export function CourseStudio() {
   function saveLanguagePack() {
     let json = languageJson;
     if (languageMode === "quick") {
-      const locale = languageForm.locale.trim();
       json = JSON.stringify({
         schemaVersion: 1,
         id: languageForm.id.trim(),
@@ -388,7 +409,7 @@ export function CourseStudio() {
         readingSystems: [],
         pronunciationFeatures: [],
         segmentation: { strategy: languageForm.scriptCode === "Latn" ? "whitespace" : "dictionary" },
-        speech: { recognitionLocales: locale ? [locale] : [], synthesisLocales: locale ? [locale] : [] },
+        speech: { recognitionLocales: [], synthesisLocales: [] },
       });
     }
     const result = validateLanguagePack(json);
@@ -421,7 +442,7 @@ export function CourseStudio() {
     return <LearningDashboard course={course} record={currentRecord} onBack={() => setLearningView("studio")} onStartLesson={openLesson} onStartReview={openReview} />;
   }
   if (learningView === "lesson" && selectedProgress) {
-    return <LearningPlayer course={course} initialProgress={selectedProgress} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
+    return <LearningPlayer course={course} initialProgress={selectedProgress} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
   }
   if (learningView === "review" && currentRecord) {
     return <ReviewPlayer course={course} initialRecord={currentRecord} tasks={reviewTasks} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />;
@@ -665,7 +686,6 @@ export function CourseStudio() {
                   <label><span>本地名称</span><input value={languageForm.nativeName} onChange={(event) => setLanguageForm((current) => ({ ...current, nativeName: event.target.value }))} placeholder="例如：Français" /></label>
                   <label><span>书写系统代码</span><input value={languageForm.scriptCode} onChange={(event) => setLanguageForm((current) => ({ ...current, scriptCode: event.target.value }))} placeholder="Latn" /></label>
                   <label><span>书写方向</span><select value={languageForm.direction} onChange={(event) => setLanguageForm((current) => ({ ...current, direction: event.target.value as LanguageDirection }))}><option value="ltr">从左到右</option><option value="rtl">从右到左</option><option value="ttb">从上到下</option></select></label>
-                  <label className="wide"><span>语音区域代码（可选）</span><input value={languageForm.locale} onChange={(event) => setLanguageForm((current) => ({ ...current, locale: event.target.value }))} placeholder="例如：fr-FR" /></label>
                 </div>
               ) : (
                 <label className="json-import-field"><span>Language Pack JSON</span><textarea value={languageJson} onChange={(event) => setLanguageJson(event.target.value)} placeholder={'{\n  "schemaVersion": 1,\n  "id": "fr",\n  ...\n}'} spellCheck={false} /></label>
@@ -686,10 +706,11 @@ export function CourseStudio() {
               <label><span>AI 服务商</span><select value={aiSettings.provider} onChange={(event) => setAiSettings((current) => ({ ...current, provider: event.target.value as AiProvider }))}>{Object.entries(providerLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
               <label><span>模型 ID</span><input value={aiSettings.model} onChange={(event) => setAiSettings((current) => ({ ...current, model: event.target.value }))} placeholder="例如：你账户中可用的模型名称" /></label>
               <label><span>API 地址（可选）</span><input value={aiSettings.endpoint} onChange={(event) => setAiSettings((current) => ({ ...current, endpoint: event.target.value }))} placeholder="自定义或本地服务地址" /></label>
-              <label><span>API 密钥（可选）</span><div className="key-input"><KeyRound size={16} /><input type="password" value={aiSettings.apiKey} onChange={(event) => setAiSettings((current) => ({ ...current, apiKey: event.target.value }))} placeholder="仅保存在当前浏览器" autoComplete="off" /></div></label>
-              <div className="privacy-note"><ShieldCheck size={17} /><p>配置只保存在你的设备中，不会发送给 LearnLanguage。后续 AI 生成功能会使用这里选择的服务。</p></div>
+              <label><span>API 密钥（兼容服务可不填）</span><div className="key-input"><KeyRound size={16} /><input type="password" value={aiSettings.apiKey} onChange={(event) => { setAiSettings((current) => ({ ...current, apiKey: event.target.value })); setAiConnection({ state: "idle" }); }} placeholder="关闭当前标签页后自动清除" autoComplete="off" /></div></label>
+              {aiConnection.state !== "idle" && <div className={`ai-connection-status ${aiConnection.state}`}>{aiConnection.message}</div>}
+              <div className="privacy-note"><ShieldCheck size={17} /><p>服务商、模型和地址保存在当前设备；密钥只保留在当前标签页会话中。官方服务请求经过 LearnLanguage 转发但不会保存密钥，兼容服务直接连接你填写的地址。</p></div>
             </div>
-            <div className="dialog-footer"><button className="text-button" onClick={() => setAiOpen(false)}>取消</button><button className="primary-button" onClick={saveAiSettings}>保存到当前设备</button></div>
+            <div className="dialog-footer ai-dialog-actions"><button className="text-button" onClick={() => setAiOpen(false)}>取消</button><button className="outline-button" onClick={testCurrentAi} disabled={aiConnection.state === "testing"}>{aiConnection.state === "testing" ? "正在测试…" : "测试连接"}</button><button className="primary-button" onClick={saveAiSettings}>保存设置</button></div>
           </section>
         </div>
       )}
