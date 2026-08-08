@@ -16,6 +16,7 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
+import { requestAiFeedback, type AiSettings } from "@/lib/ai";
 import { displayText, type CoursePack } from "@/lib/course";
 import {
   learningPercent,
@@ -26,7 +27,7 @@ import {
   type ReviewMode,
 } from "@/lib/learning";
 
-type Feedback = { kind: "success" | "retry"; title: string; message: string };
+type Feedback = { kind: "success" | "retry"; title: string; message: string; source?: "ai" | "local"; detail?: string };
 
 const phaseNames: Record<string, string> = {
   diagnostic: "诊断",
@@ -62,11 +63,13 @@ function formatDue(value: string) {
 export function LearningPlayer({
   course,
   initialProgress,
+  aiSettings,
   onProgress,
   onExit,
 }: {
   course: CoursePack;
   initialProgress: LearningProgress;
+  aiSettings?: AiSettings;
   onProgress: (progress: LearningProgress) => void;
   onExit: () => void;
 }) {
@@ -75,6 +78,7 @@ export function LearningPlayer({
   const [answer, setAnswer] = useState("");
   const [showSupport, setShowSupport] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>();
+  const [evaluating, setEvaluating] = useState(false);
   const [reviewPlanOpen, setReviewPlanOpen] = useState(false);
 
   const lesson = course.lessons.find((item) => item.id === progress.lessonId) ?? course.lessons[0];
@@ -97,6 +101,7 @@ export function LearningPlayer({
     setAnswer("");
     setShowSupport(false);
     setFeedback(undefined);
+    setEvaluating(false);
   }
 
   function advance() {
@@ -111,7 +116,7 @@ export function LearningPlayer({
     resetStepUi();
   }
 
-  function retry(message: string) {
+  function retry(message: string, title = "还差一点", source: "ai" | "local" = "local", detail?: string) {
     if (!currentStep) return;
     const next = submitLearningStep(course, progress, {
       decision: "retry",
@@ -120,10 +125,10 @@ export function LearningPlayer({
       usedSupport: showSupport,
     });
     persist(next);
-    setFeedback({ kind: "retry", title: "还差一点", message });
+    setFeedback({ kind: "retry", title, message, source, detail });
   }
 
-  function submitAnswer() {
+  async function submitAnswer() {
     if (!exercise) {
       advance();
       return;
@@ -145,9 +150,38 @@ export function LearningPlayer({
       setFeedback({ kind: "retry", title: "先写下你的回答", message: "不必追求完美，尝试使用本课学到的表达。" });
       return;
     }
+    if (aiSettings) {
+      setEvaluating(true);
+      setFeedback(undefined);
+      try {
+        const result = await requestAiFeedback(aiSettings, {
+          course,
+          lessonTitle: displayText(lesson?.title),
+          prompt: displayText(exercise.prompt),
+          answer: normalized,
+          targetForms,
+          guidance: exercise.guidance ? displayText(exercise.guidance) : undefined,
+        });
+        const message = result.suggestion ? `${result.message} 建议表达：${result.suggestion}` : result.message;
+        if (result.verdict === "pass") setFeedback({ kind: "success", title: result.title, message, source: "ai" });
+        else retry(message, result.title, "ai");
+        return;
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "AI 服务暂时不可用。";
+        const usesTargetLanguage = targetForms.length === 0 || targetForms.some((form) => normalized.includes(form));
+        if (usesTargetLanguage) {
+          setFeedback({ kind: "success", title: "本地规则判定通过", message: "回答包含本课目标表达，可以继续下一步。", source: "local", detail });
+        } else {
+          retry(exercise.guidance ? displayText(exercise.guidance) : "尝试加入本课的关键词或句型后再提交。", "请根据提示再试一次", "local", detail);
+        }
+        return;
+      } finally {
+        setEvaluating(false);
+      }
+    }
     const usesTargetLanguage = targetForms.length === 0 || targetForms.some((form) => normalized.includes(form));
     if (usesTargetLanguage) {
-      setFeedback({ kind: "success", title: "任务完成", message: "回答使用了本课目标表达，可以继续下一步。" });
+      setFeedback({ kind: "success", title: "任务完成", message: "回答使用了本课目标表达，可以继续下一步。", source: "local" });
     } else {
       retry(exercise.guidance ? displayText(exercise.guidance) : "尝试加入本课的关键词或句型后再提交。");
     }
@@ -158,6 +192,7 @@ export function LearningPlayer({
     setAnswer("");
     setShowSupport(true);
     setFeedback(undefined);
+    setEvaluating(false);
   }
 
   function restart() {
@@ -254,12 +289,12 @@ export function LearningPlayer({
 
           {feedback && <div className={`learning-feedback ${feedback.kind}`}>
             {feedback.kind === "success" ? <CheckCircle2 size={21} /> : <CircleAlert size={21} />}
-            <div><strong>{feedback.title}</strong><p>{feedback.message}</p></div>
+            <div><span className={`feedback-source ${feedback.source ?? "local"}`}>{feedback.source === "ai" ? "AI 反馈" : "本地规则"}</span><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.detail && <small>AI 未使用：{feedback.detail}</small>}</div>
           </div>}
 
           <footer className="learning-actions">
             {!showSupport && (exercise || currentStep.supportLevel !== "none") ? <button className="support-button" onClick={() => setShowSupport(true)}><Eye size={16} />查看提示</button> : <span />}
-            {feedback?.kind === "success" ? <button className="learner-primary" onClick={advance}>继续下一步<ArrowRight size={17} /></button> : feedback?.kind === "retry" ? <button className="learner-primary retry-button" onClick={tryAgain}><RotateCcw size={16} />根据提示重试</button> : <button className="learner-primary" onClick={submitAnswer}>{exercise ? <><ListChecks size={16} />提交答案</> : <><Sparkles size={16} />完成并继续</>}</button>}
+            {feedback?.kind === "success" ? <button className="learner-primary" onClick={advance}>继续下一步<ArrowRight size={17} /></button> : feedback?.kind === "retry" ? <button className="learner-primary retry-button" onClick={tryAgain}><RotateCcw size={16} />根据提示重试</button> : <button className="learner-primary" onClick={submitAnswer} disabled={evaluating}>{evaluating ? <><Sparkles size={16} />AI 评估中…</> : exercise ? <><ListChecks size={16} />提交答案</> : <><Sparkles size={16} />完成并继续</>}</button>}
           </footer>
         </article>
       </section>

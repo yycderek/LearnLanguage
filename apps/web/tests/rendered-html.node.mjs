@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, studio, player, dashboard, reviewPlayer, css, languagePack, learning] = await Promise.all([
+  const [page, studio, player, dashboard, reviewPlayer, css, languagePack, learning, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/course-studio.tsx", root), "utf8"),
     readFile(new URL("app/learning-player.tsx", root), "utf8"),
@@ -14,6 +14,8 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL("lib/language-pack.ts", root), "utf8"),
     readFile(new URL("lib/learning.ts", root), "utf8"),
+    readFile(new URL("lib/ai.ts", root), "utf8"),
+    readFile(new URL("app/api/ai/route.ts", root), "utf8"),
     access(new URL("dist/server/index.js", root)),
   ]);
   assert.match(page, /CourseStudio/);
@@ -29,6 +31,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /导入 JSON/);
   assert.doesNotMatch(studio, /语音区域代码/);
   assert.match(studio, /AI 设置/);
+  assert.match(studio, /测试连接/);
+  assert.match(studio, /sessionStorage/);
   assert.match(studio, /无需登录/);
   assert.match(studio, /learn-language-ai-settings-v1/);
   assert.match(studio, /learn-language-packs-v1/);
@@ -38,6 +42,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(languagePack, /validateLanguagePack/);
   assert.match(player, /本课学习完成/);
   assert.match(player, /根据提示重试/);
+  assert.match(player, /AI 评估中/);
+  assert.match(player, /AI 反馈/);
   assert.match(player, /已生成的复习任务/);
   assert.match(dashboard, /今日复习/);
   assert.match(dashboard, /课程目录/);
@@ -46,6 +52,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(learning, /submitLearningStep/);
   assert.match(learning, /scheduleReviews/);
   assert.match(learning, /completeReviewTask/);
+  assert.match(ai, /requestAiFeedback/);
+  assert.match(aiRoute, /api\.openai\.com\/v1\/responses/);
   assert.match(css, /studio-shell/);
   assert.match(css, /visual-editor/);
   assert.match(css, /learner-shell/);
