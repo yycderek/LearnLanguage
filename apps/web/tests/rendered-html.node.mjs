@@ -27,6 +27,7 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /创建或导入 Language Pack/);
   assert.match(studio, /快速创建/);
   assert.match(studio, /导入 JSON/);
+  assert.doesNotMatch(studio, /语音区域代码/);
   assert.match(studio, /AI 设置/);
   assert.match(studio, /无需登录/);
   assert.match(studio, /learn-language-ai-settings-v1/);

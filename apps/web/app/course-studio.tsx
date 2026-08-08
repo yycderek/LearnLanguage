@@ -72,7 +72,6 @@ type LanguageForm = {
   accent: string;
   scriptCode: string;
   direction: LanguageDirection;
-  locale: string;
 };
 
 const DRAFTS_STORAGE_KEY = "learn-language-drafts-v1";
@@ -89,7 +88,6 @@ const defaultLanguageForm: LanguageForm = {
   accent: "Aa",
   scriptCode: "Latn",
   direction: "ltr",
-  locale: "",
 };
 
 const providerLabels: Record<AiProvider, string> = {
@@ -378,7 +376,6 @@ export function CourseStudio() {
   function saveLanguagePack() {
     let json = languageJson;
     if (languageMode === "quick") {
-      const locale = languageForm.locale.trim();
       json = JSON.stringify({
         schemaVersion: 1,
         id: languageForm.id.trim(),
@@ -388,7 +385,7 @@ export function CourseStudio() {
         readingSystems: [],
         pronunciationFeatures: [],
         segmentation: { strategy: languageForm.scriptCode === "Latn" ? "whitespace" : "dictionary" },
-        speech: { recognitionLocales: locale ? [locale] : [], synthesisLocales: locale ? [locale] : [] },
+        speech: { recognitionLocales: [], synthesisLocales: [] },
       });
     }
     const result = validateLanguagePack(json);
@@ -665,7 +662,6 @@ export function CourseStudio() {
                   <label><span>本地名称</span><input value={languageForm.nativeName} onChange={(event) => setLanguageForm((current) => ({ ...current, nativeName: event.target.value }))} placeholder="例如：Français" /></label>
                   <label><span>书写系统代码</span><input value={languageForm.scriptCode} onChange={(event) => setLanguageForm((current) => ({ ...current, scriptCode: event.target.value }))} placeholder="Latn" /></label>
                   <label><span>书写方向</span><select value={languageForm.direction} onChange={(event) => setLanguageForm((current) => ({ ...current, direction: event.target.value as LanguageDirection }))}><option value="ltr">从左到右</option><option value="rtl">从右到左</option><option value="ttb">从上到下</option></select></label>
-                  <label className="wide"><span>语音区域代码（可选）</span><input value={languageForm.locale} onChange={(event) => setLanguageForm((current) => ({ ...current, locale: event.target.value }))} placeholder="例如：fr-FR" /></label>
                 </div>
               ) : (
                 <label className="json-import-field"><span>Language Pack JSON</span><textarea value={languageJson} onChange={(event) => setLanguageJson(event.target.value)} placeholder={'{\n  "schemaVersion": 1,\n  "id": "fr",\n  ...\n}'} spellCheck={false} /></label>
