@@ -10,6 +10,7 @@ import {
 
 test("publishing creates a stable immutable identity and forking returns a draft", async () => {
   const draft = sampleCourse("ja");
+  draft.manifest.license = { id: "CC-BY-4.0", url: "https://creativecommons.org/licenses/by/4.0/" };
   const first = await publishCourseDraft(draft);
   const second = await publishCourseDraft(draft);
 

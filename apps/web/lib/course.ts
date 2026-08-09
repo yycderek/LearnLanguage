@@ -131,7 +131,6 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
       title: { "zh-CN": `${targetName}咖啡店点单` },
       description: { "zh-CN": "在咖啡店礼貌地请求一杯饮料。" },
       author: { id: "local-author", displayName: "课程作者" }, visibility: "private", status: "draft", source: { kind: "original" },
-      license: { id: "CC-BY-4.0", url: "https://creativecommons.org/licenses/by/4.0/" },
       languageAdapter: {
         id: japanese ? "core.japanese" : cantonese ? "core.cantonese" : "core.generic",
         version: "1.0.0",
