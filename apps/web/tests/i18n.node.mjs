@@ -43,7 +43,7 @@ test("localized content has deterministic fallbacks", () => {
 
 test("bundled course provides a complete English learner path", () => {
   const course = sampleCourse("ja");
-  assert.equal(displayText(course.manifest.title, "en"), "Japanese Café Ordering");
+  assert.equal(displayText(course.manifest.title, "en"), "Japanese Café Starter");
   assert.ok(course.lessons.every((lesson) => Boolean(lesson.title.en)));
   assert.ok(course.lessons.flatMap((lesson) => lesson.steps).every((step) => Boolean(step.title.en)));
   assert.ok(course.knowledge.every((item) => Boolean(item.meaning.en)));

@@ -35,7 +35,7 @@ test("English teaching language produces an English feedback contract", () => {
     targetForms: ["コーヒー", "〜をお願いします"],
     teachingLocale: "en",
   });
-  assert.match(prompt, /Course: Japanese Café Ordering/);
+  assert.match(prompt, /Course: Japanese Café Starter/);
   assert.match(prompt, /Respond in English/);
   assert.equal(parseAiFeedback('{"verdict":"pass","message":"Clear and appropriate."}', "en").title, "Task complete");
 });

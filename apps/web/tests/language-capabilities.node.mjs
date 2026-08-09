@@ -17,7 +17,8 @@ test("built-in adapters declare the capabilities they can satisfy", () => {
 
 test("exercise capability requirements select an explicit fallback", () => {
   const course = sampleCourse("ja");
-  const exercise = course.exercises.find((item) => item.id === "independent-request");
+  const exercise = course.exercises.find((item) => item.requiredCapabilities?.includes("token-comparison"));
+  assert.ok(exercise);
   const japanese = builtInLanguagePacks.find((pack) => pack.id === "ja");
   assert.deepEqual(resolveExerciseCapabilities(exercise, japanese), {
     mode: "self-assessment",

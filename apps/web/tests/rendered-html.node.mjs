@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, studio, player, renderer, dashboard, reviewPlayer, css, languagePack, learning, courseAuthoring, deviceRepository, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, studio, player, renderer, dashboard, reviewPlayer, css, languagePack, starterLibrary, learning, courseAuthoring, deviceRepository, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
@@ -16,6 +16,7 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("app/review-player.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL("lib/language-pack.ts", root), "utf8"),
+    readFile(new URL("lib/starter-course-library.ts", root), "utf8"),
     readFile(new URL("lib/learning.ts", root), "utf8"),
     readFile(new URL("lib/course-authoring.ts", root), "utf8"),
     readFile(new URL("lib/device-repository.ts", root), "utf8"),
@@ -67,6 +68,9 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(languagePack, /validateLanguagePack/);
   assert.match(languagePack, /resolveExerciseCapabilities/);
   assert.match(languagePack, /resolveLanguageRuntime/);
+  assert.match(starterLibrary, /bundledStarterLanguageIds/);
+  assert.match(starterLibrary, /japaneseCourse/);
+  assert.match(starterLibrary, /cantoneseCourse/);
   assert.match(player, /本课学习完成/);
   assert.match(player, /根据提示重试/);
   assert.match(player, /AI 反馈中/);

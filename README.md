@@ -36,7 +36,7 @@ pnpm --dir apps/web test
 - CoursePack JSON Schema、安全导入与分阶段错误报告
 - 私人课程草稿、所有权和版本控制
 - 日语、粤语参考语言包
-- 两个使用同一流程的示例课程
+- 日语、粤语首个完整中英双语入门课程库：每个语种包含 3 个递进课节、独立练习与读音信息
 - 无需登录的 Web 课程工作台
 - 可视化 Course Pack 编辑器与 JSON 高级编辑模式
 - 无代码多课节编排，可新增、排序、删除课节并分别维护每课的线性学习步骤
@@ -53,6 +53,7 @@ pnpm --dir apps/web test
 ## 参与和部署
 
 - [架构设计](docs/ARCHITECTURE.md)
+- [内置课程库](docs/COURSE_LIBRARY.md)
 - [自部署指南](docs/SELF_HOSTING.md)
 - [迁移策略](docs/MIGRATIONS.md)
 - [贡献指南](CONTRIBUTING.md)

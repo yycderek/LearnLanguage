@@ -9,6 +9,7 @@ import type {
   SupportLevel,
 } from "@learn-language/protocol";
 import { localizedText, type TeachingLocale } from "./i18n.ts";
+import { bundledStarterCourse } from "./starter-course-library.ts";
 
 export type {
   CoursePack,
@@ -128,11 +129,11 @@ const steps: CourseStep[] = stepBlueprints.map(([id, phase, chineseTitle, englis
   next: index < all.length - 1 ? [all[index + 1][0]] : [],
 }));
 
-export function sampleCourse(languageId = "ja", languageName?: string): CoursePack {
+function genericStarterCourse(languageId = "ja", languageName?: string): CoursePack {
   const japanese = languageId === "ja";
   const cantonese = languageId === "yue-Hant-HK";
   const targetName = languageName ?? (japanese ? "日语" : cantonese ? "粤语" : languageId);
-  const targetEnglishName = japanese ? "Japanese" : cantonese ? "Cantonese" : languageId;
+  const targetEnglishName = japanese ? "Japanese" : cantonese ? "Cantonese" : (languageName ?? languageId);
   const drink = japanese ? "コーヒー" : cantonese ? "咖啡" : "目标语词汇";
   const requestPattern = japanese ? "〜をお願いします" : cantonese ? "我想要〜" : "目标语请求句型";
   const utterance = japanese ? "コーヒーを一つお願いします。" : cantonese ? "唔該，我想要一杯咖啡。" : "请在这里填写目标语言示例表达。";
@@ -202,9 +203,7 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
     ],
     rubrics: [{ id: "request-rubric", dimensions: ["task-completion", "comprehensibility", "target-language"], retryRequired: true }],
     lessons: [
-      { id: "cafe-request", title: { "zh-CN": "在咖啡店提出请求", en: "Make a request in a café" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps: lessonSteps() },
-      { id: "polite-variation", title: { "zh-CN": "变化饮料与礼貌程度", en: "Vary the drink and politeness" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps: lessonSteps() },
-      { id: "transfer-scenario", title: { "zh-CN": "迁移到新的点单场景", en: "Transfer to a new ordering scenario" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps: lessonSteps() },
+      { id: "cafe-request", title: { "zh-CN": "可编辑入门课节", en: "Editable starter lesson" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps: lessonSteps() },
     ],
   };
 }
@@ -229,6 +228,10 @@ export async function publishCourseDraft(course: CoursePack): Promise<PublishedC
   delete candidate.manifest.contentHash;
   candidate.manifest.contentHash = await calculateCourseHash(candidate);
   return candidate as PublishedCoursePack;
+}
+
+export function sampleCourse(languageId = "ja", languageName?: string): CoursePack {
+  return bundledStarterCourse(languageId) ?? genericStarterCourse(languageId, languageName);
 }
 
 export async function calculateCourseHash(course: CoursePack): Promise<string> {
