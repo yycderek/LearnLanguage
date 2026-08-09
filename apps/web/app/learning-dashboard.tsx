@@ -16,7 +16,7 @@ import {
   Target,
 } from "lucide-react";
 import { displayText, type CoursePack } from "@/lib/course";
-import { dateLocale, uiText, type TeachingLocale, type UiLocale } from "@/lib/i18n";
+import { dateLocale, uiText, type AppLocale } from "@/lib/i18n";
 import {
   courseLearningPercent,
   learningPercent,
@@ -26,7 +26,7 @@ import {
   type ReviewTask,
 } from "@/lib/learning";
 
-function formatDue(value: string, locale: UiLocale) {
+function formatDue(value: string, locale: AppLocale) {
   return new Date(value).toLocaleString(dateLocale(locale), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
@@ -34,10 +34,8 @@ export function LearningDashboard({
   course,
   courses = [course],
   record,
-  teachingLocale = "zh-CN",
-  uiLocale = "zh-CN",
-  onTeachingLocaleChange,
-  onUiLocaleChange,
+  locale = "zh-CN",
+  onLocaleChange,
   preview = false,
   onSelectCourse,
   onBack,
@@ -47,17 +45,17 @@ export function LearningDashboard({
   course: CoursePack;
   courses?: CoursePack[];
   record?: CourseLearningRecord;
-  teachingLocale?: TeachingLocale;
-  uiLocale?: UiLocale;
-  onTeachingLocaleChange?: (locale: TeachingLocale) => void;
-  onUiLocaleChange?: (locale: UiLocale) => void;
+  locale?: AppLocale;
+  onLocaleChange?: (locale: AppLocale) => void;
   preview?: boolean;
   onSelectCourse?: (courseId: string) => void;
   onBack: () => void;
   onStartLesson: (lessonId: string, restart?: boolean) => void;
   onStartReview: (tasks: ReviewTask[]) => void;
 }) {
-  const c = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
+  const teachingLocale = locale;
+  const uiLocale = locale;
+  const c = (chinese: string, english: string) => uiText(locale, chinese, english);
   const due = record ? reviewsDue(record) : [];
   const dueIds = new Set(due.map((task) => task.id));
   const completedLessons = course.lessons.filter((lesson) => record?.completedLessonIds.includes(lesson.id));
@@ -70,7 +68,7 @@ export function LearningDashboard({
       <header className="learning-home-topbar">
         <button onClick={onBack}><ArrowLeft size={17} />{c("返回课程工作台", "Back to Course Studio")}</button>
         <div><span>{preview ? "STUDIO PREVIEW" : "LEARNING HOME"}</span><strong>{displayText(course.manifest.title, teachingLocale)}</strong>{!preview && courses.length > 1 && <select aria-label={c("选择学习课程", "Select a course")} value={course.manifest.id} onChange={(event) => onSelectCourse?.(event.target.value)}>{courses.map((item) => <option key={`${item.manifest.id}:${item.manifest.version}`} value={item.manifest.id}>{displayText(item.manifest.title, teachingLocale)}</option>)}</select>}</div>
-        <div className="learning-home-meta"><div className="locale-selectors"><label className="teaching-language-select compact"><span>{c("界面", "Interface")}</span><select value={uiLocale} onChange={(event) => onUiLocaleChange?.(event.target.value as UiLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label><label className="teaching-language-select compact"><span>{c("教学", "Teaching")}</span><select value={teachingLocale} onChange={(event) => onTeachingLocaleChange?.(event.target.value as TeachingLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div><em>{preview ? c("临时预览档案 · 不保存", "Temporary preview profile · not saved") : c("设备本地学习档案", "Device-local learning profile")}</em></div>
+        <div className="learning-home-meta"><div className="locale-selectors"><label className="teaching-language-select compact"><span>{c("语言", "Language")}</span><select value={locale} onChange={(event) => onLocaleChange?.(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div><em>{preview ? c("临时预览档案 · 不保存", "Temporary preview profile · not saved") : c("设备本地学习档案", "Device-local learning profile")}</em></div>
       </header>
 
       <section className="learning-home-hero">

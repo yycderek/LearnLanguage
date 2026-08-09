@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, Brain, CheckCircle2, Eye, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { displayText, type CoursePack } from "@/lib/course";
-import { uiText, type TeachingLocale, type UiLocale } from "@/lib/i18n";
+import { uiText, type AppLocale } from "@/lib/i18n";
 import { completeReviewTask, type CourseLearningRecord, type ReviewMode, type ReviewTask } from "@/lib/learning";
 
 const reviewCopy: Record<ReviewMode, { label: [string, string]; prompt: [string, string]; input: boolean }> = {
@@ -18,8 +18,7 @@ export function ReviewPlayer({
   course,
   initialRecord,
   tasks,
-  teachingLocale = "zh-CN",
-  uiLocale = "zh-CN",
+  locale = "zh-CN",
   preview = false,
   onRecord,
   onExit,
@@ -27,13 +26,13 @@ export function ReviewPlayer({
   course: CoursePack;
   initialRecord: CourseLearningRecord;
   tasks: ReviewTask[];
-  teachingLocale?: TeachingLocale;
-  uiLocale?: UiLocale;
+  locale?: AppLocale;
   preview?: boolean;
   onRecord: (record: CourseLearningRecord) => void;
   onExit: () => void;
 }) {
-  const c = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
+  const teachingLocale = locale;
+  const c = (chinese: string, english: string) => uiText(locale, chinese, english);
   const [record, setRecord] = useState(initialRecord);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -79,7 +78,7 @@ export function ReviewPlayer({
         <span className="review-mode-label">{copyLabel}</span>
         <h1>{copyPrompt}</h1>
         <div className="review-prompt-card">
-          {task.mode === "active-recall" ? <><small>{c("教学语言含义", "Meaning")}</small><strong>{content ? displayText(content.meaning, teachingLocale) : task.knowledgeItemId}</strong></> : <><small>{c("目标语言", "Target language")}</small><strong>{content?.form ?? task.knowledgeItemId}</strong></>}
+          {task.mode === "active-recall" ? <><small>{c("含义", "Meaning")}</small><strong>{content ? displayText(content.meaning, teachingLocale) : task.knowledgeItemId}</strong></> : <><small>{c("目标语言", "Target language")}</small><strong>{content?.form ?? task.knowledgeItemId}</strong></>}
         </div>
         {copy.input && !revealed && <label className="review-answer"><span>{c("你的回忆", "Your recall")}</span><textarea value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder={c("可以先写下来，也可以直接口头回答……", "Write it down or answer aloud…")} dir="auto" /></label>}
         {revealed && <div className="review-reveal"><Sparkles size={18} /><div><span>{c("参考答案", "Reference answer")}</span><strong>{content?.form ?? task.knowledgeItemId}</strong><p>{content ? displayText(content.meaning, teachingLocale) : ""}</p></div></div>}

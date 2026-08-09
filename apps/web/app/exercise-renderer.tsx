@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Check, MessagesSquare } from "lucide-react";
 import type { Exercise, ExerciseKind } from "@learn-language/protocol";
 import type { ExerciseResponse } from "@learn-language/application";
 import { displayText } from "@/lib/course";
-import { uiText, type TeachingLocale, type UiLocale } from "@/lib/i18n";
+import { uiText, type AppLocale } from "@/lib/i18n";
 
 export type ExerciseRendererKind = "single-choice" | "multiple-choice" | "ordering" | "text" | "open-task";
 
@@ -38,19 +38,17 @@ const textLabels: Partial<Record<ExerciseKind, [string, string]>> = {
 export function ExerciseRenderer({
   exercise,
   response,
-  teachingLocale,
-  uiLocale,
+  locale,
   onChange,
   onInteraction,
 }: {
   exercise: Exercise;
   response: ExerciseResponse;
-  teachingLocale: TeachingLocale;
-  uiLocale: UiLocale;
+  locale: AppLocale;
   onChange: (response: ExerciseResponse) => void;
   onInteraction?: () => void;
 }) {
-  const c = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
+  const c = (chinese: string, english: string) => uiText(locale, chinese, english);
   const renderer = exerciseRendererKind(exercise.kind);
 
   if ((renderer === "single-choice" || renderer === "multiple-choice") && response.kind === "selection") {
@@ -76,7 +74,7 @@ export function ExerciseRenderer({
               }}
             >
               <span>{multiple ? (active ? "✓" : "□") : String.fromCharCode(65 + index)}</span>
-              <strong>{displayText(option, teachingLocale)}</strong>
+              <strong>{displayText(option, locale)}</strong>
               {active && <Check size={17} />}
             </button>
           );
@@ -102,7 +100,7 @@ export function ExerciseRenderer({
           return (
             <div className="ordering-item" key={optionIndex}>
               <span>{position + 1}</span>
-              <strong dir="auto">{option ? displayText(option, teachingLocale) : optionIndex + 1}</strong>
+              <strong dir="auto">{option ? displayText(option, locale) : optionIndex + 1}</strong>
               <div>
                 <button type="button" onClick={() => move(position, -1)} disabled={position === 0} aria-label={c(`上移第 ${position + 1} 项`, `Move item ${position + 1} up`)}><ArrowUp size={16} /></button>
                 <button type="button" onClick={() => move(position, 1)} disabled={position === response.order.length - 1} aria-label={c(`下移第 ${position + 1} 项`, `Move item ${position + 1} down`)}><ArrowDown size={16} /></button>

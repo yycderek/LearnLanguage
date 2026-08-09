@@ -68,13 +68,13 @@ import {
   type ReviewTask,
 } from "@/lib/learning";
 import {
-  normalizeTeachingLocale,
-  normalizeUiLocale,
+  APP_LOCALE_PREFERENCE_KEY,
+  normalizeAppLocale,
+  resolveStoredAppLocale,
   TEACHING_LOCALE_PREFERENCE_KEY,
   UI_LOCALE_PREFERENCE_KEY,
   uiText,
-  type TeachingLocale,
-  type UiLocale,
+  type AppLocale,
 } from "@/lib/i18n";
 
 type HistoryItem = {
@@ -143,7 +143,7 @@ function splitLines(value: string) {
   return value.split(/\r?\n/u).map((item) => item.trim()).filter(Boolean);
 }
 
-function localizedOptionLines(options: CoursePack["exercises"][number]["options"], locale: TeachingLocale) {
+function localizedOptionLines(options: CoursePack["exercises"][number]["options"], locale: AppLocale) {
   return (options ?? []).map((option) => option[locale] ?? option.native ?? Object.values(option)[0] ?? "").join("\n");
 }
 
@@ -181,7 +181,7 @@ const englishValidationMessages: Record<string, string> = {
   "该服务商需要 API 密钥。": "This provider requires an API key.",
 };
 
-function localizeRuntimeMessage(message: string, locale: UiLocale) {
+function localizeRuntimeMessage(message: string, locale: AppLocale) {
   if (locale !== "en") return message;
   if (englishValidationMessages[message]) return englishValidationMessages[message];
   if (message.startsWith("JSON 格式无效：")) return `Invalid JSON: ${message.slice("JSON 格式无效：".length)}`;
@@ -195,8 +195,9 @@ function localizeRuntimeMessage(message: string, locale: UiLocale) {
 }
 
 export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" }) {
-  const [teachingLocale, setTeachingLocale] = useState<TeachingLocale>("zh-CN");
-  const [uiLocale, setUiLocale] = useState<UiLocale>("zh-CN");
+  const [appLocale, setAppLocale] = useState<AppLocale>("zh-CN");
+  const teachingLocale = appLocale;
+  const uiLocale = appLocale;
   const [language, setLanguage] = useState("ja");
   const [languagePacks, setLanguagePacks] = useState<LanguagePack[]>(builtInLanguagePacks);
   const [source, setSource] = useState(() => JSON.stringify(sampleCourse("ja"), null, 2));
@@ -249,12 +250,13 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   useEffect(() => {
     let active = true;
     async function hydrate() {
-      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedTeachingLocale, storedUiLocale] = await Promise.all([
+      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedAppLocale, storedTeachingLocale, storedUiLocale] = await Promise.all([
         getDeviceValue<HistoryItem[]>("drafts", "history"),
         getDeviceValue<AiSettings>("preferences", "ai"),
         getAllDeviceValues<LanguagePack>("languagePacks"),
         getAllDeviceValues<unknown>("courseRecords"),
         getAllDeviceValues<CoursePack>("installedCourses"),
+        getDeviceValue<unknown>("preferences", APP_LOCALE_PREFERENCE_KEY),
         getDeviceValue<unknown>("preferences", TEACHING_LOCALE_PREFERENCE_KEY),
         getDeviceValue<unknown>("preferences", UI_LOCALE_PREFERENCE_KEY),
       ]);
@@ -272,12 +274,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       setLanguagePacks([...builtInLanguagePacks, ...customPacks.filter((pack) => !builtInLanguagePacks.some((item) => item.id === pack.id))]);
       setRecordsByCourse(normalizedRecords);
       setInstalledCourses(storedInstalledCourses);
-      const nextTeachingLocale = normalizeTeachingLocale(storedTeachingLocale);
-      const nextUiLocale = storedUiLocale === undefined ? nextTeachingLocale : normalizeUiLocale(storedUiLocale);
-      setTeachingLocale(nextTeachingLocale);
-      setUiLocale(nextUiLocale);
-      if (storedUiLocale === undefined) void putDeviceValue("preferences", UI_LOCALE_PREFERENCE_KEY, nextUiLocale).catch(() => undefined);
-      setNotice(uiText(nextUiLocale, "示例课程已载入，可以直接编辑", "The sample course is ready to edit"));
+      const nextLocale = resolveStoredAppLocale(storedAppLocale, storedUiLocale, storedTeachingLocale);
+      setAppLocale(nextLocale);
+      if (storedAppLocale === undefined) void putDeviceValue("preferences", APP_LOCALE_PREFERENCE_KEY, nextLocale).catch(() => undefined);
+      setNotice(uiText(nextLocale, "示例课程已载入，可以直接编辑", "The sample course is ready to edit"));
       if (space === "learn" && storedInstalledCourses[0]) {
         setCourse(storedInstalledCourses[0]);
         setSource(JSON.stringify(storedInstalledCourses[0], null, 2));
@@ -285,24 +285,19 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       }
     }
     void hydrate().catch(() => {
-      const fallbackLocale = normalizeUiLocale(navigator.language.startsWith("en") ? "en" : "zh-CN");
+      const fallbackLocale = normalizeAppLocale(navigator.language.startsWith("en") ? "en" : "zh-CN");
       if (active) setNotice(uiText(fallbackLocale, "设备数据库无法打开；当前更改仅保留到页面关闭", "The device database could not be opened. Changes will last only until this page closes."));
     });
     return () => { active = false; };
   }, [space]);
 
   useEffect(() => {
-    document.documentElement.lang = uiLocale;
-  }, [uiLocale]);
+    document.documentElement.lang = appLocale;
+  }, [appLocale]);
 
-  function changeUiLocale(locale: UiLocale) {
-    setUiLocale(locale);
-    void putDeviceValue("preferences", UI_LOCALE_PREFERENCE_KEY, locale).catch(() => setNotice(uiText(locale, "界面语言偏好保存失败", "Could not save the interface-language preference")));
-  }
-
-  function changeTeachingLocale(locale: TeachingLocale) {
-    setTeachingLocale(locale);
-    void putDeviceValue("preferences", TEACHING_LOCALE_PREFERENCE_KEY, locale).catch(() => setNotice(uiText(uiLocale, "教学语言偏好保存失败", "Could not save the teaching-language preference")));
+  function changeAppLocale(locale: AppLocale) {
+    setAppLocale(locale);
+    void putDeviceValue("preferences", APP_LOCALE_PREFERENCE_KEY, locale).catch(() => setNotice(uiText(locale, "语言偏好保存失败", "Could not save the language preference")));
   }
 
   function commitCourse(next: CoursePack, message = t("可视化修改已同步到课程包", "Visual changes synced to the Course Pack")) {
@@ -666,13 +661,13 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const selectedProgress = selectedLessonId ? currentRecord?.lessonProgress[selectedLessonId] : undefined;
 
   if (learningView === "dashboard") {
-    return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} teachingLocale={teachingLocale} uiLocale={uiLocale} onTeachingLocaleChange={changeTeachingLocale} onUiLocaleChange={changeUiLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;
+    return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;
   }
   if (learningView === "lesson" && selectedProgress) {
-    return <LearningPlayer course={course} languagePack={currentLanguage} teachingLocale={teachingLocale} uiLocale={uiLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
+    return <LearningPlayer course={course} languagePack={currentLanguage} locale={appLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
   }
   if (learningView === "review" && currentRecord) {
-    return <ReviewPlayer course={course} teachingLocale={teachingLocale} uiLocale={uiLocale} initialRecord={currentRecord} tasks={reviewTasks} preview={learningContext === "preview"} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />;
+    return <ReviewPlayer course={course} locale={appLocale} initialRecord={currentRecord} tasks={reviewTasks} preview={learningContext === "preview"} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />;
   }
 
   return (
@@ -714,7 +709,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
             <h1>{displayText(course.manifest.title, teachingLocale)}</h1>
           </div>
           <div className="top-actions">
-            <div className="locale-selectors studio-locale-selectors"><label className="teaching-language-select"><Languages size={16} /><span>{t("界面", "Interface")}</span><select value={uiLocale} onChange={(event) => changeUiLocale(event.target.value as UiLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label><label className="teaching-language-select"><BookOpen size={16} /><span>{t("教学", "Teaching")}</span><select value={teachingLocale} onChange={(event) => changeTeachingLocale(event.target.value as TeachingLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
+            <div className="locale-selectors studio-locale-selectors"><label className="teaching-language-select"><Languages size={16} /><span>{t("语言", "Language")}</span><select value={appLocale} onChange={(event) => changeAppLocale(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
             <button className="ai-button" onClick={() => setAiOpen(true)}><Bot size={17} />{t("AI 设置", "AI settings")}<span className={`ai-state ${aiConfigured ? "configured" : ""}`} /></button>
             {course.manifest.status === "published" ? <><button className="outline-button" onClick={installCurrentCourse}><GraduationCap size={17} />{t("安装到学习空间", "Install in Learn")}</button><button className="save-button" onClick={forkCurrentCourse}><RotateCcw size={17} />{t("创建派生草稿", "Create derived draft")}</button></> : <><button className="outline-button" onClick={publishCurrentCourse} disabled={publishing}>{publishing ? t("正在发布…", "Publishing…") : t("校验并发布", "Validate and publish")}</button><button className="save-button" onClick={saveDraft} disabled={saving}><Save size={17} />{saving ? t("正在保存…", "Saving…") : t("保存草稿", "Save draft")}</button></>}
           </div>
@@ -743,7 +738,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                 <div className="visual-editor">
                   {editorSection === "overview" && (
                     <div className="form-section">
-                      <div className="section-intro"><div><h3>{t("课程基本信息", "Course overview")}</h3><p>{t(`正在编辑${teachingLocale === "en" ? "英文" : "中文"}教学内容；切换右上角教学语言可维护另一版本。`, `Editing ${teachingLocale === "en" ? "English" : "Chinese"} teaching content. Use the Teaching selector to maintain the other version.`)}</p></div></div>
+                      <div className="section-intro"><div><h3>{t("课程基本信息", "Course overview")}</h3><p>{t(`界面与课程内容已统一为${appLocale === "en" ? "英文" : "中文"}；切换右上角语言可维护另一版本。`, `The interface and course content are both using ${appLocale === "en" ? "English" : "Chinese"}. Use the Language selector to maintain the other version.`)}</p></div></div>
                       <div className="form-grid two-column">
                         <label><span>{t("课程 ID", "Course ID")}</span><input value={course.manifest.id} onChange={(event) => editCourse((next) => { next.manifest.id = event.target.value; })} /></label>
                         <label><span>{t("版本", "Version")}</span><input value={course.manifest.version} onChange={(event) => editCourse((next) => { next.manifest.version = event.target.value; })} /></label>

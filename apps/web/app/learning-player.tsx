@@ -22,7 +22,7 @@ import { ExerciseRenderer } from "@/app/exercise-renderer";
 import { displayText, type CoursePack } from "@/lib/course";
 import { IndexedDbEffectQueue } from "@/lib/device-repository";
 import { resolveExerciseCapabilities, type LanguagePack } from "@/lib/language-pack";
-import { dateLocale, uiText, type TeachingLocale, type UiLocale } from "@/lib/i18n";
+import { dateLocale, uiText, type AppLocale } from "@/lib/i18n";
 import type { EvaluationSource } from "@learn-language/protocol";
 import {
   createExerciseResponse,
@@ -70,7 +70,7 @@ const reviewNames: Record<ReviewMode, [string, string]> = {
   fluency: ["流利度巩固", "Fluency review"],
 };
 
-function formatDue(value: string, locale: UiLocale) {
+function formatDue(value: string, locale: AppLocale) {
   return new Date(value).toLocaleString(dateLocale(locale), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
@@ -78,8 +78,7 @@ export function LearningPlayer({
   course,
   initialProgress,
   languagePack,
-  teachingLocale = "zh-CN",
-  uiLocale = "zh-CN",
+  locale = "zh-CN",
   preview = false,
   aiSettings,
   onProgress,
@@ -88,14 +87,15 @@ export function LearningPlayer({
   course: CoursePack;
   initialProgress: LearningProgress;
   languagePack?: LanguagePack;
-  teachingLocale?: TeachingLocale;
-  uiLocale?: UiLocale;
+  locale?: AppLocale;
   preview?: boolean;
   aiSettings?: AiSettings;
   onProgress: (progress: LearningProgress) => void;
   onExit: () => void;
 }) {
-  const c = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
+  const teachingLocale = locale;
+  const uiLocale = locale;
+  const c = (chinese: string, english: string) => uiText(locale, chinese, english);
   const [progress, setProgress] = useState(initialProgress);
   const [response, setResponse] = useState<ExerciseResponse>();
   const [showSupport, setShowSupport] = useState(false);
@@ -337,7 +337,7 @@ export function LearningPlayer({
             </div>
           )}
 
-          {exercise && activeResponse && <ExerciseRenderer exercise={exercise} response={activeResponse} teachingLocale={teachingLocale} uiLocale={uiLocale} onChange={setResponse} onInteraction={() => setFeedback(undefined)} />}
+          {exercise && activeResponse && <ExerciseRenderer exercise={exercise} response={activeResponse} locale={locale} onChange={setResponse} onInteraction={() => setFeedback(undefined)} />}
 
           {showSupport && exercise?.guidance && <div className="support-card"><Lightbulb size={17} /><p>{displayText(exercise.guidance, teachingLocale)}</p></div>}
 

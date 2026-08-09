@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  APP_LOCALE_PREFERENCE_KEY,
   localizedText,
+  normalizeAppLocale,
   normalizeTeachingLocale,
   normalizeUiLocale,
+  resolveStoredAppLocale,
   TEACHING_LOCALE_PREFERENCE_KEY,
   UI_LOCALE_PREFERENCE_KEY,
   uiText,
@@ -19,8 +22,13 @@ test("teaching locale selects English and preserves Chinese as the default", () 
   assert.equal(normalizeTeachingLocale("unsupported"), "zh-CN");
 });
 
-test("interface and teaching locales have independent preference identities", () => {
+test("one application locale drives both interface and teaching content", () => {
+  assert.equal(APP_LOCALE_PREFERENCE_KEY, "app-locale");
   assert.notEqual(UI_LOCALE_PREFERENCE_KEY, TEACHING_LOCALE_PREFERENCE_KEY);
+  assert.equal(resolveStoredAppLocale("en", "zh-CN", "zh-CN"), "en");
+  assert.equal(resolveStoredAppLocale(undefined, "en", "zh-CN"), "en");
+  assert.equal(resolveStoredAppLocale(undefined, undefined, "en"), "en");
+  assert.equal(normalizeAppLocale("unsupported"), "zh-CN");
   assert.equal(normalizeUiLocale("en"), "en");
   assert.equal(normalizeUiLocale("unsupported"), "zh-CN");
   assert.equal(uiText("en", "中文界面", "English interface"), "English interface");
