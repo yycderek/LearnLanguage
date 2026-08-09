@@ -4,6 +4,7 @@ import type {
   ExerciseKind,
   ImportIssue,
   LocalizedText,
+  PublishedCoursePack,
 } from "@learn-language/protocol";
 
 export type {
@@ -12,6 +13,7 @@ export type {
   ExerciseKind,
   ImportIssue,
   LocalizedText,
+  PublishedCoursePack,
 } from "@learn-language/protocol";
 
 const localized = (value: unknown): value is LocalizedText =>
@@ -30,12 +32,14 @@ export function validateCourse(input: string): { course?: CoursePack; issues: Im
   }
   const value = data as Partial<CoursePack>;
   const issues: ImportIssue[] = [];
-  if (value.schemaVersion !== 1) issues.push({ stage: "schema", path: "/schemaVersion", message: "当前仅支持 schemaVersion 1" });
+  if (value.schemaVersion !== 2) issues.push({ stage: "schema", path: "/schemaVersion", message: "当前仅支持 schemaVersion 2" });
   if (!value.manifest || typeof value.manifest !== "object") issues.push({ stage: "schema", path: "/manifest", message: "缺少课程清单 manifest" });
   else {
     if (!value.manifest.id) issues.push({ stage: "schema", path: "/manifest/id", message: "课程 ID 不能为空" });
     if (!value.manifest.languageId) issues.push({ stage: "schema", path: "/manifest/languageId", message: "语言 ID 不能为空" });
     if (!localized(value.manifest.title)) issues.push({ stage: "schema", path: "/manifest/title", message: "标题必须是多语言文本对象" });
+    if (value.manifest.status === "published" && !value.manifest.contentHash) issues.push({ stage: "domain", path: "/manifest/contentHash", message: "已发布课程必须包含内容哈希" });
+    if (value.manifest.status === "published" && !value.manifest.languageAdapter) issues.push({ stage: "domain", path: "/manifest/languageAdapter", message: "已发布课程必须固定语言适配器版本" });
   }
   for (const key of ["goals", "knowledge", "utterances", "exercises", "rubrics", "lessons"] as const) {
     if (!Array.isArray(value[key])) issues.push({ stage: "schema", path: `/${key}`, message: `${key} 必须是数组` });
@@ -114,12 +118,16 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
     next: [...step.next],
   }));
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     manifest: {
       id: `private.${languageId}.cafe-request`, version: "0.1.0", languageId,
       title: { "zh-CN": `${targetName}咖啡店点单` },
       description: { "zh-CN": "在咖啡店礼貌地请求一杯饮料。" },
       author: { id: "local-author", displayName: "课程作者" }, visibility: "private", status: "draft", source: { kind: "original" },
+      languageAdapter: {
+        id: japanese ? "core.japanese" : cantonese ? "core.cantonese" : "core.generic",
+        version: "1.0.0",
+      },
     },
     goals: [{ id: "order-drink", description: { "zh-CN": "能够在咖啡店请求一杯饮料。" } }],
     knowledge: [
@@ -155,4 +163,38 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
       { id: "transfer-scenario", title: { "zh-CN": "迁移到新的点单场景" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps: lessonSteps() },
     ],
   };
+}
+
+function canonicalize(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => key !== "contentHash")
+      .sort(([left], [right]) => left.localeCompare(right));
+    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalize(item)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+export async function publishCourseDraft(course: CoursePack): Promise<PublishedCoursePack> {
+  if (course.manifest.status === "published") throw new Error("课程已经发布，不能再次覆盖发布");
+  const candidate = structuredClone(course) as CoursePack;
+  candidate.manifest.status = "published";
+  candidate.manifest.languageAdapter ??= { id: "core.generic", version: "1.0.0" };
+  delete candidate.manifest.contentHash;
+  const bytes = new TextEncoder().encode(canonicalize(candidate));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  candidate.manifest.contentHash = `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  return candidate as PublishedCoursePack;
+}
+
+export function forkPublishedCourse(course: PublishedCoursePack): CoursePack {
+  const draft = structuredClone(course) as CoursePack;
+  const sourceId = course.manifest.id;
+  draft.manifest.id = `${sourceId}.fork`;
+  draft.manifest.status = "draft";
+  draft.manifest.visibility = "private";
+  draft.manifest.source = { kind: "forked", derivedFromCourseId: sourceId };
+  delete draft.manifest.contentHash;
+  return draft;
 }

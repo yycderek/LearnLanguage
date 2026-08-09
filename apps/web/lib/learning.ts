@@ -1,4 +1,5 @@
 import type { CoursePack, CourseStep } from "./course";
+import type { EvaluationSource } from "@learn-language/protocol";
 
 export type MasteryLevel = "encountered" | "comprehended" | "prompted-output" | "independent-output" | "delayed-transfer";
 export type ReviewMode = "recognition" | "active-recall" | "scenario" | "transfer" | "fluency";
@@ -26,6 +27,7 @@ export interface LearningEvent {
   decision?: "advance" | "retry";
   answer?: string;
   score?: number;
+  evaluationSource?: EvaluationSource;
 }
 
 export interface LearningProgress {
@@ -86,10 +88,11 @@ function strongerLevel(left: MasteryLevel, right: MasteryLevel) {
   return masteryRank[left] >= masteryRank[right] ? left : right;
 }
 
-function masteryForStep(step: CourseStep, decision: "advance" | "retry", usedSupport: boolean): MasteryLevel {
+function masteryForStep(step: CourseStep, decision: "advance" | "retry", usedSupport: boolean, evaluationSource: EvaluationSource): MasteryLevel {
   if (decision === "retry") return "encountered";
   if (step.phase === "supported-input" || step.phase === "comprehension") return "comprehended";
   if (step.phase === "guided-output") return "prompted-output";
+  if (evaluationSource === "self") return "prompted-output";
   if (step.phase === "delayed-transfer") return usedSupport ? "prompted-output" : "delayed-transfer";
   if (step.phase === "independent-task" || step.phase === "feedback-retry") return usedSupport ? "prompted-output" : "independent-output";
   return "encountered";
@@ -138,7 +141,7 @@ export function startLearning(course: CoursePack, lessonId = course.lessons[0]?.
 export function submitLearningStep(
   course: CoursePack,
   progress: LearningProgress,
-  input: { decision: "advance" | "retry"; answer?: string; score?: number; usedSupport?: boolean; now?: string },
+  input: { decision: "advance" | "retry"; answer?: string; score?: number; evaluationSource?: EvaluationSource; usedSupport?: boolean; now?: string },
 ): LearningProgress {
   if (progress.status !== "active" || !progress.currentStepId) throw new Error("学习会话已经结束");
   const lesson = course.lessons.find((item) => item.id === progress.lessonId);
@@ -153,8 +156,9 @@ export function submitLearningStep(
     decision: input.decision,
     ...(input.answer === undefined ? {} : { answer: input.answer }),
     ...(input.score === undefined ? {} : { score: input.score }),
+    evaluationSource: input.evaluationSource ?? "deterministic",
   }));
-  const candidateLevel = masteryForStep(step, input.decision, Boolean(input.usedSupport));
+  const candidateLevel = masteryForStep(step, input.decision, Boolean(input.usedSupport), input.evaluationSource ?? "deterministic");
   for (const knowledgeItemId of step.knowledgeRefs) {
     const current = next.mastery[knowledgeItemId];
     next.mastery[knowledgeItemId] = {

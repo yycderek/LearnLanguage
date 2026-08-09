@@ -96,7 +96,7 @@ const commonFlow = (
 ];
 
 export const japaneseCafeCourse: CoursePack = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   manifest: {
     id: "official.ja.cafe-request",
     version: "0.1.0",
@@ -107,6 +107,10 @@ export const japaneseCafeCourse: CoursePack = {
     visibility: "official",
     status: "draft",
     source: { kind: "original" },
+    languageAdapter: {
+      id: "core.japanese",
+      version: "1.0.0",
+    },
   },
   goals: [
     {
@@ -193,6 +197,10 @@ export const cantoneseCafeCourse: CoursePack = {
     id: "official.yue.cafe-request",
     languageId: "yue-Hant-HK",
     title: { "zh-CN": "粤语咖啡店点单" },
+    languageAdapter: {
+      id: "core.cantonese",
+      version: "1.0.0",
+    },
   },
   knowledge: [
     {

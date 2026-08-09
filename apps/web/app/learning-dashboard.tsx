@@ -32,12 +32,14 @@ function formatDue(value: string) {
 export function LearningDashboard({
   course,
   record,
+  preview = false,
   onBack,
   onStartLesson,
   onStartReview,
 }: {
   course: CoursePack;
   record?: CourseLearningRecord;
+  preview?: boolean;
   onBack: () => void;
   onStartLesson: (lessonId: string, restart?: boolean) => void;
   onStartReview: (tasks: ReviewTask[]) => void;
@@ -53,8 +55,8 @@ export function LearningDashboard({
     <main className="learning-home-shell">
       <header className="learning-home-topbar">
         <button onClick={onBack}><ArrowLeft size={17} />返回课程工作台</button>
-        <div><span>LEARNING HOME</span><strong>{displayText(course.manifest.title)}</strong></div>
-        <em>设备本地学习档案</em>
+        <div><span>{preview ? "STUDIO PREVIEW" : "LEARNING HOME"}</span><strong>{displayText(course.manifest.title)}</strong></div>
+        <em>{preview ? "临时预览档案 · 不保存" : "设备本地学习档案"}</em>
       </header>
 
       <section className="learning-home-hero">

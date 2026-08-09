@@ -17,12 +17,14 @@ export function ReviewPlayer({
   course,
   initialRecord,
   tasks,
+  preview = false,
   onRecord,
   onExit,
 }: {
   course: CoursePack;
   initialRecord: CourseLearningRecord;
   tasks: ReviewTask[];
+  preview?: boolean;
   onRecord: (record: CourseLearningRecord) => void;
   onExit: () => void;
 }) {
@@ -48,7 +50,7 @@ export function ReviewPlayer({
   if (!task) {
     return (
       <main className="review-player-shell">
-        <header className="review-topbar"><button onClick={onExit}><ArrowLeft size={17} />返回学习首页</button><span>复习完成</span></header>
+        <header className="review-topbar"><button onClick={onExit}><ArrowLeft size={17} />返回学习首页</button><span>{preview ? "预览复习完成 · 未保存" : "复习完成"}</span></header>
         <section className="review-complete-card">
           <div><CheckCircle2 size={40} /></div><span className="kicker">REVIEW COMPLETE</span><h1>本组复习完成</h1><p>掌握度和下一次复习时间已经更新。</p>
           <div className="review-result-stats"><div><strong>{results.remembered}</strong><span>记得</span></div><div><strong>{results.retry}</strong><span>需要再练习</span></div></div>
@@ -62,7 +64,7 @@ export function ReviewPlayer({
   const percent = Math.round((index / tasks.length) * 100);
   return (
     <main className="review-player-shell">
-      <header className="review-topbar"><button onClick={onExit}><ArrowLeft size={17} />保存并退出</button><span>{copy.label} · {index + 1}/{tasks.length}</span></header>
+      <header className="review-topbar"><button onClick={onExit}><ArrowLeft size={17} />{preview ? "退出预览" : "保存并退出"}</button><span>{preview ? "Studio 预览" : copy.label} · {index + 1}/{tasks.length}</span></header>
       <div className="review-progress"><span style={{ width: `${percent}%` }} /></div>
       <section className="review-card-stage">
         <div className="review-mode-icon"><Brain size={25} /></div>

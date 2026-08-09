@@ -46,6 +46,30 @@ describe("protocol boundaries", () => {
     );
   });
 
+  it("rejects the retired Course Pack v1 after the intentional pre-1.0 reset", () => {
+    const legacy = { ...structuredClone(japaneseCafeCourse), schemaVersion: 1 };
+    const result = safeImportCoursePack(legacy);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({ stage: "schema", path: "/schemaVersion" }),
+      );
+    }
+  });
+
+  it("requires immutable identity fields on published courses", () => {
+    const invalid = structuredClone(japaneseCafeCourse);
+    invalid.manifest.status = "published";
+    delete invalid.manifest.languageAdapter;
+
+    const result = safeImportCoursePack(invalid);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues.filter((issue) => issue.stage === "schema").length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
   it.each(["repeat", "dictation"])(
     "rejects deferred speech exercise kind %s",
     (kind) => {

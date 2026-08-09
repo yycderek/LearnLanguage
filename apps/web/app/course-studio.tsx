@@ -30,11 +30,14 @@ import { ReviewPlayer } from "@/app/review-player";
 import { testAiConnection, type AiProvider, type AiSettings } from "@/lib/ai";
 import {
   displayText,
+  forkPublishedCourse,
+  publishCourseDraft,
   sampleCourse,
   validateCourse,
   type CoursePack,
   type ExerciseKind,
   type ImportIssue,
+  type PublishedCoursePack,
 } from "@/lib/course";
 import {
   builtInLanguagePacks,
@@ -142,6 +145,7 @@ export function CourseStudio() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [draftId, setDraftId] = useState<string>();
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState("示例课程已载入，可以直接编辑");
   const [editorMode, setEditorMode] = useState<"visual" | "json">("visual");
   const [editorSection, setEditorSection] = useState<EditorSection>("overview");
@@ -155,6 +159,8 @@ export function CourseStudio() {
   const [languageJson, setLanguageJson] = useState("");
   const [languageError, setLanguageError] = useState("");
   const [recordsByCourse, setRecordsByCourse] = useState<Record<string, CourseLearningRecord>>({});
+  const [previewRecordsByCourse, setPreviewRecordsByCourse] = useState<Record<string, CourseLearningRecord>>({});
+  const [learningContext, setLearningContext] = useState<"learn" | "preview">("learn");
   const [learningView, setLearningView] = useState<"studio" | "dashboard" | "lesson" | "review">("studio");
   const [selectedLessonId, setSelectedLessonId] = useState<string>();
   const [reviewTasks, setReviewTasks] = useState<ReviewTask[]>([]);
@@ -206,6 +212,10 @@ export function CourseStudio() {
   }
 
   function editCourse(change: (next: CoursePack) => void) {
+    if (course.manifest.status === "published") {
+      setNotice("已发布课程不可修改；请先创建派生草稿");
+      return;
+    }
     const next = cloneCourse(course);
     change(next);
     commitCourse(next);
@@ -232,6 +242,10 @@ export function CourseStudio() {
   }
 
   function saveDraft() {
+    if (course.manifest.status === "published") {
+      setNotice("已发布课程不可覆盖保存；请创建派生草稿");
+      return;
+    }
     const result = validateCourse(source);
     if (!result.course) {
       setIssues(result.issues);
@@ -257,6 +271,37 @@ export function CourseStudio() {
     setHistory(nextHistory);
     setNotice(`已保存到当前设备 · 修订 ${local.revision}`);
     setSaving(false);
+  }
+
+  async function publishCurrentCourse() {
+    const result = validateCourse(source);
+    setIssues(result.issues);
+    if (!result.course) {
+      setNotice("发布前请先修正课程包问题");
+      return;
+    }
+    if (result.course.manifest.status === "published") {
+      setNotice("当前课程已经发布");
+      return;
+    }
+    setPublishing(true);
+    try {
+      const published = await publishCourseDraft(result.course);
+      commitCourse(published, `已发布不可变版本 · ${published.manifest.contentHash.slice(0, 22)}…`);
+      setDraftId(undefined);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "课程发布失败");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  function forkCurrentCourse() {
+    if (course.manifest.status !== "published") return;
+    const draft = forkPublishedCourse(course as PublishedCoursePack);
+    commitCourse(draft, "已从发布版本创建新的私人草稿");
+    setDraftId(undefined);
+    setEditorSection("overview");
   }
 
   function restore(item: HistoryItem) {
@@ -290,6 +335,10 @@ export function CourseStudio() {
   }
 
   function storeCourseRecord(next: CourseLearningRecord) {
+    if (learningContext === "preview") {
+      setPreviewRecordsByCourse((current) => ({ ...current, [next.courseId]: next }));
+      return;
+    }
     setRecordsByCourse((current) => {
       const updated = { ...current, [next.courseId]: next };
       localStorage.setItem(LEARNING_RECORDS_STORAGE_KEY, JSON.stringify(updated));
@@ -298,12 +347,14 @@ export function CourseStudio() {
   }
 
   function storeLessonProgress(progress: LearningProgress) {
-    const current = recordsByCourse[progress.courseId] ?? createCourseLearningRecord(course);
+    const activeRecords = learningContext === "preview" ? previewRecordsByCourse : recordsByCourse;
+    const current = activeRecords[progress.courseId] ?? createCourseLearningRecord(course);
     storeCourseRecord(updateCourseLearningRecord(current, progress));
   }
 
   function openLesson(lessonId: string, restart = false) {
-    const record = recordsByCourse[course.manifest.id] ?? createCourseLearningRecord(course);
+    const activeRecords = learningContext === "preview" ? previewRecordsByCourse : recordsByCourse;
+    const record = activeRecords[course.manifest.id] ?? createCourseLearningRecord(course);
     const existing = record.lessonProgress[lessonId];
     const lesson = course.lessons.find((item) => item.id === lessonId);
     const compatible = !restart
@@ -318,6 +369,16 @@ export function CourseStudio() {
   function openReview(tasks: ReviewTask[]) {
     setReviewTasks(tasks);
     setLearningView("review");
+  }
+
+  function enterLearningSpace() {
+    setLearningContext("learn");
+    setLearningView("dashboard");
+  }
+
+  function enterStudioPreview() {
+    setLearningContext("preview");
+    setLearningView("dashboard");
   }
 
   function addKnowledge() {
@@ -431,20 +492,21 @@ export function CourseStudio() {
 
   const currentLanguage = languagePacks.find((item) => item.id === language);
   const flow = course.lessons[0]?.steps ?? [];
-  const currentRecord = recordsByCourse[course.manifest.id];
+  const activeRecords = learningContext === "preview" ? previewRecordsByCourse : recordsByCourse;
+  const currentRecord = activeRecords[course.manifest.id];
   const currentPercent = courseLearningPercent(course, currentRecord);
   const dueReviewCount = currentRecord ? reviewsDue(currentRecord).length : 0;
   const ongoingLesson = course.lessons.find((lesson) => currentRecord?.lessonProgress[lesson.id]?.status === "active");
   const selectedProgress = selectedLessonId ? currentRecord?.lessonProgress[selectedLessonId] : undefined;
 
   if (learningView === "dashboard") {
-    return <LearningDashboard course={course} record={currentRecord} onBack={() => setLearningView("studio")} onStartLesson={openLesson} onStartReview={openReview} />;
+    return <LearningDashboard course={course} record={currentRecord} preview={learningContext === "preview"} onBack={() => setLearningView("studio")} onStartLesson={openLesson} onStartReview={openReview} />;
   }
   if (learningView === "lesson" && selectedProgress) {
-    return <LearningPlayer course={course} initialProgress={selectedProgress} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
+    return <LearningPlayer course={course} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
   }
   if (learningView === "review" && currentRecord) {
-    return <ReviewPlayer course={course} initialRecord={currentRecord} tasks={reviewTasks} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />;
+    return <ReviewPlayer course={course} initialRecord={currentRecord} tasks={reviewTasks} preview={learningContext === "preview"} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />;
   }
 
   return (
@@ -456,7 +518,7 @@ export function CourseStudio() {
         </div>
         <nav className="side-nav" aria-label="工作台导航">
           <button className="nav-item active"><BookOpen size={18} /><span>课程编辑器</span></button>
-          <button className="nav-item" onClick={() => setLearningView("dashboard")}><GraduationCap size={18} /><span>学习中心</span>{dueReviewCount > 0 && <em>{dueReviewCount}</em>}</button>
+          <button className="nav-item" onClick={enterLearningSpace}><GraduationCap size={18} /><span>学习空间</span>{dueReviewCount > 0 && <em>{dueReviewCount}</em>}</button>
           <button className="nav-item"><Clock3 size={18} /><span>本地草稿</span><em>{history.length}</em></button>
         </nav>
         <div className="section-label">目标语言</div>
@@ -487,7 +549,7 @@ export function CourseStudio() {
           </div>
           <div className="top-actions">
             <button className="ai-button" onClick={() => setAiOpen(true)}><Bot size={17} />AI 设置<span className={`ai-state ${aiConfigured ? "configured" : ""}`} /></button>
-            <button className="save-button" onClick={saveDraft} disabled={saving}><Save size={17} />{saving ? "正在保存…" : "保存草稿"}</button>
+            {course.manifest.status === "published" ? <button className="save-button" onClick={forkCurrentCourse}><RotateCcw size={17} />创建派生草稿</button> : <><button className="outline-button" onClick={publishCurrentCourse} disabled={publishing}>{publishing ? "正在发布…" : "校验并发布"}</button><button className="save-button" onClick={saveDraft} disabled={saving}><Save size={17} />{saving ? "正在保存…" : "保存草稿"}</button></>}
           </div>
         </header>
 
@@ -520,7 +582,7 @@ export function CourseStudio() {
                         <label><span>版本</span><input value={course.manifest.version} onChange={(event) => editCourse((next) => { next.manifest.version = event.target.value; })} /></label>
                         <label className="wide"><span>课程名称</span><input value={displayText(course.manifest.title)} onChange={(event) => editCourse((next) => { next.manifest.title["zh-CN"] = event.target.value; })} /></label>
                         <label className="wide"><span>课程简介</span><textarea value={displayText(course.manifest.description)} onChange={(event) => editCourse((next) => { next.manifest.description["zh-CN"] = event.target.value; })} /></label>
-                        <label><span>状态</span><select value={course.manifest.status} onChange={(event) => editCourse((next) => { next.manifest.status = event.target.value; })}><option value="draft">草稿</option><option value="published">已发布</option><option value="archived">已归档</option></select></label>
+                        <label><span>状态</span><input value={course.manifest.status === "published" ? "已发布 · 只读" : "草稿"} readOnly /></label>
                         <label><span>作者显示名</span><input value={course.manifest.author.displayName} onChange={(event) => editCourse((next) => { next.manifest.author.displayName = event.target.value; })} /></label>
                       </div>
                     </div>
@@ -542,7 +604,7 @@ export function CourseStudio() {
                                 next.exercises.forEach((entry) => { entry.knowledgeRefs = entry.knowledgeRefs.map((id) => id === previous ? current : id); });
                                 next.lessons.forEach((lesson) => lesson.steps.forEach((step) => { step.knowledgeRefs = step.knowledgeRefs.map((id) => id === previous ? current : id); }));
                               })} /></label>
-                              <label><span>类型</span><select value={item.kind} onChange={(event) => editCourse((next) => { next.knowledge[index].kind = event.target.value; })}><option value="lexeme">词汇</option><option value="grammar">语法</option><option value="character">字符</option><option value="culture">文化</option></select></label>
+                              <label><span>类型</span><select value={item.kind} onChange={(event) => editCourse((next) => { next.knowledge[index].kind = event.target.value as typeof item.kind; })}><option value="lexeme">词汇</option><option value="grammar">语法</option><option value="script">文字系统</option><option value="pragmatics">语用文化</option></select></label>
                               <label><span>目标语形式</span><input value={item.form} dir={currentLanguage?.scripts[0]?.direction ?? "ltr"} onChange={(event) => editCourse((next) => { next.knowledge[index].form = event.target.value; })} /></label>
                               <label className="wide"><span>中文释义</span><input value={displayText(item.meaning)} onChange={(event) => editCourse((next) => { next.knowledge[index].meaning["zh-CN"] = event.target.value; })} /></label>
                             </div>
@@ -634,7 +696,7 @@ export function CourseStudio() {
               <>
                 <div className="editor-toolbar"><div><FileJson size={16} /><span>{course.manifest.id}.json</span></div><span>{source.split("\n").length} 行</span></div>
                 <textarea className="json-source" aria-label="课程包 JSON" value={source} onChange={(event) => setSource(event.target.value)} spellCheck={false} />
-                <div className="editor-footer"><button className="primary-button" onClick={importSource}><Braces size={16} />校验并预览</button><span>支持任何符合 Course Pack v1 的语言内容</span></div>
+                <div className="editor-footer"><button className="primary-button" onClick={importSource}><Braces size={16} />校验并预览</button><span>支持任何符合 Course Pack v2 的语言内容</span></div>
               </>
             )}
 
@@ -655,7 +717,8 @@ export function CourseStudio() {
                 <div className="stat-grid">{stats.map(([value, label]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
                 <div className="learning-launch">
                   {currentRecord && <div className="mini-progress"><span><i style={{ width: `${currentPercent}%` }} /></span><small>{ongoingLesson ? `正在学习：${displayText(ongoingLesson.title)}` : `课程进度 ${currentPercent}%`}{dueReviewCount > 0 ? ` · ${dueReviewCount} 个待复习` : ""}</small></div>}
-                  <button onClick={() => setLearningView("dashboard")}><Play size={15} fill="currentColor" />进入学习中心</button>
+                  <button onClick={enterStudioPreview}><Play size={15} fill="currentColor" />预览学习流程</button>
+                  <small>预览使用临时档案，不会写入真实学习进度。</small>
                 </div>
               </div>
             </section>

@@ -1,5 +1,5 @@
 export const LANGUAGE_PACK_SCHEMA_VERSION = 1 as const;
-export const COURSE_PACK_SCHEMA_VERSION = 1 as const;
+export const COURSE_PACK_SCHEMA_VERSION = 2 as const;
 
 export type LocalizedText = Record<string, string>;
 export type LanguageDirection = "ltr" | "rtl" | "ttb";
@@ -194,9 +194,19 @@ export interface CoursePack {
   lessons: LessonFlow[];
 }
 
+export interface PublishedCoursePack extends CoursePack {
+  manifest: CourseManifest & {
+    status: "published";
+    contentHash: string;
+    languageAdapter: {
+      id: string;
+      version: string;
+    };
+  };
+}
+
 export interface ImportIssue {
   stage: "json" | "schema" | "domain";
   path: string;
   message: string;
 }
-

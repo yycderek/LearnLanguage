@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { requestAiFeedback, type AiSettings } from "@/lib/ai";
 import { displayText, type CoursePack } from "@/lib/course";
+import type { EvaluationSource } from "@learn-language/protocol";
 import {
   learningPercent,
   startLearning,
@@ -27,7 +28,7 @@ import {
   type ReviewMode,
 } from "@/lib/learning";
 
-type Feedback = { kind: "success" | "retry"; title: string; message: string; source?: "ai" | "local"; detail?: string };
+type Feedback = { kind: "success" | "retry" | "review"; title: string; message: string; source?: "ai" | "local"; detail?: string };
 
 const phaseNames: Record<string, string> = {
   diagnostic: "诊断",
@@ -63,12 +64,14 @@ function formatDue(value: string) {
 export function LearningPlayer({
   course,
   initialProgress,
+  preview = false,
   aiSettings,
   onProgress,
   onExit,
 }: {
   course: CoursePack;
   initialProgress: LearningProgress;
+  preview?: boolean;
   aiSettings?: AiSettings;
   onProgress: (progress: LearningProgress) => void;
   onExit: () => void;
@@ -104,12 +107,13 @@ export function LearningPlayer({
     setEvaluating(false);
   }
 
-  function advance() {
+  function advance(evaluationSource: EvaluationSource = "deterministic") {
     if (!currentStep) return;
     const next = submitLearningStep(course, progress, {
       decision: "advance",
       answer: exercise?.kind === "single-choice" ? String(selectedOption ?? "") : answer,
       score: 1,
+      evaluationSource,
       usedSupport: showSupport,
     });
     persist(next);
@@ -122,6 +126,7 @@ export function LearningPlayer({
       decision: "retry",
       answer: exercise?.kind === "single-choice" ? String(selectedOption ?? "") : answer,
       score: 0,
+      evaluationSource: "deterministic",
       usedSupport: showSupport,
     });
     persist(next);
@@ -163,8 +168,15 @@ export function LearningPlayer({
           guidance: exercise.guidance ? displayText(exercise.guidance) : undefined,
         });
         const message = result.suggestion ? `${result.message} 建议表达：${result.suggestion}` : result.message;
-        if (result.verdict === "pass") setFeedback({ kind: "success", title: result.title, message, source: "ai" });
-        else retry(message, result.title, "ai");
+        setFeedback({
+          kind: "review",
+          title: result.title,
+          message,
+          source: "ai",
+          detail: result.verdict === "pass"
+            ? "AI 认为任务基本完成，请由你最终确认；确认后将作为自评证据记录。"
+            : "AI 建议修改，但不会自动判错；你可以继续修改或自行确认。",
+        });
         return;
       } catch (error) {
         const detail = error instanceof Error ? error.message : "AI 服务暂时不可用。";
@@ -208,7 +220,7 @@ export function LearningPlayer({
       <main className="learner-shell completion-shell">
         <header className="learner-topbar">
           <button className="learner-back" onClick={onExit}><ArrowLeft size={17} />返回课程工作台</button>
-          <span className="device-pill">进度已保存到当前设备</span>
+          <span className="device-pill">{preview ? "预览进度不会保存" : "进度已保存到当前设备"}</span>
         </header>
         <section className="completion-card">
           <div className="completion-mark"><CheckCircle2 size={38} /></div>
@@ -249,7 +261,7 @@ export function LearningPlayer({
       <header className="learner-topbar">
         <button className="learner-back" onClick={onExit}><ArrowLeft size={17} />保存并退出</button>
         <div className="learner-course-title"><span>{displayText(course.manifest.title)}</span><strong>{displayText(lesson.title)}</strong></div>
-        <span className="device-pill">设备本地进度</span>
+        <span className="device-pill">{preview ? "Studio 预览 · 不写入学习档案" : "设备本地进度"}</span>
       </header>
       <div className="learning-progress-wrap">
         <div className="learning-progress-meta"><span>步骤 {stepIndex + 1} / {lesson.steps.length}</span><strong>{percent}%</strong></div>
@@ -288,13 +300,13 @@ export function LearningPlayer({
           {showSupport && exercise?.guidance && <div className="support-card"><Lightbulb size={17} /><p>{displayText(exercise.guidance)}</p></div>}
 
           {feedback && <div className={`learning-feedback ${feedback.kind}`}>
-            {feedback.kind === "success" ? <CheckCircle2 size={21} /> : <CircleAlert size={21} />}
-            <div><span className={`feedback-source ${feedback.source ?? "local"}`}>{feedback.source === "ai" ? "AI 反馈" : "本地规则"}</span><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.detail && <small>AI 未使用：{feedback.detail}</small>}</div>
+            {feedback.kind === "success" ? <CheckCircle2 size={21} /> : feedback.kind === "review" ? <Sparkles size={21} /> : <CircleAlert size={21} />}
+            <div><span className={`feedback-source ${feedback.source ?? "local"}`}>{feedback.source === "ai" ? "AI 参考 · 不自动评分" : "本地规则"}</span><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.detail && <small>{feedback.kind === "review" ? feedback.detail : `AI 未使用：${feedback.detail}`}</small>}</div>
           </div>}
 
           <footer className="learning-actions">
             {!showSupport && (exercise || currentStep.supportLevel !== "none") ? <button className="support-button" onClick={() => setShowSupport(true)}><Eye size={16} />查看提示</button> : <span />}
-            {feedback?.kind === "success" ? <button className="learner-primary" onClick={advance}>继续下一步<ArrowRight size={17} /></button> : feedback?.kind === "retry" ? <button className="learner-primary retry-button" onClick={tryAgain}><RotateCcw size={16} />根据提示重试</button> : <button className="learner-primary" onClick={submitAnswer} disabled={evaluating}>{evaluating ? <><Sparkles size={16} />AI 评估中…</> : exercise ? <><ListChecks size={16} />提交答案</> : <><Sparkles size={16} />完成并继续</>}</button>}
+            {feedback?.kind === "success" ? <button className="learner-primary" onClick={() => advance("deterministic")}>继续下一步<ArrowRight size={17} /></button> : feedback?.kind === "retry" ? <button className="learner-primary retry-button" onClick={tryAgain}><RotateCcw size={16} />根据提示重试</button> : feedback?.kind === "review" ? <div className="ai-review-actions"><button className="support-button" onClick={tryAgain}><RotateCcw size={16} />继续修改</button><button className="learner-primary" onClick={() => advance("self")}>我确认已完成<ArrowRight size={17} /></button></div> : <button className="learner-primary" onClick={submitAnswer} disabled={evaluating}>{evaluating ? <><Sparkles size={16} />AI 反馈中…</> : exercise ? <><ListChecks size={16} />提交答案</> : <><Sparkles size={16} />完成并继续</>}</button>}
           </footer>
         </article>
       </section>

@@ -10,7 +10,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "pnpm build && node --experimental-strip-types --test tests/rendered-html.node.mjs tests/learning.node.mjs tests/ai.node.mjs",
+    "test": "pnpm build && node --experimental-strip-types --test tests/rendered-html.node.mjs tests/learning.node.mjs tests/ai.node.mjs tests/course.node.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {
