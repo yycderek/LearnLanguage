@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@learn-language/application':
+        specifier: link:../../packages/application
+        version: link:../../packages/application
       '@learn-language/engine':
         specifier: link:../../packages/engine
         version: link:../../packages/engine

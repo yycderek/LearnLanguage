@@ -31,15 +31,19 @@ function formatDue(value: string) {
 
 export function LearningDashboard({
   course,
+  courses = [course],
   record,
   preview = false,
+  onSelectCourse,
   onBack,
   onStartLesson,
   onStartReview,
 }: {
   course: CoursePack;
+  courses?: CoursePack[];
   record?: CourseLearningRecord;
   preview?: boolean;
+  onSelectCourse?: (courseId: string) => void;
   onBack: () => void;
   onStartLesson: (lessonId: string, restart?: boolean) => void;
   onStartReview: (tasks: ReviewTask[]) => void;
@@ -55,7 +59,7 @@ export function LearningDashboard({
     <main className="learning-home-shell">
       <header className="learning-home-topbar">
         <button onClick={onBack}><ArrowLeft size={17} />返回课程工作台</button>
-        <div><span>{preview ? "STUDIO PREVIEW" : "LEARNING HOME"}</span><strong>{displayText(course.manifest.title)}</strong></div>
+        <div><span>{preview ? "STUDIO PREVIEW" : "LEARNING HOME"}</span><strong>{displayText(course.manifest.title)}</strong>{!preview && courses.length > 1 && <select aria-label="选择学习课程" value={course.manifest.id} onChange={(event) => onSelectCourse?.(event.target.value)}>{courses.map((item) => <option key={`${item.manifest.id}:${item.manifest.version}`} value={item.manifest.id}>{displayText(item.manifest.title)}</option>)}</select>}</div>
         <em>{preview ? "临时预览档案 · 不保存" : "设备本地学习档案"}</em>
       </header>
 

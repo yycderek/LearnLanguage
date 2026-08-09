@@ -29,6 +29,14 @@ import { LearningDashboard } from "@/app/learning-dashboard";
 import { ReviewPlayer } from "@/app/review-player";
 import { testAiConnection, type AiProvider, type AiSettings } from "@/lib/ai";
 import {
+  getAllDeviceValues,
+  getDeviceValue,
+  persistLearningState,
+  putCourseRecord,
+  putDeviceValue,
+  putInstalledCourse,
+} from "@/lib/device-repository";
+import {
   displayText,
   forkPublishedCourse,
   publishCourseDraft,
@@ -37,6 +45,7 @@ import {
   type CoursePack,
   type ExerciseKind,
   type ImportIssue,
+  type LessonPhase,
   type PublishedCoursePack,
 } from "@/lib/course";
 import {
@@ -77,12 +86,7 @@ type LanguageForm = {
   direction: LanguageDirection;
 };
 
-const DRAFTS_STORAGE_KEY = "learn-language-drafts-v1";
-const AI_STORAGE_KEY = "learn-language-ai-settings-v1";
 const AI_SESSION_KEY = "learn-language-ai-key-session-v1";
-const LANGUAGE_PACKS_STORAGE_KEY = "learn-language-packs-v1";
-const LEGACY_LEARNING_PROGRESS_STORAGE_KEY = "learn-language-progress-v1";
-const LEARNING_RECORDS_STORAGE_KEY = "learn-language-progress-v2";
 
 const defaultAiSettings: AiSettings = { provider: "openai", model: "", endpoint: "", apiKey: "" };
 const defaultLanguageForm: LanguageForm = {
@@ -109,15 +113,6 @@ const sectionLabels: Array<[EditorSection, string]> = [
   ["flow", "课节流程"],
 ];
 
-function readJson<T>(key: string, fallback: T): T {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? (JSON.parse(value) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function cloneCourse(course: CoursePack): CoursePack {
   return JSON.parse(JSON.stringify(course)) as CoursePack;
 }
@@ -136,7 +131,7 @@ function aiIsReady(settings: AiSettings) {
   return Boolean(settings.model.trim() && (settings.provider === "compatible" ? settings.endpoint.trim() : settings.apiKey.trim()));
 }
 
-export function CourseStudio() {
+export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" }) {
   const [language, setLanguage] = useState("ja");
   const [languagePacks, setLanguagePacks] = useState<LanguagePack[]>(builtInLanguagePacks);
   const [source, setSource] = useState(() => JSON.stringify(sampleCourse("ja"), null, 2));
@@ -159,9 +154,10 @@ export function CourseStudio() {
   const [languageJson, setLanguageJson] = useState("");
   const [languageError, setLanguageError] = useState("");
   const [recordsByCourse, setRecordsByCourse] = useState<Record<string, CourseLearningRecord>>({});
+  const [installedCourses, setInstalledCourses] = useState<CoursePack[]>([]);
   const [previewRecordsByCourse, setPreviewRecordsByCourse] = useState<Record<string, CourseLearningRecord>>({});
-  const [learningContext, setLearningContext] = useState<"learn" | "preview">("learn");
-  const [learningView, setLearningView] = useState<"studio" | "dashboard" | "lesson" | "review">("studio");
+  const [learningContext, setLearningContext] = useState<"learn" | "preview">(space === "learn" ? "learn" : "preview");
+  const [learningView, setLearningView] = useState<"studio" | "dashboard" | "lesson" | "review">(space === "learn" ? "dashboard" : "studio");
   const [selectedLessonId, setSelectedLessonId] = useState<string>();
   const [reviewTasks, setReviewTasks] = useState<ReviewTask[]>([]);
 
@@ -174,35 +170,51 @@ export function CourseStudio() {
     ],
     [course],
   );
+  const learnCourses = useMemo(() => {
+    const catalog = new Map<string, CoursePack>();
+    for (const pack of languagePacks) {
+      const sample = sampleCourse(pack.id, languageName(pack));
+      catalog.set(sample.manifest.id, sample);
+    }
+    for (const installed of installedCourses) catalog.set(installed.manifest.id, installed);
+    return [...catalog.values()];
+  }, [installedCourses, languagePacks]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const storedHistory = readJson<HistoryItem[]>(DRAFTS_STORAGE_KEY, []);
-      const storedAi = readJson<AiSettings>(AI_STORAGE_KEY, defaultAiSettings);
-      const legacyKey = storedAi.apiKey?.trim() ?? "";
-      const sessionKey = sessionStorage.getItem(AI_SESSION_KEY) ?? legacyKey;
+    let active = true;
+    async function hydrate() {
+      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses] = await Promise.all([
+        getDeviceValue<HistoryItem[]>("drafts", "history"),
+        getDeviceValue<AiSettings>("preferences", "ai"),
+        getAllDeviceValues<LanguagePack>("languagePacks"),
+        getAllDeviceValues<unknown>("courseRecords"),
+        getAllDeviceValues<CoursePack>("installedCourses"),
+      ]);
+      if (!active) return;
+      const sessionKey = sessionStorage.getItem(AI_SESSION_KEY) ?? "";
       const hydratedAi = { ...defaultAiSettings, ...storedAi, apiKey: sessionKey };
-      const customPacks = readJson<LanguagePack[]>(LANGUAGE_PACKS_STORAGE_KEY, []);
-      const storedRecords = readJson<Record<string, unknown>>(LEARNING_RECORDS_STORAGE_KEY, {});
-      const legacyProgress = readJson<Record<string, unknown>>(LEGACY_LEARNING_PROGRESS_STORAGE_KEY, {});
       const normalizedRecords: Record<string, CourseLearningRecord> = {};
-      for (const [courseId, value] of Object.entries({ ...legacyProgress, ...storedRecords })) {
+      for (const value of storedRecords) {
         const normalized = normalizeCourseLearningRecord(value);
-        if (normalized) normalizedRecords[courseId] = normalized;
+        if (normalized) normalizedRecords[normalized.courseId] = normalized;
       }
-      setHistory(storedHistory);
+      setHistory(storedHistory ?? []);
       setAiSettings(hydratedAi);
       setAiConfigured(aiIsReady(hydratedAi));
-      if (legacyKey) {
-        sessionStorage.setItem(AI_SESSION_KEY, legacyKey);
-        localStorage.setItem(AI_STORAGE_KEY, JSON.stringify({ ...hydratedAi, apiKey: "" }));
-      }
       setLanguagePacks([...builtInLanguagePacks, ...customPacks.filter((pack) => !builtInLanguagePacks.some((item) => item.id === pack.id))]);
       setRecordsByCourse(normalizedRecords);
-      if (Object.keys(normalizedRecords).length > 0) localStorage.setItem(LEARNING_RECORDS_STORAGE_KEY, JSON.stringify(normalizedRecords));
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
+      setInstalledCourses(storedInstalledCourses);
+      if (space === "learn" && storedInstalledCourses[0]) {
+        setCourse(storedInstalledCourses[0]);
+        setSource(JSON.stringify(storedInstalledCourses[0], null, 2));
+        setLanguage(storedInstalledCourses[0].manifest.languageId);
+      }
+    }
+    void hydrate().catch(() => {
+      if (active) setNotice("设备数据库无法打开；当前更改仅保留到页面关闭");
+    });
+    return () => { active = false; };
+  }, [space]);
 
   function commitCourse(next: CoursePack, message = "可视化修改已同步到课程包") {
     setCourse(next);
@@ -241,7 +253,7 @@ export function CourseStudio() {
     }
   }
 
-  function saveDraft() {
+  async function saveDraft() {
     if (course.manifest.status === "published") {
       setNotice("已发布课程不可覆盖保存；请创建派生草稿");
       return;
@@ -266,11 +278,16 @@ export function CourseStudio() {
       payload: source,
     };
     const nextHistory = [local, ...history].slice(0, 24);
-    localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(nextHistory));
-    setDraftId(nextDraftId);
-    setHistory(nextHistory);
-    setNotice(`已保存到当前设备 · 修订 ${local.revision}`);
-    setSaving(false);
+    try {
+      await putDeviceValue("drafts", "history", nextHistory);
+      setDraftId(nextDraftId);
+      setHistory(nextHistory);
+      setNotice(`已保存到当前设备 · 修订 ${local.revision}`);
+    } catch {
+      setNotice("草稿保存失败；请检查浏览器是否允许设备存储");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function publishCurrentCourse() {
@@ -304,6 +321,20 @@ export function CourseStudio() {
     setEditorSection("overview");
   }
 
+  async function installCurrentCourse() {
+    if (course.manifest.status !== "published") {
+      setNotice("请先发布不可变课程版本，再安装到学习空间");
+      return;
+    }
+    try {
+      await putInstalledCourse(course);
+      setInstalledCourses((current) => [course, ...current.filter((item) => item.manifest.id !== course.manifest.id)]);
+      setNotice("已安装到学习空间；创作草稿和学习课程保持独立");
+    } catch {
+      setNotice("课程安装失败；请检查浏览器是否允许设备存储");
+    }
+  }
+
   function restore(item: HistoryItem) {
     const parsed = validateCourse(item.payload);
     if (!parsed.course) return;
@@ -316,7 +347,7 @@ export function CourseStudio() {
   }
 
   function saveAiSettings() {
-    localStorage.setItem(AI_STORAGE_KEY, JSON.stringify({ ...aiSettings, apiKey: "" }));
+    void putDeviceValue("preferences", "ai", { ...aiSettings, apiKey: "" }).catch(() => setNotice("AI 偏好保存失败"));
     if (aiSettings.apiKey.trim()) sessionStorage.setItem(AI_SESSION_KEY, aiSettings.apiKey.trim());
     else sessionStorage.removeItem(AI_SESSION_KEY);
     setAiConfigured(aiIsReady(aiSettings));
@@ -339,17 +370,20 @@ export function CourseStudio() {
       setPreviewRecordsByCourse((current) => ({ ...current, [next.courseId]: next }));
       return;
     }
-    setRecordsByCourse((current) => {
-      const updated = { ...current, [next.courseId]: next };
-      localStorage.setItem(LEARNING_RECORDS_STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    setRecordsByCourse((current) => ({ ...current, [next.courseId]: next }));
+    void putCourseRecord(next).catch(() => setNotice("学习记录保存失败"));
   }
 
   function storeLessonProgress(progress: LearningProgress) {
     const activeRecords = learningContext === "preview" ? previewRecordsByCourse : recordsByCourse;
     const current = activeRecords[progress.courseId] ?? createCourseLearningRecord(course);
-    storeCourseRecord(updateCourseLearningRecord(current, progress));
+    const next = updateCourseLearningRecord(current, progress);
+    if (learningContext === "preview") {
+      setPreviewRecordsByCourse((records) => ({ ...records, [next.courseId]: next }));
+      return;
+    }
+    setRecordsByCourse((records) => ({ ...records, [next.courseId]: next }));
+    void persistLearningState(next, progress).catch(() => setNotice("学习事件保存失败；当前页面中的进度仍然可用"));
   }
 
   function openLesson(lessonId: string, restart = false) {
@@ -361,7 +395,7 @@ export function CourseStudio() {
       && existing?.courseVersion === course.manifest.version
       && (existing.status === "completed" || lesson?.steps.some((step) => step.id === existing.currentStepId));
     const progress = compatible ? existing : startLearning(course, lessonId);
-    if (progress !== existing) storeCourseRecord(updateCourseLearningRecord(record, progress));
+    if (progress !== existing) storeLessonProgress(progress);
     setSelectedLessonId(lessonId);
     setLearningView("lesson");
   }
@@ -372,13 +406,21 @@ export function CourseStudio() {
   }
 
   function enterLearningSpace() {
-    setLearningContext("learn");
-    setLearningView("dashboard");
+    window.location.assign("/learn");
   }
 
   function enterStudioPreview() {
     setLearningContext("preview");
     setLearningView("dashboard");
+  }
+
+  function selectLearningCourse(courseId: string) {
+    const selected = learnCourses.find((item) => item.manifest.id === courseId);
+    if (!selected) return;
+    setCourse(selected);
+    setSource(JSON.stringify(selected, null, 2));
+    setLanguage(selected.manifest.languageId);
+    setSelectedLessonId(undefined);
   }
 
   function addKnowledge() {
@@ -480,7 +522,7 @@ export function CourseStudio() {
     const custom = languagePacks
       .filter((pack) => !builtInLanguagePacks.some((builtIn) => builtIn.id === pack.id) && pack.id !== result.pack?.id);
     const nextCustom = [...custom, result.pack];
-    localStorage.setItem(LANGUAGE_PACKS_STORAGE_KEY, JSON.stringify(nextCustom));
+    void putDeviceValue("languagePacks", result.pack.id, result.pack).catch(() => setNotice("Language Pack 保存失败"));
     setLanguagePacks([...builtInLanguagePacks, ...nextCustom]);
     setLanguageOpen(false);
     setLanguageError("");
@@ -500,7 +542,7 @@ export function CourseStudio() {
   const selectedProgress = selectedLessonId ? currentRecord?.lessonProgress[selectedLessonId] : undefined;
 
   if (learningView === "dashboard") {
-    return <LearningDashboard course={course} record={currentRecord} preview={learningContext === "preview"} onBack={() => setLearningView("studio")} onStartLesson={openLesson} onStartReview={openReview} />;
+    return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;
   }
   if (learningView === "lesson" && selectedProgress) {
     return <LearningPlayer course={course} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
@@ -517,7 +559,7 @@ export function CourseStudio() {
           <div><strong>LearnLanguage</strong><span>课程工作台</span></div>
         </div>
         <nav className="side-nav" aria-label="工作台导航">
-          <button className="nav-item active"><BookOpen size={18} /><span>课程编辑器</span></button>
+          <a className="nav-item active" href="/studio"><BookOpen size={18} /><span>课程编辑器</span></a>
           <button className="nav-item" onClick={enterLearningSpace}><GraduationCap size={18} /><span>学习空间</span>{dueReviewCount > 0 && <em>{dueReviewCount}</em>}</button>
           <button className="nav-item"><Clock3 size={18} /><span>本地草稿</span><em>{history.length}</em></button>
         </nav>
@@ -549,7 +591,7 @@ export function CourseStudio() {
           </div>
           <div className="top-actions">
             <button className="ai-button" onClick={() => setAiOpen(true)}><Bot size={17} />AI 设置<span className={`ai-state ${aiConfigured ? "configured" : ""}`} /></button>
-            {course.manifest.status === "published" ? <button className="save-button" onClick={forkCurrentCourse}><RotateCcw size={17} />创建派生草稿</button> : <><button className="outline-button" onClick={publishCurrentCourse} disabled={publishing}>{publishing ? "正在发布…" : "校验并发布"}</button><button className="save-button" onClick={saveDraft} disabled={saving}><Save size={17} />{saving ? "正在保存…" : "保存草稿"}</button></>}
+            {course.manifest.status === "published" ? <><button className="outline-button" onClick={installCurrentCourse}><GraduationCap size={17} />安装到学习空间</button><button className="save-button" onClick={forkCurrentCourse}><RotateCcw size={17} />创建派生草稿</button></> : <><button className="outline-button" onClick={publishCurrentCourse} disabled={publishing}>{publishing ? "正在发布…" : "校验并发布"}</button><button className="save-button" onClick={saveDraft} disabled={saving}><Save size={17} />{saving ? "正在保存…" : "保存草稿"}</button></>}
           </div>
         </header>
 
@@ -681,7 +723,7 @@ export function CourseStudio() {
                                 if (lesson.entryStepId === previous) lesson.entryStepId = current;
                                 lesson.steps.forEach((entry) => { entry.next = entry.next.map((id) => id === previous ? current : id); });
                               })} /></label>
-                              <label><span>阶段</span><select value={step.phase} onChange={(event) => editCourse((next) => { next.lessons[0].steps[index].phase = event.target.value; })}><option value="diagnostic">诊断</option><option value="preteach">预教</option><option value="supported-input">支持性输入</option><option value="comprehension">独立理解</option><option value="guided-output">引导输出</option><option value="independent-task">独立任务</option><option value="feedback-retry">反馈重试</option><option value="delayed-transfer">延迟迁移</option></select></label>
+                              <label><span>阶段</span><select value={step.phase} onChange={(event) => editCourse((next) => { next.lessons[0].steps[index].phase = event.target.value as LessonPhase; })}><option value="diagnostic">诊断</option><option value="preteach">预教</option><option value="supported-input">支持性输入</option><option value="comprehension">独立理解</option><option value="guided-output">引导输出</option><option value="independent-task">独立任务</option><option value="feedback-retry">反馈重试</option><option value="delayed-transfer">延迟迁移</option></select></label>
                               <label><span>显示标题</span><input value={displayText(step.title)} onChange={(event) => editCourse((next) => { next.lessons[0].steps[index].title["zh-CN"] = event.target.value; })} /></label>
                             </div>
                             <button className="step-delete" onClick={() => removeStep(index)} aria-label={`删除步骤 ${index + 1}`}><Trash2 size={15} /></button>

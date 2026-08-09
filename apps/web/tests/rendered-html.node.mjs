@@ -5,8 +5,10 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, studio, player, dashboard, reviewPlayer, css, languagePack, learning, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, studio, player, dashboard, reviewPlayer, css, languagePack, learning, deviceRepository, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
+    readFile(new URL("app/learn/page.tsx", root), "utf8"),
+    readFile(new URL("app/studio/page.tsx", root), "utf8"),
     readFile(new URL("app/course-studio.tsx", root), "utf8"),
     readFile(new URL("app/learning-player.tsx", root), "utf8"),
     readFile(new URL("app/learning-dashboard.tsx", root), "utf8"),
@@ -14,11 +16,14 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL("lib/language-pack.ts", root), "utf8"),
     readFile(new URL("lib/learning.ts", root), "utf8"),
+    readFile(new URL("lib/device-repository.ts", root), "utf8"),
     readFile(new URL("lib/ai.ts", root), "utf8"),
     readFile(new URL("app/api/ai/route.ts", root), "utf8"),
     access(new URL("dist/server/index.js", root)),
   ]);
-  assert.match(page, /CourseStudio/);
+  assert.match(page, /redirect\("\/learn"\)/);
+  assert.match(learnPage, /CourseStudio space="learn"/);
+  assert.match(studioPage, /CourseStudio space="studio"/);
   assert.match(studio, /课程编辑器/);
   assert.match(studio, /可视化/);
   assert.match(studio, /基本信息/);
@@ -33,17 +38,15 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /AI 设置/);
   assert.match(studio, /测试连接/);
   assert.match(studio, /sessionStorage/);
+  assert.doesNotMatch(studio, /localStorage/);
   assert.match(studio, /无需登录/);
-  assert.match(studio, /learn-language-ai-settings-v1/);
-  assert.match(studio, /learn-language-packs-v1/);
-  assert.match(studio, /learn-language-progress-v1/);
-  assert.match(studio, /learn-language-progress-v2/);
   assert.match(studio, /学习空间/);
   assert.match(studio, /预览学习流程/);
   assert.match(studio, /预览使用临时档案/);
   assert.match(studio, /校验并发布/);
   assert.match(studio, /已发布课程不可修改/);
   assert.match(studio, /Course Pack v2/);
+  assert.match(studio, /安装到学习空间/);
   assert.match(languagePack, /validateLanguagePack/);
   assert.match(player, /本课学习完成/);
   assert.match(player, /根据提示重试/);
@@ -62,6 +65,10 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(learning, /submitAttempt/);
   assert.match(learning, /scheduleReviews/);
   assert.match(learning, /completeReviewTask/);
+  assert.match(deviceRepository, /learn-language-device-v1/);
+  assert.match(deviceRepository, /implements SessionEventRepository/);
+  assert.match(deviceRepository, /implements EffectQueue/);
+  assert.match(deviceRepository, /persistLearningState/);
   assert.match(ai, /requestAiFeedback/);
   assert.match(aiRoute, /api\.openai\.com\/v1\/responses/);
   assert.match(css, /studio-shell/);

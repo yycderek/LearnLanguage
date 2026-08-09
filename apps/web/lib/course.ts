@@ -3,8 +3,10 @@ import type {
   CourseStep,
   ExerciseKind,
   ImportIssue,
+  LessonPhase,
   LocalizedText,
   PublishedCoursePack,
+  SupportLevel,
 } from "@learn-language/protocol";
 
 export type {
@@ -12,8 +14,10 @@ export type {
   CourseStep,
   ExerciseKind,
   ImportIssue,
+  LessonPhase,
   LocalizedText,
   PublishedCoursePack,
+  SupportLevel,
 } from "@learn-language/protocol";
 
 const localized = (value: unknown): value is LocalizedText =>
@@ -84,7 +88,7 @@ export function validateCourse(input: string): { course?: CoursePack; issues: Im
   return issues.length ? { issues } : { course, issues: [] };
 }
 
-const steps: CourseStep[] = [
+const stepBlueprints: Array<[string, LessonPhase, string, SupportLevel]> = [
   ["diagnose", "diagnostic", "检查已有知识", "full"],
   ["preteach", "preteach", "最小知识预教", "full"],
   ["supported-input", "supported-input", "带翻译理解场景", "full"],
@@ -94,7 +98,9 @@ const steps: CourseStep[] = [
   ["independent-task", "independent-task", "独立完成任务", "none"],
   ["feedback-retry", "feedback-retry", "根据反馈重试", "none"],
   ["delayed-transfer", "delayed-transfer", "延迟迁移", "none"],
-].map(([id, phase, title, supportLevel], index, all) => ({
+];
+
+const steps: CourseStep[] = stepBlueprints.map(([id, phase, title, supportLevel], index, all) => ({
   id, phase, title: { "zh-CN": title }, supportLevel,
   knowledgeRefs: ["drink", "request-pattern"],
   utteranceRefs: id.includes("input") || id === "guided-output" ? ["request-drink"] : [],

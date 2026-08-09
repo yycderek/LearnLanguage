@@ -27,7 +27,7 @@ button { color: inherit; }
 .brand strong { font-size: 15px; letter-spacing: -.02em; }
 .brand span { margin-top: 2px; color: rgba(255,255,255,.6); font-size: 11px; letter-spacing: .14em; }
 .side-nav { padding: 19px 0 17px; display: grid; gap: 5px; }
-.nav-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 11px; border: 0; background: transparent; color: rgba(255,255,255,.68); border-radius: 9px; cursor: pointer; text-align: left; }
+.nav-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 11px; border: 0; background: transparent; color: rgba(255,255,255,.68); border-radius: 9px; cursor: pointer; text-align: left; text-decoration: none; }
 .nav-item.active { background: rgba(255,255,255,.1); color: white; }
 .nav-item em { margin-left: auto; min-width: 21px; height: 21px; display: grid; place-items: center; background: rgba(255,255,255,.12); border-radius: 10px; font-style: normal; font-size: 11px; }
 .section-label { padding: 10px 9px 8px; color: rgba(255,255,255,.42); font-size: 10px; font-weight: 700; letter-spacing: .15em; }
@@ -299,6 +299,7 @@ button { color: inherit; }
 .learning-home-topbar > div span, .learning-home-topbar > div strong { display: block; }
 .learning-home-topbar > div span { color: rgba(255,255,255,.46); font-size: 8px; letter-spacing: .15em; }
 .learning-home-topbar > div strong { margin-top: 4px; font-size: 13px; }
+.learning-home-topbar > div select { max-width: 260px; margin-top: 7px; padding: 5px 24px 5px 8px; border: 1px solid rgba(255,255,255,.18); background: #214f46; color: white; border-radius: 7px; font-size: 9px; }
 .learning-home-topbar > em { justify-self: end; color: var(--yellow); font-size: 9px; font-style: normal; }
 .learning-home-hero { max-width: 1160px; min-height: 190px; margin: 26px auto 0; padding: 30px 36px; display: flex; align-items: center; justify-content: space-between; gap: 28px; overflow: hidden; background: #1f5a4d; color: white; border-radius: 17px; box-shadow: 0 18px 55px rgba(29,74,63,.15); }
 .learning-home-hero h1 { margin: 8px 0 7px; font-family: "Noto Serif SC", "Songti SC", serif; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }

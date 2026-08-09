@@ -24,6 +24,8 @@ test("learning session advances, retries, projects mastery, and schedules review
     now: "2026-08-05T10:01:00.000Z",
   });
   assert.equal(progress.currentStepId, "preteach");
+  assert.equal(progress.engineEvents.length, progress.events.length);
+  assert.equal(progress.pendingEffects[0]?.type, "learning-projection.refresh-requested");
 
   progress = submitLearningStep(course, progress, {
     decision: "retry",

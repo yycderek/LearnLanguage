@@ -3,6 +3,7 @@ import type { EvaluationSource } from "@learn-language/protocol";
 import {
   startSession,
   submitAttempt,
+  type LearningEffect,
   type LearningSessionState,
   type SessionEvent,
 } from "@learn-language/engine";
@@ -52,6 +53,8 @@ export interface LearningProgress {
   mastery: Record<string, KnowledgeProgress>;
   reviews: ReviewTask[];
   events: LearningEvent[];
+  engineEvents: SessionEvent[];
+  pendingEffects: LearningEffect[];
   startedAt: string;
   updatedAt: string;
   completedAt: string | null;
@@ -167,6 +170,8 @@ export function startLearning(course: CoursePack, lessonId = course.lessons[0]?.
     mastery: {},
     reviews: [],
     events: transition.events.map(learningEventFromEngine),
+    engineEvents: [...transition.events],
+    pendingEffects: [],
     startedAt: now,
     updatedAt: now,
     completedAt: null,
@@ -217,6 +222,8 @@ export function submitLearningStep(
   next.attemptCounts = { ...transition.state.attemptCounts };
   next.completedAt = transition.state.completedAt;
   next.events.push(...transition.events.map(learningEventFromEngine));
+  next.engineEvents = [...(next.engineEvents ?? []), ...transition.events];
+  next.pendingEffects = [...transition.effects];
   const candidateLevel = masteryForStep(step, input.decision, Boolean(input.usedSupport), evaluationSource);
   for (const knowledgeItemId of step.knowledgeRefs) {
     const current = next.mastery[knowledgeItemId];
@@ -252,7 +259,15 @@ export function normalizeCourseLearningRecord(value: unknown): CourseLearningRec
   const candidate = value as { schemaVersion?: number; courseId?: string; lessonId?: string; lessonProgress?: unknown };
   if (candidate.schemaVersion === 2 && candidate.courseId && candidate.lessonProgress) {
     const record = value as CourseLearningRecord;
-    return { ...record, completedLessonIds: record.completedLessonIds ?? [] };
+    return {
+      ...record,
+      completedLessonIds: record.completedLessonIds ?? [],
+      lessonProgress: Object.fromEntries(Object.entries(record.lessonProgress).map(([lessonId, progress]) => [lessonId, {
+        ...progress,
+        engineEvents: progress.engineEvents ?? [],
+        pendingEffects: progress.pendingEffects ?? [],
+      }])),
+    };
   }
   if (candidate.schemaVersion === 1 && candidate.courseId && candidate.lessonId) {
     const legacy = value as LearningProgress;
@@ -262,7 +277,7 @@ export function normalizeCourseLearningRecord(value: unknown): CourseLearningRec
       courseVersion: legacy.courseVersion,
       languageId: legacy.languageId,
       completedLessonIds: legacy.status === "completed" ? [legacy.lessonId] : [],
-      lessonProgress: { [legacy.lessonId]: legacy },
+      lessonProgress: { [legacy.lessonId]: { ...legacy, engineEvents: legacy.engineEvents ?? [], pendingEffects: legacy.pendingEffects ?? [] } },
       mastery: legacy.mastery,
       reviews: legacy.reviews,
       reviewEvents: [],
