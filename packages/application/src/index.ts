@@ -10,6 +10,8 @@ import {
 } from "@learn-language/engine";
 import type { CoursePack } from "@learn-language/protocol";
 
+export * from "./exercise-response.js";
+
 export interface CourseRepository {
   get(courseId: string): Promise<CoursePack | undefined>;
 }

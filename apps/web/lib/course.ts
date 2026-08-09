@@ -74,6 +74,25 @@ export function validateCourse(input: string): { course?: CoursePack; issues: Im
     checkRefs(item.knowledgeRefs ?? [], knowledgeIds, `/exercises/${i}/knowledgeRefs`);
     checkRefs(item.utteranceRefs ?? [], utteranceIds, `/exercises/${i}/utteranceRefs`);
     if (item.rubricRef && !rubricIds.has(item.rubricRef)) issues.push({ stage: "domain", path: `/exercises/${i}/rubricRef`, message: `评分规则不存在：${item.rubricRef}` });
+    const optionCount = item.options?.length ?? 0;
+    if ((item.kind === "multiple-choice" || item.kind === "ordering") && optionCount < 2) {
+      issues.push({ stage: "domain", path: `/exercises/${i}/options`, message: "多选与排序练习至少需要两个选项" });
+    }
+    if (item.correctOptionIndex !== undefined && item.correctOptionIndex >= optionCount) {
+      issues.push({ stage: "domain", path: `/exercises/${i}/correctOptionIndex`, message: "正确答案序号超出选项范围" });
+    }
+    if (item.kind === "multiple-choice" && !item.correctOptionIndices?.length) {
+      issues.push({ stage: "domain", path: `/exercises/${i}/correctOptionIndices`, message: "多选练习至少需要一个正确答案" });
+    }
+    if (item.correctOptionIndices?.some((index) => index >= optionCount)) {
+      issues.push({ stage: "domain", path: `/exercises/${i}/correctOptionIndices`, message: "多选答案序号超出选项范围" });
+    }
+    if (item.kind === "ordering" && item.correctOrder) {
+      const actual = [...item.correctOrder].sort((left, right) => left - right);
+      if (actual.length !== optionCount || actual.some((value, index) => value !== index)) {
+        issues.push({ stage: "domain", path: `/exercises/${i}/correctOrder`, message: "排序答案必须完整包含每个选项且不能重复" });
+      }
+    }
   });
   course.lessons.forEach((lesson, i) => {
     checkRefs(lesson.canDoGoalRefs ?? [], goalIds, `/lessons/${i}/canDoGoalRefs`);
@@ -105,7 +124,7 @@ const steps: CourseStep[] = stepBlueprints.map(([id, phase, chineseTitle, englis
   id, phase, title: { "zh-CN": chineseTitle, en: englishTitle }, supportLevel,
   knowledgeRefs: ["drink", "request-pattern"],
   utteranceRefs: id.includes("input") || id === "guided-output" ? ["request-drink"] : [],
-  exerciseRefs: id === "independent-input" ? ["understand-request"] : id.includes("task") || id.includes("retry") || id.includes("transfer") ? ["independent-request"] : [],
+  exerciseRefs: id === "independent-input" ? ["understand-request"] : id === "guided-output" ? ["order-request"] : id.includes("task") || id.includes("retry") || id.includes("transfer") ? ["independent-request"] : [],
   next: index < all.length - 1 ? [all[index + 1][0]] : [],
 }));
 
@@ -117,6 +136,11 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
   const drink = japanese ? "コーヒー" : cantonese ? "咖啡" : "目标语词汇";
   const requestPattern = japanese ? "〜をお願いします" : cantonese ? "我想要〜" : "目标语请求句型";
   const utterance = japanese ? "コーヒーを一つお願いします。" : cantonese ? "唔該，我想要一杯咖啡。" : "请在这里填写目标语言示例表达。";
+  const orderingParts = japanese
+    ? ["コーヒー", "を", "一つ", "お願いします。"]
+    : cantonese
+      ? ["唔該，", "我想要", "一杯", "咖啡。"]
+      : ["目标语", "请求", "示例", "表达"];
   const lessonSteps = () => steps.map((step) => ({
     ...step,
     title: { ...step.title },
@@ -152,6 +176,16 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
         correctOptionIndex: 0,
         guidance: { "zh-CN": "留意句子中的饮料名称。", en: "Look for the name of the drink." },
         knowledgeRefs: ["drink"],
+        utteranceRefs: ["request-drink"],
+      },
+      {
+        id: "order-request",
+        kind: "ordering",
+        prompt: { "zh-CN": "把词块调整成自然的点单表达。", en: "Put the chunks into a natural ordering expression." },
+        options: orderingParts.map((part) => ({ "zh-CN": part, en: part, native: part })),
+        correctOrder: orderingParts.map((_, index) => index),
+        guidance: { "zh-CN": "先放饮料名称，再完成礼貌请求句型。", en: "Start with the drink, then complete the polite request pattern." },
+        knowledgeRefs: ["drink", "request-pattern"],
         utteranceRefs: ["request-drink"],
       },
       {

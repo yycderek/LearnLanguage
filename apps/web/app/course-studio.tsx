@@ -139,6 +139,14 @@ function splitRefs(value: string) {
   return [...new Set(value.split(",").map((item) => item.trim()).filter(Boolean))];
 }
 
+function splitLines(value: string) {
+  return value.split(/\r?\n/u).map((item) => item.trim()).filter(Boolean);
+}
+
+function localizedOptionLines(options: CoursePack["exercises"][number]["options"], locale: TeachingLocale) {
+  return (options ?? []).map((option) => option[locale] ?? option.native ?? Object.values(option)[0] ?? "").join("\n");
+}
+
 function aiIsReady(settings: AiSettings) {
   return Boolean(settings.model.trim() && (settings.provider === "compatible" ? settings.endpoint.trim() : settings.apiKey.trim()));
 }
@@ -564,6 +572,32 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     });
   }
 
+  function changeExerciseKind(index: number, kind: ExerciseKind) {
+    editCourse((next) => {
+      const exercise = next.exercises[index];
+      if (!exercise) return;
+      exercise.kind = kind;
+      if (["single-choice", "multiple-choice", "ordering"].includes(kind) && !exercise.options?.length) {
+        exercise.options = [{ [teachingLocale]: t("选项一", "Option one") }, { [teachingLocale]: t("选项二", "Option two") }];
+      }
+      if (kind === "single-choice") exercise.correctOptionIndex ??= 0;
+      if (kind === "multiple-choice") exercise.correctOptionIndices ??= [0];
+      if (kind === "ordering") exercise.correctOrder = exercise.options?.map((_, optionIndex) => optionIndex);
+    });
+  }
+
+  function updateExerciseOptions(index: number, value: string) {
+    editCourse((next) => {
+      const exercise = next.exercises[index];
+      if (!exercise) return;
+      const lines = splitLines(value);
+      exercise.options = lines.map((line, optionIndex) => ({ ...(exercise.options?.[optionIndex] ?? {}), [teachingLocale]: line }));
+      if (exercise.correctOptionIndex !== undefined && exercise.correctOptionIndex >= lines.length) exercise.correctOptionIndex = 0;
+      if (exercise.correctOptionIndices) exercise.correctOptionIndices = exercise.correctOptionIndices.filter((optionIndex) => optionIndex < lines.length);
+      if (exercise.kind === "ordering") exercise.correctOrder = lines.map((_, optionIndex) => optionIndex);
+    });
+  }
+
   function addStep() {
     editCourse((next) => {
       const lesson = next.lessons[0];
@@ -787,8 +821,14 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                                 next.exercises[index].id = current;
                                 next.lessons.forEach((lesson) => lesson.steps.forEach((step) => { step.exerciseRefs = step.exerciseRefs.map((id) => id === previous ? current : id); }));
                               })} /></label>
-                              <label><span>{t("类型", "Type")}</span><select value={item.kind} onChange={(event) => editCourse((next) => { next.exercises[index].kind = event.target.value as ExerciseKind; })}><option value="single-choice">{t("单选理解", "Single choice")}</option><option value="role-play">{t("角色扮演", "Role-play")}</option><option value="ordering">{t("排序", "Ordering")}</option><option value="free-response">{t("自由回答", "Free response")}</option></select></label>
+                              <label><span>{t("类型", "Type")}</span><select value={item.kind} onChange={(event) => changeExerciseKind(index, event.target.value as ExerciseKind)}><option value="single-choice">{t("单选理解", "Single choice")}</option><option value="multiple-choice">{t("多选理解", "Multiple choice")}</option><option value="ordering">{t("排序", "Ordering")}</option><option value="fill-blank">{t("填空", "Fill in the blank")}</option><option value="short-input">{t("简短输入", "Short input")}</option><option value="cloze">{t("完形填空", "Cloze")}</option><option value="substitution">{t("替换表达", "Substitution")}</option><option value="reconstruction">{t("重组表达", "Reconstruction")}</option><option value="matching">{t("匹配", "Matching")}</option><option value="role-play">{t("角色扮演", "Role-play")}</option><option value="free-response">{t("自由回答", "Free response")}</option></select></label>
                               <label className="wide"><span>{t("任务提示", "Task prompt")}（{teachingLocale === "en" ? "English" : "中文"}）</span><textarea value={item.prompt[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.exercises[index].prompt[teachingLocale] = event.target.value; })} /></label>
+                              {["single-choice", "multiple-choice", "ordering"].includes(item.kind) && <label className="wide"><span>{t("选项（每行一个）", "Options (one per line)")}（{teachingLocale === "en" ? "English" : "中文"}）</span><textarea value={localizedOptionLines(item.options, teachingLocale)} onChange={(event) => updateExerciseOptions(index, event.target.value)} placeholder={t("第一项\n第二项", "First item\nSecond item")} /></label>}
+                              {item.kind === "single-choice" && <label><span>{t("正确选项", "Correct option")}</span><select value={item.correctOptionIndex ?? 0} onChange={(event) => editCourse((next) => { next.exercises[index].correctOptionIndex = Number(event.target.value); })}>{(item.options ?? []).map((option, optionIndex) => <option value={optionIndex} key={optionIndex}>{optionIndex + 1}. {displayText(option, teachingLocale)}</option>)}</select></label>}
+                              {item.kind === "multiple-choice" && <label><span>{t("正确选项序号（逗号分隔）", "Correct option numbers (comma-separated)")}</span><input value={(item.correctOptionIndices ?? []).map((value) => value + 1).join(", ")} onChange={(event) => editCourse((next) => { next.exercises[index].correctOptionIndices = [...new Set(splitRefs(event.target.value).map(Number).filter((value) => Number.isInteger(value) && value > 0).map((value) => value - 1))]; })} placeholder="1, 3" /></label>}
+                              {item.kind === "ordering" && <label><span>{t("正确顺序", "Correct order")}</span><input value={t("按上方行顺序", "Same as the line order above")} readOnly /></label>}
+                              {!["single-choice", "multiple-choice", "ordering"].includes(item.kind) && <label className="wide"><span>{t("可接受答案（可选，每行一个）", "Accepted answers (optional, one per line)")}</span><textarea value={item.acceptedAnswers?.join("\n") ?? ""} onChange={(event) => editCourse((next) => { const answers = splitLines(event.target.value); if (answers.length) next.exercises[index].acceptedAnswers = answers; else delete next.exercises[index].acceptedAnswers; })} placeholder={t("留空时使用自评或 AI 反馈", "Leave empty to use self-assessment or AI feedback")} /></label>}
+                              <label className="wide"><span>{t("作答提示（可选）", "Learner support (optional)")}（{teachingLocale === "en" ? "English" : "中文"}）</span><textarea value={item.guidance?.[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.exercises[index].guidance = { ...(next.exercises[index].guidance ?? {}), [teachingLocale]: event.target.value }; })} /></label>
                               <label><span>{t("关联知识点（逗号分隔）", "Knowledge references (comma-separated)")}</span><input value={item.knowledgeRefs.join(", ")} onChange={(event) => editCourse((next) => { next.exercises[index].knowledgeRefs = splitRefs(event.target.value); })} /></label>
                               <label><span>{t("关联例句（逗号分隔）", "Utterance references (comma-separated)")}</span><input value={item.utteranceRefs.join(", ")} onChange={(event) => editCourse((next) => { next.exercises[index].utteranceRefs = splitRefs(event.target.value); })} /></label>
                               <label><span>{t("所需语言能力（逗号分隔）", "Required language capabilities (comma-separated)")}</span><input placeholder={t("例如 token-comparison", "For example: token-comparison")} value={item.requiredCapabilities?.join(", ") ?? ""} onChange={(event) => editCourse((next) => { const capabilities = splitRefs(event.target.value) as NonNullable<CoursePack["exercises"][number]["requiredCapabilities"]>; if (capabilities.length) next.exercises[index].requiredCapabilities = capabilities; else delete next.exercises[index].requiredCapabilities; })} /></label>

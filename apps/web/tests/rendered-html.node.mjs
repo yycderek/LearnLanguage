@@ -5,12 +5,13 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, studio, player, dashboard, reviewPlayer, css, languagePack, learning, deviceRepository, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, studio, player, renderer, dashboard, reviewPlayer, css, languagePack, learning, deviceRepository, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
     readFile(new URL("app/course-studio.tsx", root), "utf8"),
     readFile(new URL("app/learning-player.tsx", root), "utf8"),
+    readFile(new URL("app/exercise-renderer.tsx", root), "utf8"),
     readFile(new URL("app/learning-dashboard.tsx", root), "utf8"),
     readFile(new URL("app/review-player.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
@@ -77,6 +78,14 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(player, /uiLocale/);
   assert.match(player, /uiText\(uiLocale/);
   assert.match(player, /displayText\(exercise\.prompt, teachingLocale\)/);
+  assert.match(player, /evaluateExerciseResponse/);
+  assert.match(player, /serializeExerciseResponse/);
+  assert.match(renderer, /rendererRegistry/);
+  assert.match(renderer, /multiple-choice/);
+  assert.match(renderer, /ordering-list/);
+  assert.match(renderer, /role-task-banner/);
+  assert.match(studio, /正确选项序号（逗号分隔）/);
+  assert.match(studio, /按上方行顺序/);
   assert.match(dashboard, /今日复习/);
   assert.match(dashboard, /课程目录/);
   assert.match(dashboard, /Course outline/);

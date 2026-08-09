@@ -208,6 +208,29 @@ export function validateCoursePack(course: CoursePack): ValidationResult {
         ),
       );
     }
+
+    const optionCount = exercise.options?.length ?? 0;
+    const exercisePath = `exercises.${exercise.id}`;
+    if (exercise.correctOptionIndex !== undefined && exercise.correctOptionIndex >= optionCount) {
+      issues.push({ code: "invalid-answer-key", path: `${exercisePath}.correctOptionIndex`, message: "Correct option index is outside the available options" });
+    }
+    if (exercise.kind === "multiple-choice") {
+      if (optionCount < 2) issues.push({ code: "missing-options", path: `${exercisePath}.options`, message: "Multiple-choice exercises require at least two options" });
+      if (!exercise.correctOptionIndices?.length) issues.push({ code: "missing-answer-key", path: `${exercisePath}.correctOptionIndices`, message: "Multiple-choice exercises require one or more correct option indices" });
+    }
+    if (exercise.correctOptionIndices?.some((index) => index >= optionCount)) {
+      issues.push({ code: "invalid-answer-key", path: `${exercisePath}.correctOptionIndices`, message: "A correct option index is outside the available options" });
+    }
+    if (exercise.kind === "ordering") {
+      if (optionCount < 2) issues.push({ code: "missing-options", path: `${exercisePath}.options`, message: "Ordering exercises require at least two items" });
+      if (exercise.correctOrder) {
+        const expected = exercise.options?.map((_, index) => index) ?? [];
+        const actual = [...exercise.correctOrder].sort((left, right) => left - right);
+        if (actual.length !== expected.length || actual.some((value, index) => value !== expected[index])) {
+          issues.push({ code: "invalid-answer-key", path: `${exercisePath}.correctOrder`, message: "Correct order must be a permutation of all option indices" });
+        }
+      }
+    }
   }
 
   for (const lesson of course.lessons) {

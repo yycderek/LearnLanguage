@@ -18,11 +18,19 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { requestAiFeedback, type AiSettings } from "@/lib/ai";
+import { ExerciseRenderer } from "@/app/exercise-renderer";
 import { displayText, type CoursePack } from "@/lib/course";
 import { IndexedDbEffectQueue } from "@/lib/device-repository";
 import { resolveExerciseCapabilities, type LanguagePack } from "@/lib/language-pack";
 import { dateLocale, uiText, type TeachingLocale, type UiLocale } from "@/lib/i18n";
 import type { EvaluationSource } from "@learn-language/protocol";
+import {
+  createExerciseResponse,
+  evaluateExerciseResponse,
+  serializeExerciseResponse,
+  textExerciseResponse,
+  type ExerciseResponse,
+} from "@learn-language/application";
 import { createAiFeedbackEffect } from "@learn-language/engine";
 import {
   learningPercent,
@@ -89,8 +97,7 @@ export function LearningPlayer({
 }) {
   const c = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
   const [progress, setProgress] = useState(initialProgress);
-  const [selectedOption, setSelectedOption] = useState<number>();
-  const [answer, setAnswer] = useState("");
+  const [response, setResponse] = useState<ExerciseResponse>();
   const [showSupport, setShowSupport] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>();
   const [evaluating, setEvaluating] = useState(false);
@@ -104,7 +111,7 @@ export function LearningPlayer({
   const percent = learningPercent(course, progress);
   const stepIndex = currentStep ? (lesson?.steps.findIndex((item) => item.id === currentStep.id) ?? 0) : -1;
   const targetForms = knowledge.map((item) => item?.form.trim()).filter(Boolean) as string[];
-  const choiceOptions = exercise?.options?.length ? exercise.options : [{ "zh-CN": "我理解了", en: "I understand" }, { "zh-CN": "需要再看一次", en: "I need to review it" }];
+  const activeResponse = exercise ? response ?? createExerciseResponse(exercise) : undefined;
   const capabilityResolution = exercise && languagePack ? resolveExerciseCapabilities(exercise, languagePack) : { mode: "native" as const, missing: [] };
 
   function persist(next: LearningProgress) {
@@ -113,8 +120,7 @@ export function LearningPlayer({
   }
 
   function resetStepUi() {
-    setSelectedOption(undefined);
-    setAnswer("");
+    setResponse(undefined);
     setShowSupport(false);
     setFeedback(undefined);
     setEvaluating(false);
@@ -124,7 +130,7 @@ export function LearningPlayer({
     if (!currentStep) return;
     const next = submitLearningStep(course, progress, {
       decision: "advance",
-      answer: exercise?.kind === "single-choice" ? String(selectedOption ?? "") : answer,
+      answer: serializeExerciseResponse(activeResponse),
       score: 1,
       evaluationSource,
       evidenceEligible,
@@ -138,7 +144,7 @@ export function LearningPlayer({
     if (!currentStep) return;
     const next = submitLearningStep(course, progress, {
       decision: "retry",
-      answer: exercise?.kind === "single-choice" ? String(selectedOption ?? "") : answer,
+      answer: serializeExerciseResponse(activeResponse),
       score: 0,
       evaluationSource: "deterministic",
       usedSupport: showSupport,
@@ -169,21 +175,23 @@ export function LearningPlayer({
       });
       return;
     }
-    if (exercise.kind === "single-choice") {
-      if (selectedOption === undefined) {
-        setFeedback({ kind: "retry", title: c("先选择一个答案", "Choose an answer first"), message: c("选择后再提交。", "Select an option, then submit.") });
-        return;
-      }
-      if (selectedOption === (exercise.correctOptionIndex ?? 0)) {
-        setFeedback({ kind: "success", title: c("理解正确", "Correct"), message: c("你抓住了表达中的关键信息。", "You identified the key information in the expression.") });
-      } else {
-        retry(exercise.guidance ? displayText(exercise.guidance, teachingLocale) : c("重新查看例句中的关键词后再试一次。", "Review the keyword in the example and try again."));
-      }
+    const exerciseResponse = activeResponse ?? createExerciseResponse(exercise);
+    const deterministic = evaluateExerciseResponse(exercise, exerciseResponse);
+    if (deterministic.status === "empty") {
+      setFeedback({ kind: "retry", title: c("先完成这道练习", "Complete the exercise first"), message: c("作答后再提交；不必追求一次就完美。", "Add your response before submitting. It does not need to be perfect.") });
       return;
     }
-    const normalized = answer.trim();
+    if (deterministic.status === "pass") {
+      setFeedback({ kind: "success", title: c("回答正确", "Correct"), message: c("答案符合这道练习的目标，可以继续下一步。", "Your answer meets this exercise's goal. You can continue.") });
+      return;
+    }
+    if (deterministic.status === "retry") {
+      retry(exercise.guidance ? displayText(exercise.guidance, teachingLocale) : c("根据本课内容调整答案后再试一次。", "Review the lesson content, adjust your answer, and try again."));
+      return;
+    }
+    const normalized = textExerciseResponse(exerciseResponse);
     if (!normalized) {
-      setFeedback({ kind: "retry", title: c("先写下你的回答", "Write an answer first"), message: c("不必追求完美，尝试使用本课学到的表达。", "It does not need to be perfect. Try using the expressions from this lesson.") });
+      setFeedback({ kind: "review", title: c("这道练习需要自行确认", "This exercise needs self-assessment"), message: c("课程没有提供可自动判定的答案，请查看提示并确认是否完成目标。", "The course has no deterministic answer key. Review the support and confirm whether you completed the goal."), source: "local" });
       return;
     }
     if (aiSettings) {
@@ -243,8 +251,7 @@ export function LearningPlayer({
   }
 
   function tryAgain() {
-    setSelectedOption(undefined);
-    setAnswer("");
+    setResponse(undefined);
     setShowSupport(true);
     setFeedback(undefined);
     setEvaluating(false);
@@ -330,15 +337,7 @@ export function LearningPlayer({
             </div>
           )}
 
-          {exercise?.kind === "single-choice" && (
-            <div className="choice-list" role="radiogroup" aria-label={c("选择答案", "Choose an answer")}>
-              {choiceOptions.map((option, index) => <button key={index} className={selectedOption === index ? "selected" : ""} onClick={() => { setSelectedOption(index); setFeedback(undefined); }}><span>{String.fromCharCode(65 + index)}</span><strong>{displayText(option, teachingLocale)}</strong>{selectedOption === index && <Check size={17} />}</button>)}
-            </div>
-          )}
-
-          {exercise && exercise.kind !== "single-choice" && (
-            <label className="answer-field"><span>{c("你的回答", "Your answer")}</span><textarea value={answer} onChange={(event) => { setAnswer(event.target.value); setFeedback(undefined); }} placeholder={c("使用目标语言完成任务……", "Complete the task in the target language…")} dir="auto" /></label>
-          )}
+          {exercise && activeResponse && <ExerciseRenderer exercise={exercise} response={activeResponse} teachingLocale={teachingLocale} uiLocale={uiLocale} onChange={setResponse} onInteraction={() => setFeedback(undefined)} />}
 
           {showSupport && exercise?.guidance && <div className="support-card"><Lightbulb size={17} /><p>{displayText(exercise.guidance, teachingLocale)}</p></div>}
 

@@ -134,6 +134,8 @@ export interface Exercise {
   guidance?: LocalizedText;
   options?: LocalizedText[];
   correctOptionIndex?: number;
+  correctOptionIndices?: number[];
+  correctOrder?: number[];
   acceptedAnswers?: string[];
   evaluationSources?: EvaluationSource[];
   requiredCapabilities?: LanguageCapability[];

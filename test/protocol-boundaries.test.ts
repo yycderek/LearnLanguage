@@ -46,6 +46,46 @@ describe("protocol boundaries", () => {
     );
   });
 
+  it("accepts structured multiple-choice and ordering answer keys", () => {
+    const course = structuredClone(japaneseCafeCourse);
+    course.exercises.push({
+      id: "choose-parts",
+      kind: "multiple-choice",
+      prompt: { en: "Choose both parts" },
+      options: [{ en: "one" }, { en: "two" }, { en: "three" }],
+      correctOptionIndices: [0, 2],
+      knowledgeRefs: [],
+      utteranceRefs: [],
+    }, {
+      id: "order-parts",
+      kind: "ordering",
+      prompt: { en: "Order the parts" },
+      options: [{ en: "one" }, { en: "two" }, { en: "three" }],
+      correctOrder: [0, 1, 2],
+      knowledgeRefs: [],
+      utteranceRefs: [],
+    });
+
+    expect(safeImportCoursePack(course)).toEqual(expect.objectContaining({ success: true }));
+  });
+
+  it("rejects an ordering key that is not a complete permutation", () => {
+    const course = structuredClone(japaneseCafeCourse);
+    course.exercises.push({
+      id: "bad-order",
+      kind: "ordering",
+      prompt: { en: "Order the parts" },
+      options: [{ en: "one" }, { en: "two" }, { en: "three" }],
+      correctOrder: [0, 2],
+      knowledgeRefs: [],
+      utteranceRefs: [],
+    });
+
+    const result = safeImportCoursePack(course);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.issues).toContainEqual(expect.objectContaining({ code: "invalid-answer-key" }));
+  });
+
   it("rejects the retired Course Pack v1 after the intentional pre-1.0 reset", () => {
     const legacy = { ...structuredClone(japaneseCafeCourse), schemaVersion: 1 };
     const result = safeImportCoursePack(legacy);
