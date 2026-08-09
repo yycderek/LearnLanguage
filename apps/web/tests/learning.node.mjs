@@ -85,3 +85,17 @@ test("course record unlocks lessons and reschedules completed reviews", () => {
   assert.notEqual(rescheduled.id, original.id);
   assert.ok(Date.parse(rescheduled.dueAt) > Date.parse("2026-08-06T12:00:00.000Z"));
 });
+
+test("a capability fallback can advance without creating mastery evidence", () => {
+  const course = sampleCourse("ja");
+  let progress = startLearning(course, course.lessons[0].id, "2026-08-05T10:00:00.000Z");
+  progress = submitLearningStep(course, progress, {
+    decision: "advance",
+    evidenceEligible: false,
+    now: "2026-08-05T10:01:00.000Z",
+  });
+
+  assert.equal(progress.engineEvents.find((event) => event.type === "attempt.recorded")?.evidenceEligible, false);
+  assert.deepEqual(progress.mastery, {});
+  assert.deepEqual(progress.reviews, []);
+});

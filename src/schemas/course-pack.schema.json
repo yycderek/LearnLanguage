@@ -79,9 +79,10 @@
           "then": {
             "properties": {
               "contentHash": {},
-              "languageAdapter": {}
+              "languageAdapter": {},
+              "license": {}
             },
-            "required": ["contentHash", "languageAdapter"]
+            "required": ["contentHash", "languageAdapter", "license"]
           }
         }
       ],
@@ -138,6 +139,16 @@
             "provider": { "type": "string" },
             "model": { "type": "string" },
             "generatedAt": { "type": "string", "minLength": 1 }
+          }
+        },
+        "license": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "url": { "type": "string", "minLength": 1 },
+            "attribution": { "type": "string", "minLength": 1 }
           }
         },
         "contentHash": { "type": "string", "minLength": 1 },
@@ -245,6 +256,16 @@
           "type": "array",
           "uniqueItems": true,
           "items": { "enum": ["deterministic", "self", "ai-assisted"] }
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["normalization", "segmentation", "token-comparison", "script-detection", "reading-transform"]
+          }
+        },
+        "capabilityFallback": {
+          "enum": ["self-assessment", "reference-answer", "disabled"]
         },
         "knowledgeRefs": { "$ref": "#/$defs/references" },
         "utteranceRefs": { "$ref": "#/$defs/references" },

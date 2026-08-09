@@ -85,4 +85,11 @@ describe("mastery projection and review scheduling", () => {
       }),
     );
   });
+
+  it("does not project mastery from attempts marked ineligible as evidence", () => {
+    const events = completeLesson().map((event) =>
+      event.type === "attempt.recorded" ? { ...event, evidenceEligible: false } : event,
+    );
+    expect(projectKnowledgeMastery(japaneseCafeCourse, lesson, events)).toEqual([]);
+  });
 });

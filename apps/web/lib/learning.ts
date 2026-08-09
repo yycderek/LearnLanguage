@@ -1,8 +1,10 @@
-import type { CoursePack, CourseStep } from "./course";
+import type { CoursePack } from "./course";
 import type { EvaluationSource } from "@learn-language/protocol";
 import {
   startSession,
   submitAttempt,
+  projectKnowledgeMastery,
+  scheduleReviews as scheduleEngineReviews,
   type LearningEffect,
   type LearningSessionState,
   type SessionEvent,
@@ -119,16 +121,6 @@ function strongerLevel(left: MasteryLevel, right: MasteryLevel) {
   return masteryRank[left] >= masteryRank[right] ? left : right;
 }
 
-function masteryForStep(step: CourseStep, decision: "advance" | "retry", usedSupport: boolean, evaluationSource: EvaluationSource): MasteryLevel {
-  if (decision === "retry") return "encountered";
-  if (step.phase === "supported-input" || step.phase === "comprehension") return "comprehended";
-  if (step.phase === "guided-output") return "prompted-output";
-  if (evaluationSource === "self") return "prompted-output";
-  if (step.phase === "delayed-transfer") return usedSupport ? "prompted-output" : "delayed-transfer";
-  if (step.phase === "independent-task" || step.phase === "feedback-retry") return usedSupport ? "prompted-output" : "independent-output";
-  return "encountered";
-}
-
 function taskForMastery(item: KnowledgeProgress, languageId: string, override?: { delayMs: number; mode: ReviewMode }): ReviewTask {
   const rule = override ?? reviewRules[item.level];
   const dueAt = new Date(Date.parse(item.lastAttemptAt) + rule.delayMs).toISOString();
@@ -139,10 +131,6 @@ function taskForMastery(item: KnowledgeProgress, languageId: string, override?: 
     dueAt,
     basedOnLevel: item.level,
   };
-}
-
-function scheduleReviews(mastery: Record<string, KnowledgeProgress>, languageId: string): ReviewTask[] {
-  return Object.values(mastery).map((item) => taskForMastery(item, languageId)).sort((left, right) => left.dueAt.localeCompare(right.dueAt));
 }
 
 export function startLearning(course: CoursePack, lessonId = course.lessons[0]?.id, now = new Date().toISOString()): LearningProgress {
@@ -181,7 +169,7 @@ export function startLearning(course: CoursePack, lessonId = course.lessons[0]?.
 export function submitLearningStep(
   course: CoursePack,
   progress: LearningProgress,
-  input: { decision: "advance" | "retry"; answer?: string; score?: number; evaluationSource?: EvaluationSource; usedSupport?: boolean; now?: string },
+  input: { decision: "advance" | "retry"; answer?: string; score?: number; evaluationSource?: EvaluationSource; evidenceEligible?: boolean; usedSupport?: boolean; now?: string },
 ): LearningProgress {
   if (progress.status !== "active" || !progress.currentStepId) throw new Error("学习会话已经结束");
   const lesson = course.lessons.find((item) => item.id === progress.lessonId);
@@ -209,6 +197,7 @@ export function submitLearningStep(
     occurredAt: now,
     decision: input.decision,
     evaluationSource,
+    evidenceEligible: input.evidenceEligible ?? true,
     supportLevelUsed: input.usedSupport ? "full" : "none",
     promptLevel: input.usedSupport ? 1 : 0,
     ...(input.answer === undefined ? {} : { answer: input.answer }),
@@ -224,17 +213,20 @@ export function submitLearningStep(
   next.events.push(...transition.events.map(learningEventFromEngine));
   next.engineEvents = [...(next.engineEvents ?? []), ...transition.events];
   next.pendingEffects = [...transition.effects];
-  const candidateLevel = masteryForStep(step, input.decision, Boolean(input.usedSupport), evaluationSource);
-  for (const knowledgeItemId of step.knowledgeRefs) {
-    const current = next.mastery[knowledgeItemId];
-    next.mastery[knowledgeItemId] = {
-      knowledgeItemId,
-      level: current ? strongerLevel(current.level, candidateLevel) : candidateLevel,
-      evidenceCount: (current?.evidenceCount ?? 0) + 1,
-      lastAttemptAt: now,
-    };
-  }
-  next.reviews = scheduleReviews(next.mastery, next.languageId);
+  const projected = projectKnowledgeMastery(course, lesson, next.engineEvents);
+  next.mastery = Object.fromEntries(projected.map((item) => [item.knowledgeItemId, {
+    knowledgeItemId: item.knowledgeItemId,
+    level: item.level,
+    evidenceCount: item.evidenceCount,
+    lastAttemptAt: item.lastAttemptAt,
+  }]));
+  next.reviews = scheduleEngineReviews(projected).map((item) => ({
+    id: item.id,
+    knowledgeItemId: item.knowledgeItemId,
+    mode: item.mode,
+    dueAt: item.dueAt,
+    basedOnLevel: item.basedOnLevel,
+  }));
   if (transition.events.some((item) => item.type === "step.completed") && !next.completedStepIds.includes(step.id)) next.completedStepIds.push(step.id);
   return next;
 }

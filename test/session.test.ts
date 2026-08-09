@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createAiFeedbackEffect,
   SessionTransitionError,
   replaySessionEvents,
   startSession,
@@ -61,6 +62,25 @@ function command(
 }
 
 describe("lesson session state machine", () => {
+  it("creates a persistable AI feedback effect without deciding the attempt", () => {
+    expect(createAiFeedbackEffect({
+      requestId: "request-1",
+      sessionId: "session-1",
+      courseId: "course-1",
+      lessonId: "test-lesson",
+      stepId: "task",
+      afterSequence: 4,
+    })).toEqual({
+      id: "session-1:4:ai:request-1",
+      type: "ai-feedback.requested",
+      requestId: "request-1",
+      sessionId: "session-1",
+      courseId: "course-1",
+      lessonId: "test-lesson",
+      stepId: "task",
+      afterSequence: 4,
+    });
+  });
   it("starts at the declared entry step", () => {
     const transition = start();
 

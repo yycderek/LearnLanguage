@@ -68,6 +68,11 @@ export interface CourseManifest {
   visibility: ContentVisibility;
   status: ContentStatus;
   source: ContentSource;
+  license?: {
+    id: string;
+    url?: string;
+    attribution?: string;
+  };
   contentHash?: string;
   languageAdapter?: {
     id: string;
@@ -131,6 +136,8 @@ export interface Exercise {
   correctOptionIndex?: number;
   acceptedAnswers?: string[];
   evaluationSources?: EvaluationSource[];
+  requiredCapabilities?: LanguageCapability[];
+  capabilityFallback?: "self-assessment" | "reference-answer" | "disabled";
   knowledgeRefs: string[];
   utteranceRefs: string[];
   rubricRef?: string;
@@ -197,6 +204,11 @@ export interface CoursePack {
 export interface PublishedCoursePack extends CoursePack {
   manifest: CourseManifest & {
     status: "published";
+    license: {
+      id: string;
+      url?: string;
+      attribution?: string;
+    };
     contentHash: string;
     languageAdapter: {
       id: string;

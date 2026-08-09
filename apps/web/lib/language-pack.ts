@@ -1,4 +1,4 @@
-import type { LanguageDefinition } from "@learn-language/protocol";
+import type { Exercise, LanguageCapability, LanguageDefinition } from "@learn-language/protocol";
 
 export type LanguagePack = LanguageDefinition;
 export type { LanguageDirection } from "@learn-language/protocol";
@@ -40,6 +40,25 @@ export const builtInLanguagePacks: LanguagePack[] = [
 
 export function languageName(pack: LanguagePack, locale: "zh-CN" | "native" = "zh-CN") {
   return pack.name[locale] ?? pack.name["zh-CN"] ?? pack.name.native ?? pack.id;
+}
+
+export interface ExerciseCapabilityResolution {
+  mode: "native" | "self-assessment" | "reference-answer" | "disabled";
+  missing: LanguageCapability[];
+}
+
+export function languageCapabilities(pack: LanguagePack): ReadonlySet<LanguageCapability> {
+  const capabilities = new Set<LanguageCapability>(["normalization"]);
+  if (pack.segmentation.strategy !== "adapter") capabilities.add("segmentation");
+  for (const capability of pack.adapter?.capabilities ?? []) capabilities.add(capability);
+  return capabilities;
+}
+
+export function resolveExerciseCapabilities(exercise: Exercise, pack: LanguagePack): ExerciseCapabilityResolution {
+  const available = languageCapabilities(pack);
+  const missing = (exercise.requiredCapabilities ?? []).filter((capability) => !available.has(capability));
+  if (missing.length === 0) return { mode: "native", missing };
+  return { mode: exercise.capabilityFallback ?? "disabled", missing };
 }
 
 export function validateLanguagePack(input: string): { pack?: LanguagePack; error?: string } {

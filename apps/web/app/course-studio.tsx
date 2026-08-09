@@ -42,6 +42,7 @@ import {
   publishCourseDraft,
   sampleCourse,
   validateCourse,
+  verifyPublishedCourseIntegrity,
   type CoursePack,
   type ExerciseKind,
   type ImportIssue,
@@ -327,6 +328,11 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       return;
     }
     try {
+      const integrity = await verifyPublishedCourseIntegrity(course);
+      if (!integrity.valid) {
+        setNotice("课程内容哈希校验失败，已拒绝安装");
+        return;
+      }
       await putInstalledCourse(course);
       setInstalledCourses((current) => [course, ...current.filter((item) => item.manifest.id !== course.manifest.id)]);
       setNotice("已安装到学习空间；创作草稿和学习课程保持独立");
@@ -545,7 +551,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;
   }
   if (learningView === "lesson" && selectedProgress) {
-    return <LearningPlayer course={course} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
+    return <LearningPlayer course={course} languagePack={currentLanguage} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
   }
   if (learningView === "review" && currentRecord) {
     return <ReviewPlayer course={course} initialRecord={currentRecord} tasks={reviewTasks} preview={learningContext === "preview"} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />;
@@ -626,6 +632,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                         <label className="wide"><span>课程简介</span><textarea value={displayText(course.manifest.description)} onChange={(event) => editCourse((next) => { next.manifest.description["zh-CN"] = event.target.value; })} /></label>
                         <label><span>状态</span><input value={course.manifest.status === "published" ? "已发布 · 只读" : "草稿"} readOnly /></label>
                         <label><span>作者显示名</span><input value={course.manifest.author.displayName} onChange={(event) => editCourse((next) => { next.manifest.author.displayName = event.target.value; })} /></label>
+                        <label><span>课程内容许可证</span><select value={course.manifest.license?.id ?? ""} onChange={(event) => editCourse((next) => { const id = event.target.value; if (id) next.manifest.license = { id }; else delete next.manifest.license; })}><option value="">发布前必须选择</option><option value="CC-BY-4.0">CC BY 4.0</option><option value="CC-BY-SA-4.0">CC BY-SA 4.0</option><option value="CC0-1.0">CC0 1.0</option><option value="ARR">保留所有权利</option></select></label>
                       </div>
                     </div>
                   )}
@@ -699,6 +706,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                               <label className="wide"><span>任务提示</span><textarea value={displayText(item.prompt)} onChange={(event) => editCourse((next) => { next.exercises[index].prompt["zh-CN"] = event.target.value; })} /></label>
                               <label><span>关联知识点（逗号分隔）</span><input value={item.knowledgeRefs.join(", ")} onChange={(event) => editCourse((next) => { next.exercises[index].knowledgeRefs = splitRefs(event.target.value); })} /></label>
                               <label><span>关联例句（逗号分隔）</span><input value={item.utteranceRefs.join(", ")} onChange={(event) => editCourse((next) => { next.exercises[index].utteranceRefs = splitRefs(event.target.value); })} /></label>
+                              <label><span>所需语言能力（逗号分隔）</span><input placeholder="例如 token-comparison" value={item.requiredCapabilities?.join(", ") ?? ""} onChange={(event) => editCourse((next) => { const capabilities = splitRefs(event.target.value) as NonNullable<CoursePack["exercises"][number]["requiredCapabilities"]>; if (capabilities.length) next.exercises[index].requiredCapabilities = capabilities; else delete next.exercises[index].requiredCapabilities; })} /></label>
+                              <label><span>能力不足时</span><select value={item.capabilityFallback ?? "self-assessment"} onChange={(event) => editCourse((next) => { next.exercises[index].capabilityFallback = event.target.value as NonNullable<CoursePack["exercises"][number]["capabilityFallback"]>; })}><option value="self-assessment">学习者自评</option><option value="reference-answer">显示参考答案</option><option value="disabled">跳过且不计证据</option></select></label>
                             </div>
                           </article>
                         ))}

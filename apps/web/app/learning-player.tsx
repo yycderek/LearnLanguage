@@ -15,10 +15,14 @@ import {
   RotateCcw,
   Sparkles,
   Target,
+  TriangleAlert,
 } from "lucide-react";
 import { requestAiFeedback, type AiSettings } from "@/lib/ai";
 import { displayText, type CoursePack } from "@/lib/course";
+import { IndexedDbEffectQueue } from "@/lib/device-repository";
+import { resolveExerciseCapabilities, type LanguagePack } from "@/lib/language-pack";
 import type { EvaluationSource } from "@learn-language/protocol";
+import { createAiFeedbackEffect } from "@learn-language/engine";
 import {
   learningPercent,
   startLearning,
@@ -64,6 +68,7 @@ function formatDue(value: string) {
 export function LearningPlayer({
   course,
   initialProgress,
+  languagePack,
   preview = false,
   aiSettings,
   onProgress,
@@ -71,6 +76,7 @@ export function LearningPlayer({
 }: {
   course: CoursePack;
   initialProgress: LearningProgress;
+  languagePack?: LanguagePack;
   preview?: boolean;
   aiSettings?: AiSettings;
   onProgress: (progress: LearningProgress) => void;
@@ -93,6 +99,7 @@ export function LearningPlayer({
   const stepIndex = currentStep ? (lesson?.steps.findIndex((item) => item.id === currentStep.id) ?? 0) : -1;
   const targetForms = knowledge.map((item) => item?.form.trim()).filter(Boolean) as string[];
   const choiceOptions = exercise?.options?.length ? exercise.options : [{ "zh-CN": "我理解了" }, { "zh-CN": "需要再看一次" }];
+  const capabilityResolution = exercise && languagePack ? resolveExerciseCapabilities(exercise, languagePack) : { mode: "native" as const, missing: [] };
 
   function persist(next: LearningProgress) {
     setProgress(next);
@@ -107,13 +114,14 @@ export function LearningPlayer({
     setEvaluating(false);
   }
 
-  function advance(evaluationSource: EvaluationSource = "deterministic") {
+  function advance(evaluationSource: EvaluationSource = "deterministic", evidenceEligible = true) {
     if (!currentStep) return;
     const next = submitLearningStep(course, progress, {
       decision: "advance",
       answer: exercise?.kind === "single-choice" ? String(selectedOption ?? "") : answer,
       score: 1,
       evaluationSource,
+      evidenceEligible,
       usedSupport: showSupport,
     });
     persist(next);
@@ -134,8 +142,25 @@ export function LearningPlayer({
   }
 
   async function submitAnswer() {
+    if (!currentStep) return;
     if (!exercise) {
       advance();
+      return;
+    }
+    if (capabilityResolution.mode === "disabled") {
+      advance("self", false);
+      return;
+    }
+    if (capabilityResolution.mode === "reference-answer") {
+      const reference = exercise.acceptedAnswers?.join(" / ")
+        || utterances.map((item) => item?.text ?? "").filter(Boolean).join(" / ")
+        || targetForms.join(" / ");
+      setFeedback({
+        kind: "review",
+        title: "请对照参考答案自行确认",
+        message: reference || "当前课程未提供参考答案，请查看提示后自行判断。",
+        source: "local",
+      });
       return;
     }
     if (exercise.kind === "single-choice") {
@@ -158,6 +183,16 @@ export function LearningPlayer({
     if (aiSettings) {
       setEvaluating(true);
       setFeedback(undefined);
+      const effect = createAiFeedbackEffect({
+        requestId: crypto.randomUUID(),
+        sessionId: progress.sessionId,
+        courseId: progress.courseId,
+        lessonId: progress.lessonId,
+        stepId: currentStep.id,
+        afterSequence: progress.engineEvents.at(-1)?.sequence ?? progress.events.length,
+      });
+      const effectQueue = preview ? undefined : new IndexedDbEffectQueue();
+      await effectQueue?.enqueue([effect], new Date().toISOString()).catch(() => undefined);
       try {
         const result = await requestAiFeedback(aiSettings, {
           course,
@@ -177,6 +212,7 @@ export function LearningPlayer({
             ? "AI 认为任务基本完成，请由你最终确认；确认后将作为自评证据记录。"
             : "AI 建议修改，但不会自动判错；你可以继续修改或自行确认。",
         });
+        await effectQueue?.markCompleted(effect.id).catch(() => undefined);
         return;
       } catch (error) {
         const detail = error instanceof Error ? error.message : "AI 服务暂时不可用。";
@@ -299,6 +335,8 @@ export function LearningPlayer({
 
           {showSupport && exercise?.guidance && <div className="support-card"><Lightbulb size={17} /><p>{displayText(exercise.guidance)}</p></div>}
 
+          {capabilityResolution.missing.length > 0 && <div className="capability-fallback"><TriangleAlert size={17} /><div><strong>当前语言能力不足，已启用降级模式</strong><p>缺少：{capabilityResolution.missing.join("、")} · {capabilityResolution.mode === "disabled" ? "本练习将跳过且不记录掌握证据" : capabilityResolution.mode === "reference-answer" ? "显示参考答案后由你确认" : "改为学习者自评"}</p></div></div>}
+
           {feedback && <div className={`learning-feedback ${feedback.kind}`}>
             {feedback.kind === "success" ? <CheckCircle2 size={21} /> : feedback.kind === "review" ? <Sparkles size={21} /> : <CircleAlert size={21} />}
             <div><span className={`feedback-source ${feedback.source ?? "local"}`}>{feedback.source === "ai" ? "AI 参考 · 不自动评分" : "本地规则"}</span><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.detail && <small>{feedback.kind === "review" ? feedback.detail : `AI 未使用：${feedback.detail}`}</small>}</div>
@@ -306,7 +344,7 @@ export function LearningPlayer({
 
           <footer className="learning-actions">
             {!showSupport && (exercise || currentStep.supportLevel !== "none") ? <button className="support-button" onClick={() => setShowSupport(true)}><Eye size={16} />查看提示</button> : <span />}
-            {feedback?.kind === "success" ? <button className="learner-primary" onClick={() => advance("deterministic")}>继续下一步<ArrowRight size={17} /></button> : feedback?.kind === "retry" ? <button className="learner-primary retry-button" onClick={tryAgain}><RotateCcw size={16} />根据提示重试</button> : feedback?.kind === "review" ? <div className="ai-review-actions"><button className="support-button" onClick={tryAgain}><RotateCcw size={16} />继续修改</button><button className="learner-primary" onClick={() => advance("self")}>我确认已完成<ArrowRight size={17} /></button></div> : <button className="learner-primary" onClick={submitAnswer} disabled={evaluating}>{evaluating ? <><Sparkles size={16} />AI 反馈中…</> : exercise ? <><ListChecks size={16} />提交答案</> : <><Sparkles size={16} />完成并继续</>}</button>}
+            {feedback?.kind === "success" ? <button className="learner-primary" onClick={() => advance("deterministic")}>继续下一步<ArrowRight size={17} /></button> : feedback?.kind === "retry" ? <button className="learner-primary retry-button" onClick={tryAgain}><RotateCcw size={16} />根据提示重试</button> : feedback?.kind === "review" ? <div className="ai-review-actions"><button className="support-button" onClick={tryAgain}><RotateCcw size={16} />继续修改</button><button className="learner-primary" onClick={() => advance("self")}>我确认已完成<ArrowRight size={17} /></button></div> : capabilityResolution.mode === "disabled" ? <button className="learner-primary" onClick={submitAnswer}>跳过不兼容练习<ArrowRight size={17} /></button> : <button className="learner-primary" onClick={submitAnswer} disabled={evaluating}>{evaluating ? <><Sparkles size={16} />AI 反馈中…</> : exercise ? <><ListChecks size={16} />提交答案</> : <><Sparkles size={16} />完成并继续</>}</button>}
           </footer>
         </article>
       </section>

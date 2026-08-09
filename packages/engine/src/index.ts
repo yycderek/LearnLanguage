@@ -47,6 +47,7 @@ export interface AttemptRecordedEvent extends SessionEventBase {
   readonly stepId: string;
   readonly decision: AttemptDecision;
   readonly evaluationSource: EvaluationSource;
+  readonly evidenceEligible: boolean;
   readonly supportLevelUsed: SupportLevel;
   readonly promptLevel: PromptLevel;
   readonly answer?: string;
@@ -111,9 +112,21 @@ export interface LessonCompletedEffect {
   readonly afterSequence: number;
 }
 
+export interface AiFeedbackRequestedEffect {
+  readonly id: string;
+  readonly type: "ai-feedback.requested";
+  readonly requestId: string;
+  readonly sessionId: string;
+  readonly courseId: string;
+  readonly lessonId: string;
+  readonly stepId: string;
+  readonly afterSequence: number;
+}
+
 export type LearningEffect =
   | RefreshLearningProjectionEffect
-  | LessonCompletedEffect;
+  | LessonCompletedEffect
+  | AiFeedbackRequestedEffect;
 
 export interface SessionTransition {
   readonly state: LearningSessionState;
@@ -143,6 +156,7 @@ export interface SubmitExerciseCommand {
   readonly occurredAt: string;
   readonly decision: AttemptDecision;
   readonly evaluationSource: EvaluationSource;
+  readonly evidenceEligible?: boolean;
   readonly supportLevelUsed: SupportLevel;
   readonly promptLevel: PromptLevel;
   readonly answer?: string;
@@ -162,6 +176,21 @@ export type SubmitAttemptCommand = Omit<
 };
 
 export type LearningCommand = StartLessonCommand | SubmitExerciseCommand;
+
+export function createAiFeedbackEffect(input: {
+  requestId: string;
+  sessionId: string;
+  courseId: string;
+  lessonId: string;
+  stepId: string;
+  afterSequence: number;
+}): AiFeedbackRequestedEffect {
+  return {
+    id: `${input.sessionId}:${input.afterSequence}:ai:${input.requestId}`,
+    type: "ai-feedback.requested",
+    ...input,
+  };
+}
 
 export class SessionTransitionError extends Error {
   constructor(message: string) {
@@ -355,6 +384,7 @@ export function submitAttempt(
     stepId: command.expectedStepId,
     decision: command.decision,
     evaluationSource,
+    evidenceEligible: command.evidenceEligible ?? true,
     supportLevelUsed: command.supportLevelUsed,
     promptLevel: command.promptLevel,
     ...(command.answer === undefined ? {} : { answer: command.answer }),
@@ -460,6 +490,7 @@ export function projectKnowledgeMastery(
   const projected = new Map<string, LearnerKnowledgeState>();
   for (const event of events) {
     if (event.type !== "attempt.recorded") continue;
+    if (!event.evidenceEligible) continue;
     const step = steps.get(event.stepId);
     if (!step) throw new Error(`Unknown lesson step in event stream: ${event.stepId}`);
     const candidate = levelForAttempt(step.phase, event);

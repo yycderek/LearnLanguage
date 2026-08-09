@@ -44,6 +44,7 @@ export function validateCourse(input: string): { course?: CoursePack; issues: Im
     if (!localized(value.manifest.title)) issues.push({ stage: "schema", path: "/manifest/title", message: "标题必须是多语言文本对象" });
     if (value.manifest.status === "published" && !value.manifest.contentHash) issues.push({ stage: "domain", path: "/manifest/contentHash", message: "已发布课程必须包含内容哈希" });
     if (value.manifest.status === "published" && !value.manifest.languageAdapter) issues.push({ stage: "domain", path: "/manifest/languageAdapter", message: "已发布课程必须固定语言适配器版本" });
+    if (value.manifest.status === "published" && !value.manifest.license?.id) issues.push({ stage: "domain", path: "/manifest/license", message: "已发布课程必须明确内容许可证" });
   }
   for (const key of ["goals", "knowledge", "utterances", "exercises", "rubrics", "lessons"] as const) {
     if (!Array.isArray(value[key])) issues.push({ stage: "schema", path: `/${key}`, message: `${key} 必须是数组` });
@@ -130,6 +131,7 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
       title: { "zh-CN": `${targetName}咖啡店点单` },
       description: { "zh-CN": "在咖啡店礼貌地请求一杯饮料。" },
       author: { id: "local-author", displayName: "课程作者" }, visibility: "private", status: "draft", source: { kind: "original" },
+      license: { id: "CC-BY-4.0", url: "https://creativecommons.org/licenses/by/4.0/" },
       languageAdapter: {
         id: japanese ? "core.japanese" : cantonese ? "core.cantonese" : "core.generic",
         version: "1.0.0",
@@ -160,6 +162,8 @@ export function sampleCourse(languageId = "ja", languageName?: string): CoursePa
         knowledgeRefs: ["drink", "request-pattern"],
         utteranceRefs: [],
         rubricRef: "request-rubric",
+        requiredCapabilities: ["token-comparison"],
+        capabilityFallback: "self-assessment",
       },
     ],
     rubrics: [{ id: "request-rubric", dimensions: ["task-completion", "comprehensibility", "target-language"], retryRequired: true }],
@@ -184,14 +188,24 @@ function canonicalize(value: unknown): string {
 
 export async function publishCourseDraft(course: CoursePack): Promise<PublishedCoursePack> {
   if (course.manifest.status === "published") throw new Error("课程已经发布，不能再次覆盖发布");
+  if (!course.manifest.license?.id) throw new Error("发布前必须选择课程内容许可证");
   const candidate = structuredClone(course) as CoursePack;
   candidate.manifest.status = "published";
   candidate.manifest.languageAdapter ??= { id: "core.generic", version: "1.0.0" };
   delete candidate.manifest.contentHash;
-  const bytes = new TextEncoder().encode(canonicalize(candidate));
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  candidate.manifest.contentHash = `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  candidate.manifest.contentHash = await calculateCourseHash(candidate);
   return candidate as PublishedCoursePack;
+}
+
+export async function calculateCourseHash(course: CoursePack): Promise<string> {
+  const bytes = new TextEncoder().encode(canonicalize(course));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+export async function verifyPublishedCourseIntegrity(course: CoursePack): Promise<{ valid: boolean; expected: string; actual?: string }> {
+  const expected = await calculateCourseHash(course);
+  return { valid: course.manifest.status === "published" && course.manifest.contentHash === expected, expected, ...(course.manifest.contentHash ? { actual: course.manifest.contentHash } : {}) };
 }
 
 export function forkPublishedCourse(course: PublishedCoursePack): CoursePack {
