@@ -11,7 +11,7 @@ LearnLanguage 是一个可切换语种的通用语言学习工具。产品通过
 
 ## 当前阶段
 
-项目已经具备通用 TypeScript 学习引擎和公开 Web 课程工作台。当前里程碑是让用户通过可视化界面创建课程与自定义语言包，并逐步接入真实学习体验。
+R1–R5 技术基线已经完成：项目具备无头 TypeScript 学习引擎、Learn/Studio Web 产品空间、不可变课程发布、语言能力降级、掌握与复习投影，以及账户可选的公开同步协议和参考服务。
 
 当前阶段暂不提供发音、录音、语音识别或语音评分练习，优先完善文本学习、AI 反馈和课程内容流程。
 
@@ -20,6 +20,8 @@ LearnLanguage 是一个可切换语种的通用语言学习工具。产品通过
 ```bash
 pnpm install
 pnpm check
+pnpm --dir apps/web install
+pnpm --dir apps/web test
 ```
 
 当前代码包括：
@@ -41,5 +43,17 @@ pnpm check
 - 设备本地学习进度、掌握度投影与复习任务生成
 - 学习首页、多课节解锁、课程总进度和可执行复习队列
 - 用户自选 AI 服务的连接测试，以及自由回答和角色任务的文本反馈
+- 公开同步协议、能力发现、增量游标、幂等提交和冲突检测
+- 无外部依赖、无需账户的内存参考同步服务
+- 固定迁移样例、双 Node 版本 CI 和候选版本发布通道
 
-详细设计见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+## 参与和部署
+
+- [架构设计](docs/ARCHITECTURE.md)
+- [自部署指南](docs/SELF_HOSTING.md)
+- [迁移策略](docs/MIGRATIONS.md)
+- [贡献指南](CONTRIBUTING.md)
+- [安全政策](SECURITY.md)
+- [项目治理](GOVERNANCE.md)
+
+项目采用 [Apache License 2.0](LICENSE)。课程内容仍使用各 Course Pack 自己声明的许可证，软件许可证不会自动授权第三方语料。

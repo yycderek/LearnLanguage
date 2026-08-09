@@ -1,0 +1,50 @@
+name: Prerelease
+
+on:
+  push:
+    tags:
+      - "v*-rc.*"
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-publish:
+    name: Verify and create GitHub prerelease
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.10
+        with:
+          version: 11.9.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install core dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify core, protocol, fixtures, and release metadata
+        run: pnpm check
+
+      - name: Install Web dependencies
+        run: pnpm --dir apps/web install --frozen-lockfile
+
+      - name: Verify production Web build
+        run: pnpm --dir apps/web test
+
+      - name: Package the exact tagged source
+        run: git archive --format=tar.gz --output="learnlanguage-source-${GITHUB_REF_NAME}.tar.gz" HEAD
+
+      - name: Create prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --prerelease --generate-notes "learnlanguage-source-${GITHUB_REF_NAME}.tar.gz#LearnLanguage source"

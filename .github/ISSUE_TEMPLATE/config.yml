@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 私密安全报告
+    url: https://github.com/yycderek/LearnLanguage/security/advisories/new
+    about: 请不要公开披露尚未修复的安全问题。

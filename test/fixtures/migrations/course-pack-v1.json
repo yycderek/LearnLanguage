@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "manifest": {
+    "id": "fixture.course-v1",
+    "version": "0.1.0",
+    "languageId": "en",
+    "title": { "en": "Legacy fixture" },
+    "description": { "en": "Pinned unsupported Course Pack v1 fixture." },
+    "author": { "id": "fixture", "displayName": "Fixture" },
+    "visibility": "private",
+    "status": "draft",
+    "source": { "kind": "original" }
+  },
+  "goals": [],
+  "knowledge": [],
+  "utterances": [],
+  "exercises": [],
+  "rubrics": [],
+  "lessons": []
+}

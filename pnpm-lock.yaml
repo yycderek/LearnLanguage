@@ -48,6 +48,12 @@ importers:
 
   packages/protocol: {}
 
+  packages/sync:
+    dependencies:
+      '@learn-language/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+
 packages:
 
   '@emnapi/core@2.0.0-alpha.3':

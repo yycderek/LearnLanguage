@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 2,
+  "manifest": {
+    "id": "fixture.course-v2",
+    "version": "0.1.0",
+    "languageId": "en",
+    "title": { "en": "Current fixture" },
+    "description": { "en": "Pinned supported Course Pack v2 fixture." },
+    "author": { "id": "fixture", "displayName": "Fixture" },
+    "visibility": "private",
+    "status": "draft",
+    "source": { "kind": "original" }
+  },
+  "goals": [],
+  "knowledge": [],
+  "utterances": [],
+  "exercises": [],
+  "rubrics": [],
+  "lessons": [
+    {
+      "id": "fixture-lesson",
+      "title": { "en": "Fixture lesson" },
+      "canDoGoalRefs": [],
+      "entryStepId": "start",
+      "steps": [
+        {
+          "id": "start",
+          "phase": "diagnostic",
+          "title": { "en": "Start" },
+          "supportLevel": "none",
+          "knowledgeRefs": [],
+          "utteranceRefs": [],
+          "exerciseRefs": [],
+          "next": []
+        }
+      ]
+    }
+  ]
+}
