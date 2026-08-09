@@ -161,6 +161,7 @@ button { color: inherit; }
 .section-intro { min-height: 50px; margin-bottom: 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .section-intro h3 { margin: 0; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 17px; }
 .section-intro p { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.section-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .outline-button { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; border: 1px solid #bfcfc8; background: #f8fbf8; color: var(--green); border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 750; white-space: nowrap; }
 .outline-button:hover { background: var(--green-soft); }
 .form-grid { display: grid; gap: 13px; }
@@ -179,11 +180,32 @@ button { color: inherit; }
 .edit-card-heading button:hover, .step-delete:hover { background: #f8ded7; color: #9c4938; }
 .edit-card > .form-grid { padding: 13px; }
 .lesson-title-field { margin-bottom: 14px; }
+.lesson-sequence { margin-bottom: 13px; display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; }
+.lesson-sequence > button { min-width: 0; display: grid; grid-template-columns: 30px 1fr; align-items: center; gap: 9px; padding: 10px; border: 1px solid #d9ddd7; background: #fbfbf7; color: var(--ink); border-radius: 10px; cursor: pointer; text-align: left; }
+.lesson-sequence > button:hover { border-color: #a9beb5; background: #f5f9f6; }
+.lesson-sequence > button.active { border-color: var(--green); background: var(--green-soft); box-shadow: 0 0 0 2px rgba(31,90,77,.08); }
+.lesson-sequence > button > span { width: 28px; height: 28px; display: grid; place-items: center; background: #e8ebe6; color: #6d7874; border-radius: 50%; font-family: var(--mono); font-size: 8px; font-weight: 800; }
+.lesson-sequence > button.active > span { background: var(--green); color: white; }
+.lesson-sequence strong, .lesson-sequence small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lesson-sequence strong { font-size: 10px; }
+.lesson-sequence small { margin-top: 4px; color: var(--muted); font-family: var(--mono); font-size: 7px; }
+.selected-lesson-panel { margin-bottom: 14px; overflow: hidden; border: 1px solid #dfe2dc; background: #f6f6f1; border-radius: 10px; }
+.selected-lesson-heading { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 11px; border-bottom: 1px solid #dfe2dc; }
+.selected-lesson-heading span, .selected-lesson-heading strong { display: block; }
+.selected-lesson-heading span { color: var(--muted); font-size: 8px; }
+.selected-lesson-heading strong { margin-top: 3px; font-size: 11px; }
+.selected-lesson-heading > div:last-child, .step-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.selected-lesson-heading button, .step-actions button { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid #d4dad5; background: white; color: var(--green); border-radius: 7px; cursor: pointer; }
+.selected-lesson-heading button:hover:not(:disabled), .step-actions button:hover:not(:disabled) { border-color: #9db5aa; background: var(--green-soft); }
+.selected-lesson-heading button.danger, .step-actions button.danger { color: #a65343; }
+.selected-lesson-heading button.danger:hover:not(:disabled), .step-actions button.danger:hover:not(:disabled) { border-color: #e3b7ac; background: #fff0eb; }
+.selected-lesson-heading button:disabled, .step-actions button:disabled { cursor: default; opacity: .3; }
+.lesson-fields { padding: 12px; }
 .item-stack.compact { gap: 8px; }
-.flow-edit-card { position: relative; display: grid; grid-template-columns: 36px 1fr 32px; align-items: center; gap: 8px; padding: 10px; overflow: visible; }
+.flow-edit-card { position: relative; display: grid; grid-template-columns: 36px 1fr 92px; align-items: center; gap: 8px; padding: 10px; overflow: visible; }
 .flow-edit-card > .form-grid { padding: 0; }
 .step-number { width: 29px; height: 29px; display: grid; place-items: center; background: var(--green-soft); color: var(--green); border-radius: 50%; font-family: var(--mono); font-size: 9px; font-weight: 800; }
-.step-delete { align-self: end; margin-bottom: 5px; }
+.step-actions { align-self: end; margin-bottom: 5px; }
 .dialog-tabs { display: flex; gap: 5px; padding: 10px 18px 0; }
 .dialog-tabs button { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 12px; border: 1px solid transparent; background: #f0f2ed; color: #6e7c77; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 750; }
 .dialog-tabs button.active { border-color: #bbcec5; background: var(--green-soft); color: var(--green); }
@@ -452,9 +474,14 @@ button { color: inherit; }
   .editor-heading { align-items: flex-start; flex-direction: column; }
   .form-section { padding: 14px; }
   .section-intro { align-items: stretch; flex-direction: column; }
+  .section-actions { justify-content: stretch; }
+  .section-actions > button { flex: 1; }
   .form-grid.two-column, .form-grid.three-column { grid-template-columns: 1fr; }
   .form-grid label.wide { grid-column: auto; }
-  .flow-edit-card { grid-template-columns: 32px 1fr 30px; align-items: start; }
+  .lesson-sequence { grid-template-columns: 1fr; }
+  .selected-lesson-heading { align-items: flex-start; }
+  .flow-edit-card { grid-template-columns: 32px 1fr; align-items: start; }
+  .flow-edit-card .step-actions { grid-column: 2; justify-content: flex-start; }
   .language-list { grid-template-columns: 1fr 1fr; }
   .add-language { display: flex; }
   .learner-topbar { min-height: 64px; grid-template-columns: 1fr auto; padding: 12px 14px; }

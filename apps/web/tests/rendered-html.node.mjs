@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, studio, player, renderer, dashboard, reviewPlayer, css, languagePack, learning, deviceRepository, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, studio, player, renderer, dashboard, reviewPlayer, css, languagePack, learning, courseAuthoring, deviceRepository, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
@@ -17,6 +17,7 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL("lib/language-pack.ts", root), "utf8"),
     readFile(new URL("lib/learning.ts", root), "utf8"),
+    readFile(new URL("lib/course-authoring.ts", root), "utf8"),
     readFile(new URL("lib/device-repository.ts", root), "utf8"),
     readFile(new URL("lib/ai.ts", root), "utf8"),
     readFile(new URL("app/api/ai/route.ts", root), "utf8"),
@@ -31,6 +32,11 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /添加知识点/);
   assert.match(studio, /添加例句/);
   assert.match(studio, /添加练习/);
+  assert.match(studio, /添加课节/);
+  assert.match(studio, /selectedStudioLessonId/);
+  assert.match(studio, /课程课节顺序/);
+  assert.match(studio, /moveLessonStep/);
+  assert.doesNotMatch(studio, /next\.lessons\[0\]\.steps/);
   assert.match(studio, /课程流程预览/);
   assert.match(studio, /创建或导入 Language Pack/);
   assert.match(studio, /快速创建/);
@@ -104,6 +110,9 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(learning, /scheduleReviews/);
   assert.match(learning, /projectKnowledgeMastery/);
   assert.match(learning, /completeReviewTask/);
+  assert.match(courseAuthoring, /rewireLinearLesson/);
+  assert.match(courseAuthoring, /appendLesson/);
+  assert.match(courseAuthoring, /removeLessonStep/);
   assert.match(deviceRepository, /learn-language-device-v1/);
   assert.match(deviceRepository, /implements SessionEventRepository/);
   assert.match(deviceRepository, /implements EffectQueue/);

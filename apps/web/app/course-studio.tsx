@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   BookOpen,
   Bot,
   Braces,
@@ -36,6 +38,14 @@ import {
   putDeviceValue,
   putInstalledCourse,
 } from "@/lib/device-repository";
+import {
+  appendLesson,
+  appendLessonStep,
+  moveLesson,
+  moveLessonStep,
+  removeLesson,
+  removeLessonStep,
+} from "@/lib/course-authoring";
 import {
   displayText,
   forkPublishedCourse,
@@ -210,6 +220,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [notice, setNotice] = useState("示例课程已载入，可以直接编辑");
   const [editorMode, setEditorMode] = useState<"visual" | "json">("visual");
   const [editorSection, setEditorSection] = useState<EditorSection>("overview");
+  const [selectedStudioLessonId, setSelectedStudioLessonId] = useState("cafe-request");
   const [aiOpen, setAiOpen] = useState(false);
   const [aiSettings, setAiSettings] = useState<AiSettings>(defaultAiSettings);
   const [aiConfigured, setAiConfigured] = useState(false);
@@ -294,6 +305,12 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   useEffect(() => {
     document.documentElement.lang = appLocale;
   }, [appLocale]);
+
+  useEffect(() => {
+    if (!course.lessons.some((lesson) => lesson.id === selectedStudioLessonId)) {
+      setSelectedStudioLessonId(course.lessons[0]?.id ?? "");
+    }
+  }, [course.lessons, selectedStudioLessonId]);
 
   function changeAppLocale(locale: AppLocale) {
     setAppLocale(locale);
@@ -593,26 +610,66 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     });
   }
 
+  function selectedDraftLesson(next: CoursePack) {
+    return next.lessons.find((lesson) => lesson.id === selectedStudioLessonId) ?? next.lessons[0];
+  }
+
+  function addCourseLesson() {
+    let createdId = "";
+    editCourse((next) => {
+      createdId = appendLesson(next, appLocale, t("新课节", "New lesson"));
+    });
+    if (createdId) setSelectedStudioLessonId(createdId);
+  }
+
+  function moveCourseLesson(offset: -1 | 1) {
+    editCourse((next) => { moveLesson(next, selectedStudioLessonId, offset); });
+  }
+
+  function deleteCourseLesson() {
+    if (course.lessons.length <= 1) {
+      setNotice(t("课程至少需要保留一个课节", "A course must keep at least one lesson"));
+      return;
+    }
+    const selected = course.lessons.find((lesson) => lesson.id === selectedStudioLessonId);
+    if (!selected || !window.confirm(t(`确定删除课节“${displayText(selected.title, appLocale)}”吗？`, `Delete the lesson “${displayText(selected.title, appLocale)}”?`))) return;
+    let nextId: string | undefined;
+    editCourse((next) => { nextId = removeLesson(next, selectedStudioLessonId); });
+    if (nextId) setSelectedStudioLessonId(nextId);
+  }
+
+  function renameCourseLesson(id: string) {
+    const previous = selectedStudioLessonId;
+    editCourse((next) => {
+      const lesson = next.lessons.find((item) => item.id === previous);
+      if (lesson) lesson.id = id;
+    });
+    setSelectedStudioLessonId(id);
+  }
+
   function addStep() {
     editCourse((next) => {
-      const lesson = next.lessons[0];
-      if (!lesson) return;
-      const id = uniqueId("step", lesson.steps.map((item) => item.id));
-      const previous = lesson.steps.at(-1);
-      if (previous) previous.next = [id];
-      lesson.steps.push({ id, phase: "supported-input", title: { [teachingLocale]: uiText(teachingLocale, "新学习步骤", "New learning step") }, supportLevel: "full", knowledgeRefs: [], utteranceRefs: [], exerciseRefs: [], next: [] });
-      if (!lesson.entryStepId) lesson.entryStepId = id;
+      const lesson = selectedDraftLesson(next);
+      if (lesson) appendLessonStep(lesson, appLocale, t("新学习步骤", "New learning step"));
+    });
+  }
+
+  function moveStep(index: number, offset: -1 | 1) {
+    editCourse((next) => {
+      const lesson = selectedDraftLesson(next);
+      if (lesson) moveLessonStep(lesson, index, offset);
     });
   }
 
   function removeStep(index: number) {
+    const lesson = course.lessons.find((item) => item.id === selectedStudioLessonId) ?? course.lessons[0];
+    if (!lesson || lesson.steps.length <= 1) {
+      setNotice(t("每个课节至少需要保留一个学习步骤", "Each lesson must keep at least one learning step"));
+      return;
+    }
     editCourse((next) => {
-      const lesson = next.lessons[0];
-      const [removed] = lesson.steps.splice(index, 1);
-      if (!removed) return;
-      lesson.steps.forEach((step) => { step.next = step.next.filter((id) => id !== removed.id); });
-      lesson.steps.forEach((step, stepIndex) => { step.next = stepIndex < lesson.steps.length - 1 ? [lesson.steps[stepIndex + 1].id] : []; });
-      lesson.entryStepId = lesson.steps[0]?.id ?? "";
+      const selected = selectedDraftLesson(next);
+      if (selected) removeLessonStep(selected, index);
     });
   }
 
@@ -652,7 +709,9 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   const currentLanguage = languagePacks.find((item) => item.id === language);
-  const flow = course.lessons[0]?.steps ?? [];
+  const selectedStudioLessonIndex = Math.max(0, course.lessons.findIndex((lesson) => lesson.id === selectedStudioLessonId));
+  const selectedStudioLesson = course.lessons[selectedStudioLessonIndex];
+  const flow = selectedStudioLesson?.steps ?? [];
   const activeRecords = learningContext === "preview" ? previewRecordsByCourse : recordsByCourse;
   const currentRecord = activeRecords[course.manifest.id];
   const currentPercent = courseLearningPercent(course, currentRecord);
@@ -837,25 +896,36 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
 
                   {editorSection === "flow" && (
                     <div className="form-section">
-                      <div className="section-intro"><div><h3>{t("课节与学习流程", "Lesson flow")}</h3><p>{t("调整第一个课节的标题和逐步学习路径。", "Edit the first lesson title and its step-by-step path.")}</p></div><button className="outline-button" onClick={addStep}><Plus size={15} />{t("添加步骤", "Add step")}</button></div>
-                      {course.lessons[0] && <label className="lesson-title-field"><span>{t("课节名称", "Lesson title")}（{teachingLocale === "en" ? "English" : "中文"}）</span><input value={course.lessons[0].title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.lessons[0].title[teachingLocale] = event.target.value; })} /></label>}
+                      <div className="section-intro"><div><h3>{t("课节与学习流程", "Lessons and learning flow")}</h3><p>{t("先选择课节，再独立维护它的标题、目标和学习步骤。", "Select a lesson, then maintain its title, goals, and learning steps independently.")}</p></div><div className="section-actions"><button className="outline-button" onClick={addCourseLesson}><Plus size={15} />{t("添加课节", "Add lesson")}</button><button className="outline-button" onClick={addStep}><Plus size={15} />{t("添加步骤", "Add step")}</button></div></div>
+                      <div className="lesson-sequence" role="tablist" aria-label={t("课程课节顺序", "Course lesson order")}>
+                        {course.lessons.map((lesson, index) => <button type="button" role="tab" aria-selected={lesson.id === selectedStudioLesson?.id} className={lesson.id === selectedStudioLesson?.id ? "active" : ""} key={`${lesson.id}-${index}`} onClick={() => setSelectedStudioLessonId(lesson.id)}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{displayText(lesson.title, teachingLocale)}</strong><small>{lesson.id} · {t(`${lesson.steps.length} 步`, `${lesson.steps.length} steps`)}</small></div></button>)}
+                      </div>
+                      {selectedStudioLesson && <div className="selected-lesson-panel">
+                        <div className="selected-lesson-heading"><div><span>{t(`正在编辑第 ${selectedStudioLessonIndex + 1} 课`, `Editing lesson ${selectedStudioLessonIndex + 1}`)}</span><strong>{displayText(selectedStudioLesson.title, teachingLocale)}</strong></div><div><button type="button" onClick={() => moveCourseLesson(-1)} disabled={selectedStudioLessonIndex === 0} aria-label={t("课节前移", "Move lesson earlier")}><ArrowUp size={15} /></button><button type="button" onClick={() => moveCourseLesson(1)} disabled={selectedStudioLessonIndex === course.lessons.length - 1} aria-label={t("课节后移", "Move lesson later")}><ArrowDown size={15} /></button><button type="button" className="danger" onClick={deleteCourseLesson} disabled={course.lessons.length <= 1} aria-label={t("删除当前课节", "Delete current lesson")}><Trash2 size={15} /></button></div></div>
+                        <div className="form-grid three-column lesson-fields">
+                          <label><span>{t("课节 ID", "Lesson ID")}</span><input value={selectedStudioLesson.id} onChange={(event) => renameCourseLesson(event.target.value)} /></label>
+                          <label><span>{t("课节名称", "Lesson title")}（{teachingLocale === "en" ? "English" : "中文"}）</span><input value={selectedStudioLesson.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.title[teachingLocale] = event.target.value; })} /></label>
+                          <label><span>{t("能力目标（逗号分隔）", "Can-do goals (comma-separated)")}</span><input value={selectedStudioLesson.canDoGoalRefs.join(", ")} onChange={(event) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.canDoGoalRefs = splitRefs(event.target.value); })} /></label>
+                        </div>
+                      </div>}
                       <div className="item-stack compact">
                         {flow.map((step, index) => (
                           <article className="edit-card flow-edit-card" key={`${step.id}-${index}`}>
                             <div className="step-number">{String(index + 1).padStart(2, "0")}</div>
                             <div className="form-grid three-column">
                               <label><span>ID</span><input value={step.id} onChange={(event) => editCourse((next) => {
-                                const lesson = next.lessons[0];
+                                const lesson = selectedDraftLesson(next);
+                                if (!lesson) return;
                                 const previous = lesson.steps[index].id;
                                 const current = event.target.value;
                                 lesson.steps[index].id = current;
                                 if (lesson.entryStepId === previous) lesson.entryStepId = current;
                                 lesson.steps.forEach((entry) => { entry.next = entry.next.map((id) => id === previous ? current : id); });
                               })} /></label>
-                              <label><span>{t("阶段", "Phase")}</span><select value={step.phase} onChange={(event) => editCourse((next) => { next.lessons[0].steps[index].phase = event.target.value as LessonPhase; })}><option value="diagnostic">{t("诊断", "Diagnostic")}</option><option value="preteach">{t("预教", "Pre-teaching")}</option><option value="supported-input">{t("支持性输入", "Supported input")}</option><option value="comprehension">{t("独立理解", "Comprehension")}</option><option value="guided-output">{t("引导输出", "Guided output")}</option><option value="independent-task">{t("独立任务", "Independent task")}</option><option value="feedback-retry">{t("反馈重试", "Feedback retry")}</option><option value="delayed-transfer">{t("延迟迁移", "Delayed transfer")}</option></select></label>
-                              <label><span>{t("显示标题", "Display title")}（{teachingLocale === "en" ? "English" : "中文"}）</span><input value={step.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.lessons[0].steps[index].title[teachingLocale] = event.target.value; })} /></label>
+                              <label><span>{t("阶段", "Phase")}</span><select value={step.phase} onChange={(event) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].phase = event.target.value as LessonPhase; })}><option value="diagnostic">{t("诊断", "Diagnostic")}</option><option value="preteach">{t("预教", "Pre-teaching")}</option><option value="supported-input">{t("支持性输入", "Supported input")}</option><option value="comprehension">{t("独立理解", "Comprehension")}</option><option value="guided-output">{t("引导输出", "Guided output")}</option><option value="independent-task">{t("独立任务", "Independent task")}</option><option value="feedback-retry">{t("反馈重试", "Feedback retry")}</option><option value="delayed-transfer">{t("延迟迁移", "Delayed transfer")}</option></select></label>
+                              <label><span>{t("显示标题", "Display title")}（{teachingLocale === "en" ? "English" : "中文"}）</span><input value={step.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].title[teachingLocale] = event.target.value; })} /></label>
                             </div>
-                            <button className="step-delete" onClick={() => removeStep(index)} aria-label={t(`删除步骤 ${index + 1}`, `Delete step ${index + 1}`)}><Trash2 size={15} /></button>
+                            <div className="step-actions"><button type="button" onClick={() => moveStep(index, -1)} disabled={index === 0} aria-label={t(`上移步骤 ${index + 1}`, `Move step ${index + 1} up`)}><ArrowUp size={14} /></button><button type="button" onClick={() => moveStep(index, 1)} disabled={index === flow.length - 1} aria-label={t(`下移步骤 ${index + 1}`, `Move step ${index + 1} down`)}><ArrowDown size={14} /></button><button type="button" className="danger" onClick={() => removeStep(index)} disabled={flow.length <= 1} aria-label={t(`删除步骤 ${index + 1}`, `Delete step ${index + 1}`)}><Trash2 size={14} /></button></div>
                           </article>
                         ))}
                       </div>
