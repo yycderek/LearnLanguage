@@ -67,6 +67,12 @@ import {
   type LearningProgress,
   type ReviewTask,
 } from "@/lib/learning";
+import {
+  normalizeTeachingLocale,
+  TEACHING_LOCALE_PREFERENCE_KEY,
+  uiText,
+  type TeachingLocale,
+} from "@/lib/i18n";
 
 type HistoryItem = {
   draftId: string;
@@ -81,6 +87,7 @@ type EditorSection = "overview" | "knowledge" | "utterances" | "exercises" | "fl
 type LanguageForm = {
   id: string;
   zhName: string;
+  enName: string;
   nativeName: string;
   accent: string;
   scriptCode: string;
@@ -93,6 +100,7 @@ const defaultAiSettings: AiSettings = { provider: "openai", model: "", endpoint:
 const defaultLanguageForm: LanguageForm = {
   id: "",
   zhName: "",
+  enName: "",
   nativeName: "",
   accent: "Aa",
   scriptCode: "Latn",
@@ -133,6 +141,7 @@ function aiIsReady(settings: AiSettings) {
 }
 
 export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" }) {
+  const [teachingLocale, setTeachingLocale] = useState<TeachingLocale>("zh-CN");
   const [language, setLanguage] = useState("ja");
   const [languagePacks, setLanguagePacks] = useState<LanguagePack[]>(builtInLanguagePacks);
   const [source, setSource] = useState(() => JSON.stringify(sampleCourse("ja"), null, 2));
@@ -174,22 +183,23 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const learnCourses = useMemo(() => {
     const catalog = new Map<string, CoursePack>();
     for (const pack of languagePacks) {
-      const sample = sampleCourse(pack.id, languageName(pack));
+      const sample = sampleCourse(pack.id, languageName(pack, teachingLocale));
       catalog.set(sample.manifest.id, sample);
     }
     for (const installed of installedCourses) catalog.set(installed.manifest.id, installed);
     return [...catalog.values()];
-  }, [installedCourses, languagePacks]);
+  }, [installedCourses, languagePacks, teachingLocale]);
 
   useEffect(() => {
     let active = true;
     async function hydrate() {
-      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses] = await Promise.all([
+      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedTeachingLocale] = await Promise.all([
         getDeviceValue<HistoryItem[]>("drafts", "history"),
         getDeviceValue<AiSettings>("preferences", "ai"),
         getAllDeviceValues<LanguagePack>("languagePacks"),
         getAllDeviceValues<unknown>("courseRecords"),
         getAllDeviceValues<CoursePack>("installedCourses"),
+        getDeviceValue<unknown>("preferences", TEACHING_LOCALE_PREFERENCE_KEY),
       ]);
       if (!active) return;
       const sessionKey = sessionStorage.getItem(AI_SESSION_KEY) ?? "";
@@ -205,6 +215,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       setLanguagePacks([...builtInLanguagePacks, ...customPacks.filter((pack) => !builtInLanguagePacks.some((item) => item.id === pack.id))]);
       setRecordsByCourse(normalizedRecords);
       setInstalledCourses(storedInstalledCourses);
+      setTeachingLocale(normalizeTeachingLocale(storedTeachingLocale));
       if (space === "learn" && storedInstalledCourses[0]) {
         setCourse(storedInstalledCourses[0]);
         setSource(JSON.stringify(storedInstalledCourses[0], null, 2));
@@ -216,6 +227,15 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     });
     return () => { active = false; };
   }, [space]);
+
+  useEffect(() => {
+    document.documentElement.lang = teachingLocale;
+  }, [teachingLocale]);
+
+  function changeTeachingLocale(locale: TeachingLocale) {
+    setTeachingLocale(locale);
+    void putDeviceValue("preferences", TEACHING_LOCALE_PREFERENCE_KEY, locale).catch(() => setNotice(uiText(locale, "教学语言偏好保存失败", "Could not save the teaching-language preference")));
+  }
 
   function commitCourse(next: CoursePack, message = "可视化修改已同步到课程包") {
     setCourse(next);
@@ -235,7 +255,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   function loadLanguage(pack: LanguagePack) {
-    const next = sampleCourse(pack.id, languageName(pack));
+    const next = sampleCourse(pack.id, languageName(pack, teachingLocale));
     setLanguage(pack.id);
     setEditorSection("overview");
     setDraftId(undefined);
@@ -434,7 +454,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       id: uniqueId("knowledge", next.knowledge.map((item) => item.id)),
       kind: "lexeme",
       form: "",
-      meaning: { "zh-CN": "" },
+      meaning: { [teachingLocale]: "" },
     }));
   }
 
@@ -452,7 +472,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     editCourse((next) => next.utterances.push({
       id: uniqueId("utterance", next.utterances.map((item) => item.id)),
       text: "",
-      translation: { "zh-CN": "" },
+      translation: { [teachingLocale]: "" },
       knowledgeRefs: [],
     }));
   }
@@ -470,7 +490,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     editCourse((next) => next.exercises.push({
       id: uniqueId("exercise", next.exercises.map((item) => item.id)),
       kind: "role-play",
-      prompt: { "zh-CN": "" },
+      prompt: { [teachingLocale]: "" },
       knowledgeRefs: [],
       utteranceRefs: [],
     }));
@@ -491,7 +511,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       const id = uniqueId("step", lesson.steps.map((item) => item.id));
       const previous = lesson.steps.at(-1);
       if (previous) previous.next = [id];
-      lesson.steps.push({ id, phase: "supported-input", title: { "zh-CN": "新学习步骤" }, supportLevel: "full", knowledgeRefs: [], utteranceRefs: [], exerciseRefs: [], next: [] });
+      lesson.steps.push({ id, phase: "supported-input", title: { [teachingLocale]: uiText(teachingLocale, "新学习步骤", "New learning step") }, supportLevel: "full", knowledgeRefs: [], utteranceRefs: [], exerciseRefs: [], next: [] });
       if (!lesson.entryStepId) lesson.entryStepId = id;
     });
   }
@@ -513,7 +533,11 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       json = JSON.stringify({
         schemaVersion: 1,
         id: languageForm.id.trim(),
-        name: { "zh-CN": languageForm.zhName.trim(), native: languageForm.nativeName.trim() || languageForm.zhName.trim() },
+        name: {
+          "zh-CN": languageForm.zhName.trim(),
+          en: languageForm.enName.trim(),
+          native: languageForm.nativeName.trim() || languageForm.enName.trim() || languageForm.zhName.trim(),
+        },
         accent: languageForm.accent.trim(),
         scripts: [{ code: languageForm.scriptCode.trim(), name: { "zh-CN": languageForm.scriptCode.trim() }, direction: languageForm.direction, primary: true }],
         readingSystems: [],
@@ -548,13 +572,13 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const selectedProgress = selectedLessonId ? currentRecord?.lessonProgress[selectedLessonId] : undefined;
 
   if (learningView === "dashboard") {
-    return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;
+    return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} teachingLocale={teachingLocale} onTeachingLocaleChange={changeTeachingLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;
   }
   if (learningView === "lesson" && selectedProgress) {
-    return <LearningPlayer course={course} languagePack={currentLanguage} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
+    return <LearningPlayer course={course} languagePack={currentLanguage} teachingLocale={teachingLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
   }
   if (learningView === "review" && currentRecord) {
-    return <ReviewPlayer course={course} initialRecord={currentRecord} tasks={reviewTasks} preview={learningContext === "preview"} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />;
+    return <ReviewPlayer course={course} teachingLocale={teachingLocale} initialRecord={currentRecord} tasks={reviewTasks} preview={learningContext === "preview"} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />;
   }
 
   return (
@@ -593,9 +617,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         <header className="topbar">
           <div>
             <div className="eyebrow"><span className="status-dot" />无需登录 · 设备本地</div>
-            <h1>{displayText(course.manifest.title)}</h1>
+            <h1>{displayText(course.manifest.title, teachingLocale)}</h1>
           </div>
           <div className="top-actions">
+            <label className="teaching-language-select"><Languages size={16} /><span>{uiText(teachingLocale, "教学语言", "Teaching language")}</span><select value={teachingLocale} onChange={(event) => changeTeachingLocale(event.target.value as TeachingLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label>
             <button className="ai-button" onClick={() => setAiOpen(true)}><Bot size={17} />AI 设置<span className={`ai-state ${aiConfigured ? "configured" : ""}`} /></button>
             {course.manifest.status === "published" ? <><button className="outline-button" onClick={installCurrentCourse}><GraduationCap size={17} />安装到学习空间</button><button className="save-button" onClick={forkCurrentCourse}><RotateCcw size={17} />创建派生草稿</button></> : <><button className="outline-button" onClick={publishCurrentCourse} disabled={publishing}>{publishing ? "正在发布…" : "校验并发布"}</button><button className="save-button" onClick={saveDraft} disabled={saving}><Save size={17} />{saving ? "正在保存…" : "保存草稿"}</button></>}
           </div>
@@ -624,12 +649,12 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                 <div className="visual-editor">
                   {editorSection === "overview" && (
                     <div className="form-section">
-                      <div className="section-intro"><div><h3>课程基本信息</h3><p>这些信息会显示在课程封面和目录中。</p></div></div>
+                      <div className="section-intro"><div><h3>课程基本信息</h3><p>正在编辑{teachingLocale === "en" ? "英文" : "中文"}教学内容；切换右上角教学语言可维护另一版本。</p></div></div>
                       <div className="form-grid two-column">
                         <label><span>课程 ID</span><input value={course.manifest.id} onChange={(event) => editCourse((next) => { next.manifest.id = event.target.value; })} /></label>
                         <label><span>版本</span><input value={course.manifest.version} onChange={(event) => editCourse((next) => { next.manifest.version = event.target.value; })} /></label>
-                        <label className="wide"><span>课程名称</span><input value={displayText(course.manifest.title)} onChange={(event) => editCourse((next) => { next.manifest.title["zh-CN"] = event.target.value; })} /></label>
-                        <label className="wide"><span>课程简介</span><textarea value={displayText(course.manifest.description)} onChange={(event) => editCourse((next) => { next.manifest.description["zh-CN"] = event.target.value; })} /></label>
+                        <label className="wide"><span>课程名称（{teachingLocale === "en" ? "English" : "中文"}）</span><input value={course.manifest.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.manifest.title[teachingLocale] = event.target.value; })} /></label>
+                        <label className="wide"><span>课程简介（{teachingLocale === "en" ? "English" : "中文"}）</span><textarea value={course.manifest.description[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.manifest.description[teachingLocale] = event.target.value; })} /></label>
                         <label><span>状态</span><input value={course.manifest.status === "published" ? "已发布 · 只读" : "草稿"} readOnly /></label>
                         <label><span>作者显示名</span><input value={course.manifest.author.displayName} onChange={(event) => editCourse((next) => { next.manifest.author.displayName = event.target.value; })} /></label>
                         <label><span>课程内容许可证</span><select value={course.manifest.license?.id ?? ""} onChange={(event) => editCourse((next) => { const id = event.target.value; if (id) next.manifest.license = { id }; else delete next.manifest.license; })}><option value="">发布前必须选择</option><option value="CC-BY-4.0">CC BY 4.0</option><option value="CC-BY-SA-4.0">CC BY-SA 4.0</option><option value="CC0-1.0">CC0 1.0</option><option value="ARR">保留所有权利</option></select></label>
@@ -655,7 +680,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                               })} /></label>
                               <label><span>类型</span><select value={item.kind} onChange={(event) => editCourse((next) => { next.knowledge[index].kind = event.target.value as typeof item.kind; })}><option value="lexeme">词汇</option><option value="grammar">语法</option><option value="script">文字系统</option><option value="pragmatics">语用文化</option></select></label>
                               <label><span>目标语形式</span><input value={item.form} dir={currentLanguage?.scripts[0]?.direction ?? "ltr"} onChange={(event) => editCourse((next) => { next.knowledge[index].form = event.target.value; })} /></label>
-                              <label className="wide"><span>中文释义</span><input value={displayText(item.meaning)} onChange={(event) => editCourse((next) => { next.knowledge[index].meaning["zh-CN"] = event.target.value; })} /></label>
+                              <label className="wide"><span>{teachingLocale === "en" ? "English meaning" : "中文释义"}</span><input value={item.meaning[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.knowledge[index].meaning[teachingLocale] = event.target.value; })} /></label>
                             </div>
                           </article>
                         ))}
@@ -680,7 +705,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                               })} /></label>
                               <label><span>关联知识点（逗号分隔）</span><input value={item.knowledgeRefs.join(", ")} onChange={(event) => editCourse((next) => { next.utterances[index].knowledgeRefs = splitRefs(event.target.value); })} /></label>
                               <label className="wide"><span>目标语例句</span><textarea dir={currentLanguage?.scripts[0]?.direction ?? "ltr"} value={item.text} onChange={(event) => editCourse((next) => { next.utterances[index].text = event.target.value; })} /></label>
-                              <label className="wide"><span>中文翻译</span><input value={displayText(item.translation)} onChange={(event) => editCourse((next) => { next.utterances[index].translation = { ...(next.utterances[index].translation ?? {}), "zh-CN": event.target.value }; })} /></label>
+                              <label className="wide"><span>{teachingLocale === "en" ? "English translation" : "中文翻译"}</span><input value={item.translation?.[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.utterances[index].translation = { ...(next.utterances[index].translation ?? {}), [teachingLocale]: event.target.value }; })} /></label>
                             </div>
                           </article>
                         ))}
@@ -703,7 +728,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                                 next.lessons.forEach((lesson) => lesson.steps.forEach((step) => { step.exerciseRefs = step.exerciseRefs.map((id) => id === previous ? current : id); }));
                               })} /></label>
                               <label><span>类型</span><select value={item.kind} onChange={(event) => editCourse((next) => { next.exercises[index].kind = event.target.value as ExerciseKind; })}><option value="single-choice">单选理解</option><option value="role-play">角色扮演</option><option value="ordering">排序</option><option value="free-response">自由回答</option></select></label>
-                              <label className="wide"><span>任务提示</span><textarea value={displayText(item.prompt)} onChange={(event) => editCourse((next) => { next.exercises[index].prompt["zh-CN"] = event.target.value; })} /></label>
+                              <label className="wide"><span>任务提示（{teachingLocale === "en" ? "English" : "中文"}）</span><textarea value={item.prompt[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.exercises[index].prompt[teachingLocale] = event.target.value; })} /></label>
                               <label><span>关联知识点（逗号分隔）</span><input value={item.knowledgeRefs.join(", ")} onChange={(event) => editCourse((next) => { next.exercises[index].knowledgeRefs = splitRefs(event.target.value); })} /></label>
                               <label><span>关联例句（逗号分隔）</span><input value={item.utteranceRefs.join(", ")} onChange={(event) => editCourse((next) => { next.exercises[index].utteranceRefs = splitRefs(event.target.value); })} /></label>
                               <label><span>所需语言能力（逗号分隔）</span><input placeholder="例如 token-comparison" value={item.requiredCapabilities?.join(", ") ?? ""} onChange={(event) => editCourse((next) => { const capabilities = splitRefs(event.target.value) as NonNullable<CoursePack["exercises"][number]["requiredCapabilities"]>; if (capabilities.length) next.exercises[index].requiredCapabilities = capabilities; else delete next.exercises[index].requiredCapabilities; })} /></label>
@@ -718,7 +743,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                   {editorSection === "flow" && (
                     <div className="form-section">
                       <div className="section-intro"><div><h3>课节与学习流程</h3><p>调整第一个课节的标题和逐步学习路径。</p></div><button className="outline-button" onClick={addStep}><Plus size={15} />添加步骤</button></div>
-                      {course.lessons[0] && <label className="lesson-title-field"><span>课节名称</span><input value={displayText(course.lessons[0].title)} onChange={(event) => editCourse((next) => { next.lessons[0].title["zh-CN"] = event.target.value; })} /></label>}
+                      {course.lessons[0] && <label className="lesson-title-field"><span>课节名称（{teachingLocale === "en" ? "English" : "中文"}）</span><input value={course.lessons[0].title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.lessons[0].title[teachingLocale] = event.target.value; })} /></label>}
                       <div className="item-stack compact">
                         {flow.map((step, index) => (
                           <article className="edit-card flow-edit-card" key={`${step.id}-${index}`}>
@@ -733,7 +758,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                                 lesson.steps.forEach((entry) => { entry.next = entry.next.map((id) => id === previous ? current : id); });
                               })} /></label>
                               <label><span>阶段</span><select value={step.phase} onChange={(event) => editCourse((next) => { next.lessons[0].steps[index].phase = event.target.value as LessonPhase; })}><option value="diagnostic">诊断</option><option value="preteach">预教</option><option value="supported-input">支持性输入</option><option value="comprehension">独立理解</option><option value="guided-output">引导输出</option><option value="independent-task">独立任务</option><option value="feedback-retry">反馈重试</option><option value="delayed-transfer">延迟迁移</option></select></label>
-                              <label><span>显示标题</span><input value={displayText(step.title)} onChange={(event) => editCourse((next) => { next.lessons[0].steps[index].title["zh-CN"] = event.target.value; })} /></label>
+                              <label><span>显示标题（{teachingLocale === "en" ? "English" : "中文"}）</span><input value={step.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.lessons[0].steps[index].title[teachingLocale] = event.target.value; })} /></label>
                             </div>
                             <button className="step-delete" onClick={() => removeStep(index)} aria-label={`删除步骤 ${index + 1}`}><Trash2 size={15} /></button>
                           </article>
@@ -764,10 +789,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
               <div className="course-cover"><span>{currentLanguage?.accent ?? language.slice(0, 2)}</span><div className="cover-orbit orbit-one" /><div className="cover-orbit orbit-two" /></div>
               <div className="course-info">
                 <div className="course-meta"><span>{currentLanguage ? languageName(currentLanguage, "native") : language}</span><span>·</span><span>{course.manifest.status}</span></div>
-                <h2>{displayText(course.manifest.title)}</h2><p>{displayText(course.manifest.description)}</p>
+                <h2>{displayText(course.manifest.title, teachingLocale)}</h2><p>{displayText(course.manifest.description, teachingLocale)}</p>
                 <div className="stat-grid">{stats.map(([value, label]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
                 <div className="learning-launch">
-                  {currentRecord && <div className="mini-progress"><span><i style={{ width: `${currentPercent}%` }} /></span><small>{ongoingLesson ? `正在学习：${displayText(ongoingLesson.title)}` : `课程进度 ${currentPercent}%`}{dueReviewCount > 0 ? ` · ${dueReviewCount} 个待复习` : ""}</small></div>}
+                  {currentRecord && <div className="mini-progress"><span><i style={{ width: `${currentPercent}%` }} /></span><small>{ongoingLesson ? `正在学习：${displayText(ongoingLesson.title, teachingLocale)}` : `课程进度 ${currentPercent}%`}{dueReviewCount > 0 ? ` · ${dueReviewCount} 个待复习` : ""}</small></div>}
                   <button onClick={enterStudioPreview}><Play size={15} fill="currentColor" />预览学习流程</button>
                   <small>预览使用临时档案，不会写入真实学习进度。</small>
                 </div>
@@ -775,7 +800,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
             </section>
             <section className="flow-panel panel">
               <div className="panel-heading"><div><span className="kicker">LEARNING FLOW</span><h2>课程流程预览</h2></div><span className="count-badge">{flow.length} 步</span></div>
-              <div className="flow-list">{flow.map((step, index) => <div className="flow-step" key={`${step.id}-${index}`}><div className="step-index">{String(index + 1).padStart(2, "0")}</div><div><strong>{displayText(step.title)}</strong><span>{step.phase}</span></div>{index < flow.length - 1 && <ChevronRight size={15} />}</div>)}</div>
+              <div className="flow-list">{flow.map((step, index) => <div className="flow-step" key={`${step.id}-${index}`}><div className="step-index">{String(index + 1).padStart(2, "0")}</div><div><strong>{displayText(step.title, teachingLocale)}</strong><span>{step.phase}</span></div>{index < flow.length - 1 && <ChevronRight size={15} />}</div>)}</div>
             </section>
             <section className="history-panel panel">
               <div className="panel-heading"><div><span className="kicker">VERSION HISTORY</span><h2>当前设备的修订</h2></div></div>
@@ -796,6 +821,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                   <label><span>语言 ID</span><input value={languageForm.id} onChange={(event) => setLanguageForm((current) => ({ ...current, id: event.target.value }))} placeholder="例如：fr 或 ar-EG" /></label>
                   <label><span>语言符号</span><input value={languageForm.accent} maxLength={2} onChange={(event) => setLanguageForm((current) => ({ ...current, accent: event.target.value }))} placeholder="Fr" /></label>
                   <label><span>中文名称</span><input value={languageForm.zhName} onChange={(event) => setLanguageForm((current) => ({ ...current, zhName: event.target.value }))} placeholder="例如：法语" /></label>
+                  <label><span>英文名称</span><input value={languageForm.enName} onChange={(event) => setLanguageForm((current) => ({ ...current, enName: event.target.value }))} placeholder="例如：French" /></label>
                   <label><span>本地名称</span><input value={languageForm.nativeName} onChange={(event) => setLanguageForm((current) => ({ ...current, nativeName: event.target.value }))} placeholder="例如：Français" /></label>
                   <label><span>书写系统代码</span><input value={languageForm.scriptCode} onChange={(event) => setLanguageForm((current) => ({ ...current, scriptCode: event.target.value }))} placeholder="Latn" /></label>
                   <label><span>书写方向</span><select value={languageForm.direction} onChange={(event) => setLanguageForm((current) => ({ ...current, direction: event.target.value as LanguageDirection }))}><option value="ltr">从左到右</option><option value="rtl">从右到左</option><option value="ttb">从上到下</option></select></label>

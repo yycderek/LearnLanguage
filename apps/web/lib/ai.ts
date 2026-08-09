@@ -1,4 +1,5 @@
-import type { CoursePack } from "@/lib/course";
+import { displayText, type CoursePack } from "./course.ts";
+import type { TeachingLocale } from "./i18n.ts";
 
 export type AiProvider = "openai" | "anthropic" | "gemini" | "compatible";
 
@@ -23,6 +24,7 @@ export type LearningFeedbackContext = {
   answer: string;
   targetForms: string[];
   guidance?: string;
+  teachingLocale?: TeachingLocale;
 };
 
 type Fetcher = typeof fetch;
@@ -50,6 +52,22 @@ export function resolveCompatibleEndpoint(endpoint: string) {
 }
 
 export function buildLearningFeedbackPrompt(context: LearningFeedbackContext) {
+  const locale = context.teachingLocale ?? "zh-CN";
+  if (locale === "en") {
+    return [
+      "Evaluate whether the learner completed the language task. Accept answers that differ from the reference wording when their meaning and usage are appropriate.",
+      "Return JSON only, without Markdown, using this shape:",
+      '{"verdict":"pass or retry","title":"short conclusion","message":"one specific piece of feedback","suggestion":"optional improved wording"}',
+      `Course: ${displayText(context.course.manifest.title, locale)}`,
+      `Target language: ${context.course.manifest.languageId}`,
+      `Lesson: ${context.lessonTitle}`,
+      `Task: ${context.prompt}`,
+      `Learner answer: ${context.answer}`,
+      `Target forms: ${context.targetForms.join(", ") || "not specified"}`,
+      `Course guidance: ${context.guidance || "none"}`,
+      "Judge task completion and comprehensibility first, then identify the single most important improvement. Do not require an exact reproduction of the reference answer. Respond in English.",
+    ].join("\n");
+  }
   return [
     "请评估学习者是否完成了语言任务。允许与参考表达不同但语义正确、语用合适的答案。",
     "只返回 JSON，不要使用 Markdown。格式：",
@@ -65,7 +83,7 @@ export function buildLearningFeedbackPrompt(context: LearningFeedbackContext) {
   ].join("\n");
 }
 
-export function parseAiFeedback(text: string): AiFeedback {
+export function parseAiFeedback(text: string, teachingLocale: TeachingLocale = "zh-CN"): AiFeedback {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
@@ -75,7 +93,11 @@ export function parseAiFeedback(text: string): AiFeedback {
   if (!verdict || typeof value.message !== "string" || !value.message.trim()) throw new Error("AI 反馈缺少判定或说明。");
   return {
     verdict,
-    title: typeof value.title === "string" && value.title.trim() ? value.title.trim() : verdict === "pass" ? "任务完成" : "建议再试一次",
+    title: typeof value.title === "string" && value.title.trim()
+      ? value.title.trim()
+      : teachingLocale === "en"
+        ? verdict === "pass" ? "Task complete" : "Try again"
+        : verdict === "pass" ? "任务完成" : "建议再试一次",
     message: value.message.trim(),
     suggestion: typeof value.suggestion === "string" && value.suggestion.trim() ? value.suggestion.trim() : undefined,
   };
@@ -134,5 +156,5 @@ export async function testAiConnection(settings: AiSettings, fetcher: Fetcher = 
 
 export async function requestAiFeedback(settings: AiSettings, context: LearningFeedbackContext, fetcher: Fetcher = fetch) {
   const text = await callAi(settings, "feedback", buildLearningFeedbackPrompt(context), fetcher);
-  return parseAiFeedback(text);
+  return parseAiFeedback(text, context.teachingLocale);
 }

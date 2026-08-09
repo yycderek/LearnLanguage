@@ -1,0 +1,28 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { localizedText, normalizeTeachingLocale, uiText } from "../lib/i18n.ts";
+import { displayText, sampleCourse } from "../lib/course.ts";
+
+test("teaching locale selects English and preserves Chinese as the default", () => {
+  const value = { "zh-CN": "咖啡", en: "coffee" };
+  assert.equal(localizedText(value, "zh-CN"), "咖啡");
+  assert.equal(localizedText(value, "en"), "coffee");
+  assert.equal(displayText(value), "咖啡");
+  assert.equal(uiText("en", "中文", "English"), "English");
+  assert.equal(normalizeTeachingLocale("unsupported"), "zh-CN");
+});
+
+test("localized content has deterministic fallbacks", () => {
+  assert.equal(localizedText({ "zh-CN": "只有中文" }, "en"), "只有中文");
+  assert.equal(localizedText({ native: "Français" }, "en"), "Français");
+  assert.equal(localizedText(undefined, "en"), "Untitled");
+});
+
+test("bundled course provides a complete English learner path", () => {
+  const course = sampleCourse("ja");
+  assert.equal(displayText(course.manifest.title, "en"), "Japanese Café Ordering");
+  assert.ok(course.lessons.every((lesson) => Boolean(lesson.title.en)));
+  assert.ok(course.lessons.flatMap((lesson) => lesson.steps).every((step) => Boolean(step.title.en)));
+  assert.ok(course.knowledge.every((item) => Boolean(item.meaning.en)));
+  assert.ok(course.exercises.every((exercise) => Boolean(exercise.prompt.en)));
+});

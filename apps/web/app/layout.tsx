@@ -7,11 +7,11 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: { default: "LearnLanguage", template: "%s · LearnLanguage" },
-  description: "一套引擎，学习任何语言。",
+  description: "一套引擎，学习任何语言。 One engine for any language.",
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
   openGraph: {
     title: "LearnLanguage 课程工作台",
-    description: "一套引擎，学习任何语言。",
+    description: "一套引擎，学习任何语言。 One engine for any language.",
     images: [{ url: "/og.png", width: 1200, height: 630 }],
   },
 };

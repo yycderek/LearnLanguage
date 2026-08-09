@@ -1,0 +1,16 @@
+{
+  "name": "@learn-language/language-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@learn-language/protocol": "workspace:*"
+  }
+}

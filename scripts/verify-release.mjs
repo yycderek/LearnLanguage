@@ -23,6 +23,7 @@ const manifests = [
   "apps/web/package.json",
   "packages/application/package.json",
   "packages/engine/package.json",
+  "packages/language-runtime/package.json",
   "packages/protocol/package.json",
   "packages/sync/package.json",
 ];

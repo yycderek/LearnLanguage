@@ -12,5 +12,5 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "packages/engine/src/**/*.ts", "packages/application/src/**/*.ts", "packages/protocol/src/**/*.ts", "packages/sync/src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "packages/engine/src/**/*.ts", "packages/application/src/**/*.ts", "packages/language-runtime/src/**/*.ts", "packages/protocol/src/**/*.ts", "packages/sync/src/**/*.ts"]
 }

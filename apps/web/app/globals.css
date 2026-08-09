@@ -53,6 +53,8 @@ button { color: inherit; }
 .eyebrow { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; letter-spacing: .08em; }
 .status-dot { width: 7px; height: 7px; background: #5aa37d; border-radius: 50%; box-shadow: 0 0 0 4px rgba(90,163,125,.13); }
 .top-actions { display: flex; align-items: center; gap: 9px; }
+.teaching-language-select { min-height: 36px; display: inline-flex; align-items: center; gap: 7px; padding: 5px 8px; border: 1px solid #d9ddd7; background: #fff; color: #52645e; border-radius: 8px; font-size: 9px; font-weight: 700; }
+.teaching-language-select select { border: 0; background: transparent; color: inherit; outline: 0; font-size: 9px; font-weight: 750; cursor: pointer; }
 .save-button, .primary-button { border: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--green); color: white; border-radius: 9px; cursor: pointer; font-weight: 650; box-shadow: 0 5px 16px rgba(31,90,77,.18); transition: transform .15s ease, background .15s ease; }
 .save-button { padding: 11px 16px; }
 .save-button:hover, .primary-button:hover { transform: translateY(-1px); background: #174a3f; }
@@ -305,6 +307,9 @@ button { color: inherit; }
 .learning-home-topbar > div strong { margin-top: 4px; font-size: 13px; }
 .learning-home-topbar > div select { max-width: 260px; margin-top: 7px; padding: 5px 24px 5px 8px; border: 1px solid rgba(255,255,255,.18); background: #214f46; color: white; border-radius: 7px; font-size: 9px; }
 .learning-home-topbar > em { justify-self: end; color: var(--yellow); font-size: 9px; font-style: normal; }
+.learning-home-topbar > .learning-home-meta { justify-self: end; display: flex; align-items: flex-end; flex-direction: column; gap: 5px; text-align: right; }
+.learning-home-meta em { color: var(--yellow); font-size: 9px; font-style: normal; }
+.learning-home-meta .teaching-language-select { min-height: 0; padding: 3px 6px; border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.07); color: rgba(255,255,255,.82); }
 .learning-home-hero { max-width: 1160px; min-height: 190px; margin: 26px auto 0; padding: 30px 36px; display: flex; align-items: center; justify-content: space-between; gap: 28px; overflow: hidden; background: #1f5a4d; color: white; border-radius: 17px; box-shadow: 0 18px 55px rgba(29,74,63,.15); }
 .learning-home-hero h1 { margin: 8px 0 7px; font-family: "Noto Serif SC", "Songti SC", serif; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }
 .learning-home-hero p { margin: 0; color: rgba(255,255,255,.65); font-size: 11px; }
@@ -453,7 +458,8 @@ button { color: inherit; }
   .completion-actions { flex-direction: column-reverse; }
   .completion-actions button { width: 100%; }
   .learning-home-topbar { min-height: 64px; grid-template-columns: 1fr auto; padding: 12px 14px; }
-  .learning-home-topbar > div { display: none; }
+  .learning-home-topbar > div:not(.learning-home-meta) { display: none; }
+  .learning-home-topbar > .learning-home-meta { display: flex; }
   .learning-home-topbar > em { font-size: 8px; }
   .learning-home-hero { min-height: 170px; margin: 15px 12px 0; padding: 23px 20px; }
   .learning-home-hero h1 { font-size: 28px; }

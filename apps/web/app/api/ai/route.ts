@@ -8,7 +8,7 @@ type AiGatewayRequest = {
   prompt?: string;
 };
 
-const SYSTEM_PROMPT = "你是一名严格但支持学习者的语言教师。遵循用户要求的输出格式，反馈简洁、具体，不评价发音。";
+const SYSTEM_PROMPT = "You are a strict but supportive language teacher. Follow the requested output format and response language. Keep feedback concise and specific. Do not evaluate pronunciation. / 你是一名严格但支持学习者的语言教师，请遵循要求的格式与回复语言。";
 
 function json(data: object, status = 200) {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });

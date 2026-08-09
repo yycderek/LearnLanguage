@@ -14,6 +14,9 @@ importers:
       '@learn-language/engine':
         specifier: link:../../packages/engine
         version: link:../../packages/engine
+      '@learn-language/language-runtime':
+        specifier: link:../../packages/language-runtime
+        version: link:../../packages/language-runtime
       '@learn-language/protocol':
         specifier: link:../../packages/protocol
         version: link:../../packages/protocol

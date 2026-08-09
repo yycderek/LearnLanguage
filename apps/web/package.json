@@ -11,12 +11,13 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "pnpm build && node --experimental-strip-types --test tests/rendered-html.node.mjs tests/learning.node.mjs tests/ai.node.mjs tests/course.node.mjs tests/language-capabilities.node.mjs",
+    "test": "pnpm build && node --experimental-strip-types --test tests/rendered-html.node.mjs tests/learning.node.mjs tests/ai.node.mjs tests/course.node.mjs tests/i18n.node.mjs tests/language-capabilities.node.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {
     "@learn-language/application": "link:../../packages/application",
     "@learn-language/engine": "link:../../packages/engine",
+    "@learn-language/language-runtime": "link:../../packages/language-runtime",
     "@learn-language/protocol": "link:../../packages/protocol",
     "next": "16.2.6",
     "react": "19.2.6",

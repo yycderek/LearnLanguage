@@ -46,6 +46,12 @@ importers:
         specifier: workspace:*
         version: link:../protocol
 
+  packages/language-runtime:
+    dependencies:
+      '@learn-language/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+
   packages/protocol: {}
 
   packages/sync:

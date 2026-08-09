@@ -24,3 +24,18 @@ test("compatible endpoint and learning prompt are normalized", () => {
   assert.match(prompt, /コーヒーをお願いします/);
   assert.match(prompt, /不要要求逐字复现/);
 });
+
+test("English teaching language produces an English feedback contract", () => {
+  const course = sampleCourse("ja");
+  const prompt = buildLearningFeedbackPrompt({
+    course,
+    lessonTitle: "Ordering at a café",
+    prompt: "Order a drink from the server.",
+    answer: "コーヒーをお願いします。",
+    targetForms: ["コーヒー", "〜をお願いします"],
+    teachingLocale: "en",
+  });
+  assert.match(prompt, /Course: Japanese Café Ordering/);
+  assert.match(prompt, /Respond in English/);
+  assert.equal(parseAiFeedback('{"verdict":"pass","message":"Clear and appropriate."}', "en").title, "Task complete");
+});

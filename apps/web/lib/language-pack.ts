@@ -1,4 +1,5 @@
 import type { Exercise, LanguageCapability, LanguageDefinition } from "@learn-language/protocol";
+import { resolveLanguageRuntime } from "@learn-language/language-runtime";
 
 export type LanguagePack = LanguageDefinition;
 export type { LanguageDirection } from "@learn-language/protocol";
@@ -7,10 +8,10 @@ export const builtInLanguagePacks: LanguagePack[] = [
   {
     schemaVersion: 1,
     id: "ja",
-    name: { "zh-CN": "日语", native: "日本語" },
+    name: { "zh-CN": "日语", en: "Japanese", native: "日本語" },
     accent: "樱",
     scripts: [
-      { code: "Jpan", name: { "zh-CN": "日文", native: "日本語" }, direction: "ltr", primary: true },
+      { code: "Jpan", name: { "zh-CN": "日文", en: "Japanese script", native: "日本語" }, direction: "ltr", primary: true },
     ],
     readingSystems: [],
     segmentation: { strategy: "adapter" },
@@ -23,10 +24,10 @@ export const builtInLanguagePacks: LanguagePack[] = [
   {
     schemaVersion: 1,
     id: "yue-Hant-HK",
-    name: { "zh-CN": "粤语", native: "粵語" },
+    name: { "zh-CN": "粤语", en: "Cantonese", native: "粵語" },
     accent: "粤",
     scripts: [
-      { code: "Hant", name: { "zh-CN": "繁体中文", native: "繁體中文" }, direction: "ltr", primary: true },
+      { code: "Hant", name: { "zh-CN": "繁体中文", en: "Traditional Chinese", native: "繁體中文" }, direction: "ltr", primary: true },
     ],
     readingSystems: [],
     segmentation: { strategy: "adapter" },
@@ -38,7 +39,7 @@ export const builtInLanguagePacks: LanguagePack[] = [
   },
 ];
 
-export function languageName(pack: LanguagePack, locale: "zh-CN" | "native" = "zh-CN") {
+export function languageName(pack: LanguagePack, locale: "zh-CN" | "en" | "native" = "zh-CN") {
   return pack.name[locale] ?? pack.name["zh-CN"] ?? pack.name.native ?? pack.id;
 }
 
@@ -48,10 +49,7 @@ export interface ExerciseCapabilityResolution {
 }
 
 export function languageCapabilities(pack: LanguagePack): ReadonlySet<LanguageCapability> {
-  const capabilities = new Set<LanguageCapability>(["normalization"]);
-  if (pack.segmentation.strategy !== "adapter") capabilities.add("segmentation");
-  for (const capability of pack.adapter?.capabilities ?? []) capabilities.add(capability);
-  return capabilities;
+  return resolveLanguageRuntime(pack).capabilities;
 }
 
 export function resolveExerciseCapabilities(exercise: Exercise, pack: LanguagePack): ExerciseCapabilityResolution {

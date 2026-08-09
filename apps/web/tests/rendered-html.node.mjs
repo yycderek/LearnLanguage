@@ -51,8 +51,12 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /verifyPublishedCourseIntegrity/);
   assert.match(studio, /所需语言能力/);
   assert.match(studio, /能力不足时/);
+  assert.match(studio, /TEACHING_LOCALE_PREFERENCE_KEY/);
+  assert.match(studio, /Teaching language/);
+  assert.match(studio, /英文名称/);
   assert.match(languagePack, /validateLanguagePack/);
   assert.match(languagePack, /resolveExerciseCapabilities/);
+  assert.match(languagePack, /resolveLanguageRuntime/);
   assert.match(player, /本课学习完成/);
   assert.match(player, /根据提示重试/);
   assert.match(player, /AI 反馈中/);
@@ -65,8 +69,11 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(player, /advance\("self"\)/);
   assert.doesNotMatch(player, /result\.verdict === "pass"\) setFeedback\(\{ kind: "success"/);
   assert.match(player, /已生成的复习任务/);
+  assert.match(player, /Lesson complete/);
+  assert.match(player, /teachingLocale/);
   assert.match(dashboard, /今日复习/);
   assert.match(dashboard, /课程目录/);
+  assert.match(dashboard, /Course outline/);
   assert.match(reviewPlayer, /显示答案/);
   assert.match(reviewPlayer, /提高掌握度并延长间隔/);
   assert.match(learning, /submitLearningStep/);
