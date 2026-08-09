@@ -127,7 +127,6 @@ export function validateLanguageDefinition(
 
   issues.push(
     ...duplicateIds(definition.readingSystems, "readingSystems"),
-    ...duplicateIds(definition.pronunciationFeatures, "pronunciationFeatures"),
   );
 
   const primaryScripts = definition.scripts.filter((script) => script.primary);

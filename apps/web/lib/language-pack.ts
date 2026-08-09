@@ -1,48 +1,40 @@
-export type LanguageDirection = "ltr" | "rtl" | "ttb";
+import type { LanguageDefinition } from "@learn-language/protocol";
 
-export interface LanguagePack {
-  schemaVersion: 1;
-  id: string;
-  name: Record<string, string>;
-  accent: string;
-  scripts: Array<{
-    code: string;
-    name: Record<string, string>;
-    direction: LanguageDirection;
-    primary: boolean;
-  }>;
-  readingSystems: unknown[];
-  pronunciationFeatures: unknown[];
-  segmentation: { strategy: string };
-  speech: { recognitionLocales: string[]; synthesisLocales: string[] };
-}
+export type LanguagePack = LanguageDefinition;
+export type { LanguageDirection } from "@learn-language/protocol";
 
 export const builtInLanguagePacks: LanguagePack[] = [
   {
     schemaVersion: 1,
     id: "ja",
     name: { "zh-CN": "日语", native: "日本語" },
-    accent: "桜",
+    accent: "樱",
     scripts: [
       { code: "Jpan", name: { "zh-CN": "日文", native: "日本語" }, direction: "ltr", primary: true },
     ],
     readingSystems: [],
-    pronunciationFeatures: [],
-    segmentation: { strategy: "dictionary" },
-    speech: { recognitionLocales: ["ja-JP"], synthesisLocales: ["ja-JP"] },
+    segmentation: { strategy: "adapter" },
+    adapter: {
+      id: "core.japanese",
+      version: "1.0.0",
+      capabilities: ["normalization", "segmentation", "script-detection"],
+    },
   },
   {
     schemaVersion: 1,
     id: "yue-Hant-HK",
     name: { "zh-CN": "粤语", native: "粵語" },
-    accent: "粵",
+    accent: "粤",
     scripts: [
       { code: "Hant", name: { "zh-CN": "繁体中文", native: "繁體中文" }, direction: "ltr", primary: true },
     ],
     readingSystems: [],
-    pronunciationFeatures: [],
-    segmentation: { strategy: "dictionary" },
-    speech: { recognitionLocales: ["yue-Hant-HK"], synthesisLocales: ["yue-Hant-HK"] },
+    segmentation: { strategy: "adapter" },
+    adapter: {
+      id: "core.cantonese",
+      version: "1.0.0",
+      capabilities: ["normalization", "segmentation", "script-detection"],
+    },
   },
 ];
 
@@ -66,14 +58,13 @@ export function validateLanguagePack(input: string): { pack?: LanguagePack; erro
   if (!Array.isArray(pack.scripts) || pack.scripts.length === 0) return { error: "scripts 至少需要一种书写系统" };
   if (pack.scripts.some((script) => !script?.code || !["ltr", "rtl", "ttb"].includes(script.direction))) return { error: "书写系统需要 code 和有效的 direction" };
   if (!pack.segmentation?.strategy) return { error: "segmentation.strategy 不能为空" };
-  if (!pack.speech || !Array.isArray(pack.speech.recognitionLocales) || !Array.isArray(pack.speech.synthesisLocales)) return { error: "speech 需要 recognitionLocales 与 synthesisLocales 数组" };
+  if (!["whitespace", "grapheme", "character", "script-run", "adapter"].includes(pack.segmentation.strategy)) return { error: "segmentation.strategy 不受支持" };
 
   return {
     pack: {
       ...(pack as LanguagePack),
       accent: pack.accent?.trim().slice(0, 2) || pack.id.slice(0, 2).toUpperCase(),
       readingSystems: Array.isArray(pack.readingSystems) ? pack.readingSystems : [],
-      pronunciationFeatures: Array.isArray(pack.pronunciationFeatures) ? pack.pronunciationFeatures : [],
     },
   };
 }

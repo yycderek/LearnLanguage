@@ -24,24 +24,11 @@ export const cantoneseLanguagePack: LanguageAdapter = {
         kind: "romanization",
       },
     ],
-    pronunciationFeatures: [
-      {
-        id: "lexical-tone",
-        name: { "zh-CN": "词汇声调", en: "Lexical tone" },
-        category: "tone",
-        contrastive: true,
-      },
-      {
-        id: "checked-syllable",
-        name: { "zh-CN": "入声", en: "Checked syllable" },
-        category: "segment",
-        contrastive: true,
-      },
-    ],
     segmentation: { strategy: "character" },
-    speech: {
-      recognitionLocales: ["yue-Hant-HK", "zh-HK"],
-      synthesisLocales: ["yue-Hant-HK", "zh-HK"],
+    adapter: {
+      id: "core.cantonese",
+      version: "1.0.0",
+      capabilities: ["normalization", "segmentation", "script-detection"],
     },
   },
   normalize(input) {

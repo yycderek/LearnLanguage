@@ -1,48 +1,18 @@
-export type LocalizedText = Record<string, string>;
+import type {
+  CoursePack,
+  CourseStep,
+  ExerciseKind,
+  ImportIssue,
+  LocalizedText,
+} from "@learn-language/protocol";
 
-export interface CourseStep {
-  id: string;
-  phase: string;
-  title: LocalizedText;
-  supportLevel?: string;
-  knowledgeRefs: string[];
-  utteranceRefs: string[];
-  exerciseRefs: string[];
-  next: string[];
-}
-
-export interface CoursePack {
-  schemaVersion: number;
-  manifest: {
-    id: string;
-    version: string;
-    languageId: string;
-    title: LocalizedText;
-    description: LocalizedText;
-    author: { id: string; displayName: string };
-    visibility: string;
-    status: string;
-    source: { kind: string };
-  };
-  goals: Array<{ id: string; description: LocalizedText }>;
-  knowledge: Array<{ id: string; kind: string; form: string; meaning: LocalizedText }>;
-  utterances: Array<{ id: string; text: string; translation?: LocalizedText; knowledgeRefs: string[] }>;
-  exercises: Array<{
-    id: string;
-    kind: string;
-    prompt: LocalizedText;
-    options?: LocalizedText[];
-    correctOptionIndex?: number;
-    guidance?: LocalizedText;
-    knowledgeRefs: string[];
-    utteranceRefs: string[];
-    rubricRef?: string;
-  }>;
-  rubrics: Array<{ id: string; dimensions: string[]; retryRequired: boolean }>;
-  lessons: Array<{ id: string; title: LocalizedText; canDoGoalRefs: string[]; entryStepId: string; steps: CourseStep[] }>;
-}
-
-export interface ImportIssue { stage: "json" | "schema" | "domain"; path: string; message: string }
+export type {
+  CoursePack,
+  CourseStep,
+  ExerciseKind,
+  ImportIssue,
+  LocalizedText,
+} from "@learn-language/protocol";
 
 const localized = (value: unknown): value is LocalizedText =>
   Boolean(value && typeof value === "object" && Object.values(value as object).every((item) => typeof item === "string"));

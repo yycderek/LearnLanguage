@@ -106,7 +106,7 @@
           "enum": ["official", "community", "private"]
         },
         "status": {
-          "enum": ["draft", "review", "published", "archived"]
+          "enum": ["draft", "validated", "published", "archived"]
         },
         "source": {
           "type": "object",
@@ -114,11 +114,28 @@
           "required": ["kind"],
           "properties": {
             "kind": {
-              "enum": ["original", "imported", "ai-assisted"]
+              "enum": ["original", "imported", "ai-assisted", "forked"]
             },
             "title": { "type": "string" },
             "url": { "type": "string" },
-            "license": { "type": "string" }
+            "license": { "type": "string" },
+            "derivedFromCourseId": { "$ref": "#/$defs/id" },
+            "provider": { "type": "string" },
+            "model": { "type": "string" },
+            "generatedAt": { "type": "string", "minLength": 1 }
+          }
+        },
+        "contentHash": { "type": "string", "minLength": 1 },
+        "languageAdapter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "version"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "version": {
+              "type": "string",
+              "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
+            }
           }
         }
       }
@@ -148,8 +165,9 @@
       "required": ["id", "kind", "form", "meaning"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
+        "conceptId": { "$ref": "#/$defs/id" },
         "kind": {
-          "enum": ["lexeme", "grammar", "pronunciation", "script", "pragmatics"]
+          "enum": ["lexeme", "grammar", "script", "pragmatics"]
         },
         "form": { "type": "string", "minLength": 1 },
         "reading": { "$ref": "#/$defs/reading" },
@@ -171,17 +189,7 @@
         "text": { "type": "string", "minLength": 1 },
         "translation": { "$ref": "#/$defs/localizedText" },
         "reading": { "$ref": "#/$defs/reading" },
-        "knowledgeRefs": { "$ref": "#/$defs/references" },
-        "audio": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["assetId"],
-          "properties": {
-            "assetId": { "$ref": "#/$defs/id" },
-            "speaker": { "type": "string" },
-            "speed": { "enum": ["slow", "natural"] }
-          }
-        }
+        "knowledgeRefs": { "$ref": "#/$defs/references" }
       }
     },
     "exercise": {
@@ -190,18 +198,39 @@
       "required": ["id", "kind", "prompt", "knowledgeRefs", "utteranceRefs"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
+        "protocolVersion": { "const": 1 },
         "kind": {
           "enum": [
             "single-choice",
+            "multiple-choice",
+            "matching",
             "ordering",
-            "dictation",
-            "repeat",
+            "fill-blank",
+            "short-input",
+            "cloze",
             "substitution",
             "reconstruction",
-            "role-play"
+            "role-play",
+            "free-response"
           ]
         },
         "prompt": { "$ref": "#/$defs/localizedText" },
+        "guidance": { "$ref": "#/$defs/localizedText" },
+        "options": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/localizedText" }
+        },
+        "correctOptionIndex": { "type": "integer", "minimum": 0 },
+        "acceptedAnswers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "evaluationSources": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["deterministic", "self", "ai-assisted"] }
+        },
         "knowledgeRefs": { "$ref": "#/$defs/references" },
         "utteranceRefs": { "$ref": "#/$defs/references" },
         "rubricRef": { "$ref": "#/$defs/id" }

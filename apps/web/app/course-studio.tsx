@@ -33,6 +33,7 @@ import {
   sampleCourse,
   validateCourse,
   type CoursePack,
+  type ExerciseKind,
   type ImportIssue,
 } from "@/lib/course";
 import {
@@ -407,9 +408,7 @@ export function CourseStudio() {
         accent: languageForm.accent.trim(),
         scripts: [{ code: languageForm.scriptCode.trim(), name: { "zh-CN": languageForm.scriptCode.trim() }, direction: languageForm.direction, primary: true }],
         readingSystems: [],
-        pronunciationFeatures: [],
-        segmentation: { strategy: languageForm.scriptCode === "Latn" ? "whitespace" : "dictionary" },
-        speech: { recognitionLocales: [], synthesisLocales: [] },
+        segmentation: { strategy: languageForm.scriptCode === "Latn" ? "whitespace" : "grapheme" },
       });
     }
     const result = validateLanguagePack(json);
@@ -592,7 +591,7 @@ export function CourseStudio() {
                                 next.exercises[index].id = current;
                                 next.lessons.forEach((lesson) => lesson.steps.forEach((step) => { step.exerciseRefs = step.exerciseRefs.map((id) => id === previous ? current : id); }));
                               })} /></label>
-                              <label><span>类型</span><select value={item.kind} onChange={(event) => editCourse((next) => { next.exercises[index].kind = event.target.value; })}><option value="single-choice">单选理解</option><option value="role-play">角色扮演</option><option value="reorder">排序</option><option value="free-response">自由回答</option></select></label>
+                              <label><span>类型</span><select value={item.kind} onChange={(event) => editCourse((next) => { next.exercises[index].kind = event.target.value as ExerciseKind; })}><option value="single-choice">单选理解</option><option value="role-play">角色扮演</option><option value="ordering">排序</option><option value="free-response">自由回答</option></select></label>
                               <label className="wide"><span>任务提示</span><textarea value={displayText(item.prompt)} onChange={(event) => editCourse((next) => { next.exercises[index].prompt["zh-CN"] = event.target.value; })} /></label>
                               <label><span>关联知识点（逗号分隔）</span><input value={item.knowledgeRefs.join(", ")} onChange={(event) => editCourse((next) => { next.exercises[index].knowledgeRefs = splitRefs(event.target.value); })} /></label>
                               <label><span>关联例句（逗号分隔）</span><input value={item.utteranceRefs.join(", ")} onChange={(event) => editCourse((next) => { next.exercises[index].utteranceRefs = splitRefs(event.target.value); })} /></label>

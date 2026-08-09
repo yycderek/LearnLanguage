@@ -33,24 +33,11 @@ export const japaneseLanguagePack: LanguageAdapter = {
         kind: "romanization",
       },
     ],
-    pronunciationFeatures: [
-      {
-        id: "mora",
-        name: { "zh-CN": "拍", en: "Mora timing" },
-        category: "rhythm",
-        contrastive: true,
-      },
-      {
-        id: "pitch-accent",
-        name: { "zh-CN": "音调", en: "Pitch accent" },
-        category: "tone",
-        contrastive: true,
-      },
-    ],
     segmentation: { strategy: "script-run" },
-    speech: {
-      recognitionLocales: ["ja-JP"],
-      synthesisLocales: ["ja-JP"],
+    adapter: {
+      id: "core.japanese",
+      version: "1.0.0",
+      capabilities: ["normalization", "segmentation", "script-detection"],
     },
   },
   normalize(input) {

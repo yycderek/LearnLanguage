@@ -2,8 +2,8 @@ import type { CoursePack, LessonStep } from "../core/index.js";
 
 const commonFlow = (
   utteranceId: string,
-  knowledgeIds: readonly string[],
-): readonly LessonStep[] => [
+  knowledgeIds: string[],
+): LessonStep[] => [
   {
     id: "diagnose",
     phase: "diagnostic",
