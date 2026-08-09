@@ -1,0 +1,16 @@
+{
+  "name": "@learn-language/application",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@learn-language/engine": "workspace:*",
+    "@learn-language/protocol": "workspace:*"
+  }
+}

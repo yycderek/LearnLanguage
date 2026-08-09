@@ -16,6 +16,8 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@learn-language/application": "workspace:*",
+    "@learn-language/engine": "workspace:*",
     "@learn-language/protocol": "workspace:*",
     "ajv": "^8.20.0"
   }

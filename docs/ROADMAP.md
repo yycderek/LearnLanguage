@@ -14,10 +14,12 @@
 
 ## R2：无头引擎与应用层
 
-- 引擎实现 Command -> Event/Effect/State。
-- Application 实现事务、Repository 和持久化 Effect 队列。
-- 将开始课节、提交练习、完成课节作为第一条完整垂直链路。
-- 将当前 Web 学习逻辑替换为公共引擎。
+状态：第一条垂直链路已于 2026-08-09 完成。
+
+- [x] 引擎实现 Command -> Event/Effect/State。
+- [x] Application 实现事务、Repository 和持久化 Effect 队列。
+- [x] 将开始课节、提交练习、完成课节作为第一条完整垂直链路。
+- [x] Web 的课节状态推进替换为公共引擎。
 
 ## R3：本地存储与两个产品空间
 

@@ -95,6 +95,9 @@ describe("lesson session state machine", () => {
       "attempt.recorded",
       "step.retry-required",
     ]);
+    expect(transition.effects.map((effect) => effect.type)).toEqual([
+      "learning-projection.refresh-requested",
+    ]);
   });
 
   it("advances and completes terminal steps", () => {
@@ -120,6 +123,10 @@ describe("lesson session state machine", () => {
     expect(completed.state.status).toBe("completed");
     expect(completed.state.currentStepId).toBeNull();
     expect(completed.events.at(-1)?.type).toBe("session.completed");
+    expect(completed.effects.map((effect) => effect.type)).toEqual([
+      "learning-projection.refresh-requested",
+      "lesson-completion.recorded",
+    ]);
   });
 
   it("rebuilds the same state by replaying persisted events", () => {

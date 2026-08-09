@@ -1,5 +1,11 @@
 import type { CoursePack, CourseStep } from "./course";
 import type { EvaluationSource } from "@learn-language/protocol";
+import {
+  startSession,
+  submitAttempt,
+  type LearningSessionState,
+  type SessionEvent,
+} from "@learn-language/engine";
 
 export type MasteryLevel = "encountered" | "comprehended" | "prompted-output" | "independent-output" | "delayed-transfer";
 export type ReviewMode = "recognition" | "active-recall" | "scenario" | "transfer" | "fluency";
@@ -23,6 +29,8 @@ export interface LearningEvent {
   id: string;
   type: "session.started" | "step.entered" | "attempt.recorded" | "step.retry-required" | "step.completed" | "session.completed";
   occurredAt: string;
+  sequence?: number;
+  engineVersion?: string;
   stepId?: string;
   decision?: "advance" | "retry";
   answer?: string;
@@ -80,8 +88,28 @@ const reviewRules: Record<MasteryLevel, { delayMs: number; mode: ReviewMode }> =
   "delayed-transfer": { delayMs: 14 * 24 * 60 * 60 * 1000, mode: "fluency" },
 };
 
-function event(type: LearningEvent["type"], occurredAt: string, detail: Omit<LearningEvent, "id" | "type" | "occurredAt"> = {}): LearningEvent {
-  return { id: crypto.randomUUID(), type, occurredAt, ...detail };
+function learningEventFromEngine(item: SessionEvent): LearningEvent {
+  const stepId = item.type === "session.started"
+    ? item.entryStepId
+    : item.type === "session.completed"
+      ? item.finalStepId
+      : "stepId" in item
+        ? item.stepId
+        : undefined;
+  return {
+    id: item.id,
+    type: item.type,
+    occurredAt: item.occurredAt,
+    sequence: item.sequence,
+    engineVersion: item.engineVersion,
+    ...(stepId === undefined ? {} : { stepId }),
+    ...(item.type === "attempt.recorded" ? {
+      decision: item.decision,
+      evaluationSource: item.evaluationSource,
+      ...(item.answer === undefined ? {} : { answer: item.answer }),
+      ...(item.scores?.["task-completion"] === undefined ? {} : { score: item.scores["task-completion"] }),
+    } : {}),
+  };
 }
 
 function strongerLevel(left: MasteryLevel, right: MasteryLevel) {
@@ -118,6 +146,13 @@ export function startLearning(course: CoursePack, lessonId = course.lessons[0]?.
   const lesson = course.lessons.find((item) => item.id === lessonId);
   if (!lesson || !lesson.steps.some((step) => step.id === lesson.entryStepId)) throw new Error("课程缺少可用的入口步骤");
   const sessionId = crypto.randomUUID();
+  const transition = startSession(lesson, {
+    sessionId,
+    learnerId: "local-anonymous",
+    courseId: course.manifest.id,
+    lessonId: lesson.id,
+    occurredAt: now,
+  });
   return {
     schemaVersion: 1,
     sessionId,
@@ -125,13 +160,13 @@ export function startLearning(course: CoursePack, lessonId = course.lessons[0]?.
     courseVersion: course.manifest.version,
     languageId: course.manifest.languageId,
     lessonId: lesson.id,
-    status: "active",
-    currentStepId: lesson.entryStepId,
+    status: transition.state.status,
+    currentStepId: transition.state.currentStepId,
     completedStepIds: [],
     attemptCounts: {},
     mastery: {},
     reviews: [],
-    events: [event("session.started", now), event("step.entered", now, { stepId: lesson.entryStepId })],
+    events: transition.events.map(learningEventFromEngine),
     startedAt: now,
     updatedAt: now,
     completedAt: null,
@@ -148,17 +183,41 @@ export function submitLearningStep(
   const step = lesson?.steps.find((item) => item.id === progress.currentStepId);
   if (!lesson || !step) throw new Error("找不到当前学习步骤");
   const now = input.now ?? new Date().toISOString();
+  const state: LearningSessionState = {
+    sessionId: progress.sessionId,
+    learnerId: "local-anonymous",
+    courseId: progress.courseId,
+    lessonId: progress.lessonId,
+    status: progress.status,
+    currentStepId: progress.currentStepId,
+    attemptCounts: progress.attemptCounts,
+    startedAt: progress.startedAt,
+    completedAt: progress.completedAt,
+    lastSequence: progress.events.at(-1)?.sequence ?? progress.events.length,
+  };
+  const evaluationSource = input.evaluationSource ?? "deterministic";
+  const transition = submitAttempt(lesson, state, {
+    sessionId: progress.sessionId,
+    attemptId: crypto.randomUUID(),
+    expectedStepId: step.id,
+    expectedSequence: state.lastSequence,
+    occurredAt: now,
+    decision: input.decision,
+    evaluationSource,
+    supportLevelUsed: input.usedSupport ? "full" : "none",
+    promptLevel: input.usedSupport ? 1 : 0,
+    ...(input.answer === undefined ? {} : { answer: input.answer }),
+    ...(input.score === undefined ? {} : { scores: { "task-completion": input.score } }),
+    ...(step.next.length > 1 && step.next[0] ? { nextStepId: step.next[0] } : {}),
+  });
   const next = JSON.parse(JSON.stringify(progress)) as LearningProgress;
   next.updatedAt = now;
-  next.attemptCounts[step.id] = (next.attemptCounts[step.id] ?? 0) + 1;
-  next.events.push(event("attempt.recorded", now, {
-    stepId: step.id,
-    decision: input.decision,
-    ...(input.answer === undefined ? {} : { answer: input.answer }),
-    ...(input.score === undefined ? {} : { score: input.score }),
-    evaluationSource: input.evaluationSource ?? "deterministic",
-  }));
-  const candidateLevel = masteryForStep(step, input.decision, Boolean(input.usedSupport), input.evaluationSource ?? "deterministic");
+  next.status = transition.state.status;
+  next.currentStepId = transition.state.currentStepId;
+  next.attemptCounts = { ...transition.state.attemptCounts };
+  next.completedAt = transition.state.completedAt;
+  next.events.push(...transition.events.map(learningEventFromEngine));
+  const candidateLevel = masteryForStep(step, input.decision, Boolean(input.usedSupport), evaluationSource);
   for (const knowledgeItemId of step.knowledgeRefs) {
     const current = next.mastery[knowledgeItemId];
     next.mastery[knowledgeItemId] = {
@@ -169,22 +228,7 @@ export function submitLearningStep(
     };
   }
   next.reviews = scheduleReviews(next.mastery, next.languageId);
-  if (input.decision === "retry") {
-    next.events.push(event("step.retry-required", now, { stepId: step.id }));
-    return next;
-  }
-  if (!next.completedStepIds.includes(step.id)) next.completedStepIds.push(step.id);
-  next.events.push(event("step.completed", now, { stepId: step.id }));
-  const nextStepId = step.next[0] ?? null;
-  if (nextStepId) {
-    next.currentStepId = nextStepId;
-    next.events.push(event("step.entered", now, { stepId: nextStepId }));
-  } else {
-    next.status = "completed";
-    next.currentStepId = null;
-    next.completedAt = now;
-    next.events.push(event("session.completed", now, { stepId: step.id }));
-  }
+  if (transition.events.some((item) => item.type === "step.completed") && !next.completedStepIds.includes(step.id)) next.completedStepIds.push(step.id);
   return next;
 }
 

@@ -58,6 +58,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(reviewPlayer, /显示答案/);
   assert.match(reviewPlayer, /提高掌握度并延长间隔/);
   assert.match(learning, /submitLearningStep/);
+  assert.match(learning, /from "@learn-language\/engine"/);
+  assert.match(learning, /submitAttempt/);
   assert.match(learning, /scheduleReviews/);
   assert.match(learning, /completeReviewTask/);
   assert.match(ai, /requestAiFeedback/);
