@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, Brain, CheckCircle2, Eye, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { displayText, type CoursePack } from "@/lib/course";
-import { uiText, type TeachingLocale } from "@/lib/i18n";
+import { uiText, type TeachingLocale, type UiLocale } from "@/lib/i18n";
 import { completeReviewTask, type CourseLearningRecord, type ReviewMode, type ReviewTask } from "@/lib/learning";
 
 const reviewCopy: Record<ReviewMode, { label: [string, string]; prompt: [string, string]; input: boolean }> = {
@@ -19,6 +19,7 @@ export function ReviewPlayer({
   initialRecord,
   tasks,
   teachingLocale = "zh-CN",
+  uiLocale = "zh-CN",
   preview = false,
   onRecord,
   onExit,
@@ -27,11 +28,12 @@ export function ReviewPlayer({
   initialRecord: CourseLearningRecord;
   tasks: ReviewTask[];
   teachingLocale?: TeachingLocale;
+  uiLocale?: UiLocale;
   preview?: boolean;
   onRecord: (record: CourseLearningRecord) => void;
   onExit: () => void;
 }) {
-  const c = (chinese: string, english: string) => uiText(teachingLocale, chinese, english);
+  const c = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
   const [record, setRecord] = useState(initialRecord);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);

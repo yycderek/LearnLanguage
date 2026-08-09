@@ -1,15 +1,21 @@
 import type { LocalizedText } from "@learn-language/protocol";
 
 export type TeachingLocale = "zh-CN" | "en";
+export type UiLocale = "zh-CN" | "en";
 
 export const TEACHING_LOCALE_PREFERENCE_KEY = "teaching-locale";
+export const UI_LOCALE_PREFERENCE_KEY = "ui-locale";
 export const teachingLocales: readonly TeachingLocale[] = ["zh-CN", "en"];
 
 export function normalizeTeachingLocale(value: unknown): TeachingLocale {
   return value === "en" ? "en" : "zh-CN";
 }
 
-export function uiText(locale: TeachingLocale, chinese: string, english: string): string {
+export function normalizeUiLocale(value: unknown): UiLocale {
+  return value === "en" ? "en" : "zh-CN";
+}
+
+export function uiText(locale: TeachingLocale | UiLocale, chinese: string, english: string): string {
   return locale === "en" ? english : chinese;
 }
 
@@ -26,6 +32,6 @@ export function localizedText(value: LocalizedText | undefined, locale: Teaching
     ?? uiText(locale, "未命名", "Untitled");
 }
 
-export function dateLocale(locale: TeachingLocale): string {
+export function dateLocale(locale: TeachingLocale | UiLocale): string {
   return locale === "en" ? "en-US" : "zh-CN";
 }

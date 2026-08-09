@@ -16,7 +16,7 @@ import {
   Target,
 } from "lucide-react";
 import { displayText, type CoursePack } from "@/lib/course";
-import { dateLocale, uiText, type TeachingLocale } from "@/lib/i18n";
+import { dateLocale, uiText, type TeachingLocale, type UiLocale } from "@/lib/i18n";
 import {
   courseLearningPercent,
   learningPercent,
@@ -26,7 +26,7 @@ import {
   type ReviewTask,
 } from "@/lib/learning";
 
-function formatDue(value: string, locale: TeachingLocale) {
+function formatDue(value: string, locale: UiLocale) {
   return new Date(value).toLocaleString(dateLocale(locale), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
@@ -35,7 +35,9 @@ export function LearningDashboard({
   courses = [course],
   record,
   teachingLocale = "zh-CN",
+  uiLocale = "zh-CN",
   onTeachingLocaleChange,
+  onUiLocaleChange,
   preview = false,
   onSelectCourse,
   onBack,
@@ -46,14 +48,16 @@ export function LearningDashboard({
   courses?: CoursePack[];
   record?: CourseLearningRecord;
   teachingLocale?: TeachingLocale;
+  uiLocale?: UiLocale;
   onTeachingLocaleChange?: (locale: TeachingLocale) => void;
+  onUiLocaleChange?: (locale: UiLocale) => void;
   preview?: boolean;
   onSelectCourse?: (courseId: string) => void;
   onBack: () => void;
   onStartLesson: (lessonId: string, restart?: boolean) => void;
   onStartReview: (tasks: ReviewTask[]) => void;
 }) {
-  const c = (chinese: string, english: string) => uiText(teachingLocale, chinese, english);
+  const c = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
   const due = record ? reviewsDue(record) : [];
   const dueIds = new Set(due.map((task) => task.id));
   const completedLessons = course.lessons.filter((lesson) => record?.completedLessonIds.includes(lesson.id));
@@ -66,7 +70,7 @@ export function LearningDashboard({
       <header className="learning-home-topbar">
         <button onClick={onBack}><ArrowLeft size={17} />{c("返回课程工作台", "Back to Course Studio")}</button>
         <div><span>{preview ? "STUDIO PREVIEW" : "LEARNING HOME"}</span><strong>{displayText(course.manifest.title, teachingLocale)}</strong>{!preview && courses.length > 1 && <select aria-label={c("选择学习课程", "Select a course")} value={course.manifest.id} onChange={(event) => onSelectCourse?.(event.target.value)}>{courses.map((item) => <option key={`${item.manifest.id}:${item.manifest.version}`} value={item.manifest.id}>{displayText(item.manifest.title, teachingLocale)}</option>)}</select>}</div>
-        <div className="learning-home-meta"><label className="teaching-language-select compact"><span>{c("教学语言", "Teaching language")}</span><select value={teachingLocale} onChange={(event) => onTeachingLocaleChange?.(event.target.value as TeachingLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label><em>{preview ? c("临时预览档案 · 不保存", "Temporary preview profile · not saved") : c("设备本地学习档案", "Device-local learning profile")}</em></div>
+        <div className="learning-home-meta"><div className="locale-selectors"><label className="teaching-language-select compact"><span>{c("界面", "Interface")}</span><select value={uiLocale} onChange={(event) => onUiLocaleChange?.(event.target.value as UiLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label><label className="teaching-language-select compact"><span>{c("教学", "Teaching")}</span><select value={teachingLocale} onChange={(event) => onTeachingLocaleChange?.(event.target.value as TeachingLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div><em>{preview ? c("临时预览档案 · 不保存", "Temporary preview profile · not saved") : c("设备本地学习档案", "Device-local learning profile")}</em></div>
       </header>
 
       <section className="learning-home-hero">
@@ -96,7 +100,7 @@ export function LearningDashboard({
           <div className="overview-icon yellow"><CalendarClock size={21} /></div>
           <span>{c("今日复习", "Reviews today")}</span>
           <strong>{c(`${due.length} 个任务`, `${due.length} tasks`)}</strong>
-          <p>{due.length > 0 ? c("这些知识点已经到达复习时间。", "These items are ready for review.") : upcoming[0] ? c(`下一次：${formatDue(upcoming[0].dueAt, teachingLocale)}`, `Next: ${formatDue(upcoming[0].dueAt, teachingLocale)}`) : c("完成学习后会自动生成复习任务。", "Review tasks appear automatically after learning.")}</p>
+          <p>{due.length > 0 ? c("这些知识点已经到达复习时间。", "These items are ready for review.") : upcoming[0] ? c(`下一次：${formatDue(upcoming[0].dueAt, uiLocale)}`, `Next: ${formatDue(upcoming[0].dueAt, uiLocale)}`) : c("完成学习后会自动生成复习任务。", "Review tasks appear automatically after learning.")}</p>
           {(due.length > 0 || upcoming.length > 0) && <button onClick={() => onStartReview(due.length > 0 ? due : upcoming)}>{due.length > 0 ? c("开始今日复习", "Start today's review") : c("预习复习卡", "Preview review cards")}<ArrowRight size={15} /></button>}
         </article>
       </section>
@@ -128,7 +132,7 @@ export function LearningDashboard({
           {upcoming.length === 0 ? <div className="empty-review-queue"><Sparkles size={22} /><p>{c("完成课节后，这里会出现复习任务。", "Review tasks will appear here after a lesson.")}</p></div> : <div className="review-queue-list">{upcoming.map((task) => {
             const content = course.knowledge.find((item) => item.id === task.knowledgeItemId);
             const isDue = dueIds.has(task.id);
-            return <div key={task.id}><span className={isDue ? "due" : ""}>{isDue ? <Flame size={12} /> : <Clock3 size={12} />}{isDue ? c("现在复习", "Review now") : formatDue(task.dueAt, teachingLocale)}</span><strong>{content?.form ?? task.knowledgeItemId}</strong><small>{content ? displayText(content.meaning, teachingLocale) : task.mode}</small></div>;
+            return <div key={task.id}><span className={isDue ? "due" : ""}>{isDue ? <Flame size={12} /> : <Clock3 size={12} />}{isDue ? c("现在复习", "Review now") : formatDue(task.dueAt, uiLocale)}</span><strong>{content?.form ?? task.knowledgeItemId}</strong><small>{content ? displayText(content.meaning, teachingLocale) : task.mode}</small></div>;
           })}</div>}
         </aside>
       </section>

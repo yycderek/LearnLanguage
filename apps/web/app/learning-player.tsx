@@ -21,7 +21,7 @@ import { requestAiFeedback, type AiSettings } from "@/lib/ai";
 import { displayText, type CoursePack } from "@/lib/course";
 import { IndexedDbEffectQueue } from "@/lib/device-repository";
 import { resolveExerciseCapabilities, type LanguagePack } from "@/lib/language-pack";
-import { dateLocale, uiText, type TeachingLocale } from "@/lib/i18n";
+import { dateLocale, uiText, type TeachingLocale, type UiLocale } from "@/lib/i18n";
 import type { EvaluationSource } from "@learn-language/protocol";
 import { createAiFeedbackEffect } from "@learn-language/engine";
 import {
@@ -62,7 +62,7 @@ const reviewNames: Record<ReviewMode, [string, string]> = {
   fluency: ["流利度巩固", "Fluency review"],
 };
 
-function formatDue(value: string, locale: TeachingLocale) {
+function formatDue(value: string, locale: UiLocale) {
   return new Date(value).toLocaleString(dateLocale(locale), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
@@ -71,6 +71,7 @@ export function LearningPlayer({
   initialProgress,
   languagePack,
   teachingLocale = "zh-CN",
+  uiLocale = "zh-CN",
   preview = false,
   aiSettings,
   onProgress,
@@ -80,12 +81,13 @@ export function LearningPlayer({
   initialProgress: LearningProgress;
   languagePack?: LanguagePack;
   teachingLocale?: TeachingLocale;
+  uiLocale?: UiLocale;
   preview?: boolean;
   aiSettings?: AiSettings;
   onProgress: (progress: LearningProgress) => void;
   onExit: () => void;
 }) {
-  const c = (chinese: string, english: string) => uiText(teachingLocale, chinese, english);
+  const c = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
   const [progress, setProgress] = useState(initialProgress);
   const [selectedOption, setSelectedOption] = useState<number>();
   const [answer, setAnswer] = useState("");
@@ -285,7 +287,7 @@ export function LearningPlayer({
               <div className="summary-heading"><div><CalendarClock size={17} /><strong>{c("已生成的复习任务", "Generated review tasks")}</strong></div></div>
               {progress.reviews.map((item) => {
                 const content = course.knowledge.find((entry) => entry.id === item.knowledgeItemId);
-                return <div className="review-row" key={item.id}><span><strong>{content?.form ?? item.knowledgeItemId}</strong><small>{c(...reviewNames[item.mode])}</small></span><time>{formatDue(item.dueAt, teachingLocale)}</time></div>;
+                return <div className="review-row" key={item.id}><span><strong>{content?.form ?? item.knowledgeItemId}</strong><small>{c(...reviewNames[item.mode])}</small></span><time>{formatDue(item.dueAt, uiLocale)}</time></div>;
               })}
             </div>
           )}

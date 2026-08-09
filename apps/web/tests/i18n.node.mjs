@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { localizedText, normalizeTeachingLocale, uiText } from "../lib/i18n.ts";
+import {
+  localizedText,
+  normalizeTeachingLocale,
+  normalizeUiLocale,
+  TEACHING_LOCALE_PREFERENCE_KEY,
+  UI_LOCALE_PREFERENCE_KEY,
+  uiText,
+} from "../lib/i18n.ts";
 import { displayText, sampleCourse } from "../lib/course.ts";
 
 test("teaching locale selects English and preserves Chinese as the default", () => {
@@ -10,6 +17,14 @@ test("teaching locale selects English and preserves Chinese as the default", () 
   assert.equal(displayText(value), "咖啡");
   assert.equal(uiText("en", "中文", "English"), "English");
   assert.equal(normalizeTeachingLocale("unsupported"), "zh-CN");
+});
+
+test("interface and teaching locales have independent preference identities", () => {
+  assert.notEqual(UI_LOCALE_PREFERENCE_KEY, TEACHING_LOCALE_PREFERENCE_KEY);
+  assert.equal(normalizeUiLocale("en"), "en");
+  assert.equal(normalizeUiLocale("unsupported"), "zh-CN");
+  assert.equal(uiText("en", "中文界面", "English interface"), "English interface");
+  assert.equal(localizedText({ "zh-CN": "中文解释", en: "English explanation" }, "zh-CN"), "中文解释");
 });
 
 test("localized content has deterministic fallbacks", () => {
