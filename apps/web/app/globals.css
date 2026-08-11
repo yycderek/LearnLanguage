@@ -372,6 +372,43 @@ button { color: inherit; }
 .learner-backup-bar button, .learner-backup-bar aside label { min-height: 34px; display: inline-flex; align-items: center; gap: 5px; padding: 7px 9px; border: 1px solid #bfcfc6; background: white; color: var(--green); border-radius: 7px; cursor: pointer; font-size: 8px; font-weight: 800; }
 .learner-backup-bar aside label { border-color: var(--green); background: var(--green); color: white; }
 .learner-backup-bar input { display: none; }
+.draft-library-shell { min-height: 100vh; padding-bottom: 56px; background: radial-gradient(circle at 82% 4%, rgba(231,126,98,.17), transparent 25%), var(--paper); }
+.draft-library-hero { max-width: 1160px; min-height: 178px; margin: 26px auto 0; padding: 28px 32px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 22px; background: #fffdf8; border: 1px solid #e6e0d5; border-radius: 16px; box-shadow: 0 15px 45px rgba(54,58,49,.06); }
+.draft-hero-icon { width: 64px; height: 64px; display: grid; place-items: center; background: #f6ded6; color: var(--coral); border-radius: 17px; }
+.draft-library-hero h1 { margin: 7px 0 6px; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 29px; letter-spacing: -.035em; }
+.draft-library-hero p { max-width: 710px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+.draft-summary { min-width: 110px; padding: 16px 18px; background: #eef4f0; border-radius: 12px; text-align: center; }
+.draft-summary strong, .draft-summary span, .draft-summary small { display: block; }
+.draft-summary strong { font-family: var(--mono); font-size: 25px; }
+.draft-summary span { margin-top: 2px; color: var(--green); font-size: 9px; font-weight: 800; }
+.draft-summary small { margin-top: 5px; color: var(--muted); font-size: 8px; }
+.draft-library-toolbar { max-width: 1160px; min-height: 58px; margin: 12px auto 0; padding: 10px 13px; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 11px; }
+.draft-library-toolbar > label { min-height: 35px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 11px; background: var(--green); color: white; border-radius: 8px; cursor: pointer; font-size: 9px; font-weight: 800; }
+.draft-library-toolbar input { display: none; }
+.draft-library-toolbar p { margin: 0; display: flex; align-items: center; gap: 6px; color: #6f7d78; font-size: 8px; }
+.draft-library-grid { max-width: 1160px; margin: 14px auto 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.draft-card { min-width: 0; padding: 18px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 32px rgba(36,62,55,.045); }
+.draft-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.draft-card h2 { margin: 7px 0 3px; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 18px; }
+.draft-card header p { margin: 0; color: var(--muted); font-size: 8px; }
+.draft-language { display: inline-flex; padding: 4px 7px; background: var(--green-soft); color: var(--green); border-radius: 10px; font-family: var(--mono); font-size: 8px; font-weight: 800; }
+.draft-delete { display: inline-flex; align-items: center; gap: 5px; padding: 7px 8px; border: 1px solid #ead1c9; background: #fff7f4; color: #9c513e; border-radius: 7px; cursor: pointer; font-size: 8px; font-weight: 800; white-space: nowrap; }
+.draft-primary-actions { margin-top: 15px; display: flex; gap: 7px; }
+.draft-primary-actions button { min-height: 35px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border: 1px solid #c5d4cd; background: white; color: var(--green); border-radius: 8px; cursor: pointer; font-size: 9px; font-weight: 800; }
+.draft-primary-actions button.primary { border-color: var(--green); background: var(--green); color: white; }
+.draft-revision-list { margin-top: 15px; overflow: hidden; border: 1px solid #e4e6df; border-radius: 10px; }
+.draft-revision-heading { min-height: 34px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; background: #f5f6f2; color: #6f7a76; font-size: 8px; font-weight: 800; }
+.draft-revision-heading em { min-width: 20px; padding: 3px 6px; background: white; color: var(--green); border-radius: 10px; font-style: normal; text-align: center; }
+.draft-revision-row { min-height: 54px; padding: 8px 9px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; border-top: 1px solid #ecece7; }
+.draft-revision-row .revision { width: 31px; height: 25px; display: grid; place-items: center; background: #fff1cb; color: #81611f; border-radius: 7px; font-family: var(--mono); font-size: 8px; font-weight: 800; }
+.draft-revision-row strong, .draft-revision-row small { display: block; }
+.draft-revision-row strong { overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.draft-revision-row small { margin-top: 3px; color: var(--muted); font-size: 7px; }
+.draft-revision-row button { width: 29px; height: 29px; display: grid; place-items: center; border: 1px solid #d7ddd8; background: white; color: var(--green); border-radius: 7px; cursor: pointer; }
+.draft-library-empty { width: min(600px, calc(100% - 26px)); min-height: 280px; margin: 24px auto 0; display: grid; place-items: center; align-content: center; gap: 8px; background: var(--card); border: 1px dashed #ccd4cf; border-radius: 15px; color: #89938f; text-align: center; }
+.draft-library-empty h2 { margin: 6px 0 0; color: var(--ink); font-family: "Noto Serif SC", "Songti SC", serif; font-size: 20px; }
+.draft-library-empty p { max-width: 380px; margin: 0; font-size: 9px; line-height: 1.6; }
+.draft-library-empty button { margin-top: 7px; padding: 8px 11px; border: 0; background: var(--green); color: white; border-radius: 8px; cursor: pointer; font-size: 9px; font-weight: 800; }
 .course-library-grid { max-width: 1160px; margin: 14px auto 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .library-course-card { min-height: 360px; display: grid; grid-template-columns: 105px minmax(0, 1fr); overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 32px rgba(36,62,55,.05); }
 .library-card-cover { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; background: linear-gradient(155deg, #214f46, #173f38); color: white; }
@@ -519,8 +556,8 @@ button { color: inherit; }
   .lesson-stage { grid-template-columns: 190px minmax(0, 1fr); }
   .learning-home-hero, .learning-overview-grid, .learning-home-content { margin-left: 22px; margin-right: 22px; }
   .learning-home-content { grid-template-columns: 1fr 280px; }
-  .course-library-hero, .course-library-toolbar, .learner-backup-bar, .course-library-grid { margin-left: 22px; margin-right: 22px; }
-  .course-library-grid { grid-template-columns: 1fr; }
+  .course-library-hero, .course-library-toolbar, .learner-backup-bar, .course-library-grid, .draft-library-hero, .draft-library-toolbar, .draft-library-grid { margin-left: 22px; margin-right: 22px; }
+  .course-library-grid, .draft-library-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
   .studio-shell { display: block; }
@@ -615,6 +652,16 @@ button { color: inherit; }
   .library-card-content { padding: 15px; }
   .library-course-details { grid-template-columns: 1fr 1fr; }
   .library-card-actions button.danger { margin-left: 0; }
+  .draft-library-hero { min-height: 180px; margin: 15px 12px 0; padding: 22px 19px; grid-template-columns: auto 1fr; }
+  .draft-hero-icon { width: 45px; height: 45px; }
+  .draft-library-hero h1 { font-size: 25px; }
+  .draft-summary { display: none; }
+  .draft-library-toolbar { margin: 12px; align-items: flex-start; flex-direction: column; }
+  .draft-library-toolbar > label { width: 100%; justify-content: center; }
+  .draft-library-grid { margin: 12px; grid-template-columns: 1fr; }
+  .draft-card > header { align-items: stretch; flex-direction: column; }
+  .draft-delete { align-self: flex-start; }
+  .draft-primary-actions { flex-direction: column; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }

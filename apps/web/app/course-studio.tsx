@@ -29,6 +29,7 @@ import {
 import { LearningPlayer } from "@/app/learning-player";
 import { LearningDashboard } from "@/app/learning-dashboard";
 import { CourseLibrary } from "@/app/course-library";
+import { DraftManager } from "@/app/draft-manager";
 import { ReviewPlayer } from "@/app/review-player";
 import { testAiConnection, type AiProvider, type AiSettings } from "@/lib/ai";
 import {
@@ -63,6 +64,16 @@ import {
   parseLearnerBackup,
   serializeLearnerBackup,
 } from "@/lib/learner-backup";
+import {
+  addDraftRevision,
+  draftFileName,
+  MAX_DRAFT_FILE_BYTES,
+  nextDraftRevision,
+  normalizeDraftHistory,
+  parseDraftFile,
+  removeDraft,
+  type DraftRevision,
+} from "@/lib/draft-library";
 import {
   appendLesson,
   appendLessonStep,
@@ -111,15 +122,6 @@ import {
   uiText,
   type AppLocale,
 } from "@/lib/i18n";
-
-type HistoryItem = {
-  draftId: string;
-  revision: number;
-  title: string;
-  languageId: string;
-  updatedAt: string;
-  payload: string;
-};
 
 type EditorSection = "overview" | "knowledge" | "utterances" | "exercises" | "flow";
 type LanguageForm = {
@@ -238,7 +240,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [source, setSource] = useState(() => JSON.stringify(sampleCourse("ja"), null, 2));
   const [course, setCourse] = useState<CoursePack>(() => sampleCourse("ja"));
   const [issues, setIssues] = useState<ImportIssue[]>([]);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [history, setHistory] = useState<DraftRevision[]>([]);
   const [draftId, setDraftId] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -259,7 +261,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [installedCourses, setInstalledCourses] = useState<CoursePack[]>([]);
   const [previewRecordsByCourse, setPreviewRecordsByCourse] = useState<Record<string, CourseLearningRecord>>({});
   const [learningContext, setLearningContext] = useState<"learn" | "preview">(space === "learn" ? "learn" : "preview");
-  const [learningView, setLearningView] = useState<"studio" | "library" | "dashboard" | "lesson" | "review">(space === "learn" ? "library" : "studio");
+  const [learningView, setLearningView] = useState<"studio" | "drafts" | "library" | "dashboard" | "lesson" | "review">(space === "learn" ? "library" : "studio");
   const [selectedLessonId, setSelectedLessonId] = useState<string>();
   const [reviewTasks, setReviewTasks] = useState<ReviewTask[]>([]);
   const t = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
@@ -284,7 +286,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     let active = true;
     async function hydrate() {
       const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedAppLocale, storedTeachingLocale, storedUiLocale] = await Promise.all([
-        getDeviceValue<HistoryItem[]>("drafts", "history"),
+        getDeviceValue<unknown>("drafts", "history"),
         getDeviceValue<AiSettings>("preferences", "ai"),
         getAllDeviceValues<LanguagePack>("languagePacks"),
         getAllDeviceValues<unknown>("courseRecords"),
@@ -301,7 +303,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         const normalized = normalizeCourseLearningRecord(value);
         if (normalized) normalizedRecords[normalized.courseId] = normalized;
       }
-      setHistory(storedHistory ?? []);
+      setHistory(normalizeDraftHistory(storedHistory));
       setAiSettings(hydratedAi);
       setAiConfigured(aiIsReady(hydratedAi));
       setLanguagePacks([...builtInLanguagePacks, ...customPacks.filter((pack) => !builtInLanguagePacks.some((item) => item.id === pack.id))]);
@@ -392,18 +394,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     }
     setSaving(true);
     const nextDraftId = draftId ?? crypto.randomUUID();
-    const latestRevision = history
-      .filter((item) => item.draftId === nextDraftId)
-      .reduce((max, item) => Math.max(max, item.revision), 0);
-    const local: HistoryItem = {
-      draftId: nextDraftId,
-      revision: latestRevision + 1,
-      title: displayText(result.course.manifest.title),
-      languageId: result.course.manifest.languageId,
-      updatedAt: new Date().toISOString(),
-      payload: source,
-    };
-    const nextHistory = [local, ...history].slice(0, 24);
+    const local = nextDraftRevision(history, result.course, source, nextDraftId);
+    const nextHistory = addDraftRevision(history, local);
     try {
       await putDeviceValue("drafts", "history", nextHistory);
       setDraftId(nextDraftId);
@@ -648,7 +640,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     }
   }
 
-  function restore(item: HistoryItem) {
+  function restore(item: DraftRevision) {
     const parsed = validateCourse(item.payload);
     if (!parsed.course) return;
     setSource(item.payload);
@@ -657,6 +649,74 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     setDraftId(item.draftId);
     setIssues([]);
     setNotice(t(`已恢复修订 ${item.revision}`, `Restored revision ${item.revision}`));
+  }
+
+  function restoreFromDraftManager(item: DraftRevision) {
+    restore(item);
+    setEditorSection("overview");
+    setLearningView("studio");
+  }
+
+  async function importDraftFile(file: File) {
+    if (file.size > MAX_DRAFT_FILE_BYTES) {
+      setNotice(t("草稿文件超过 5 MB，已停止导入", "The draft file is larger than 5 MB and was not imported"));
+      return;
+    }
+    try {
+      const parsed = parseDraftFile(await file.text());
+      if (!parsed.course || !parsed.payload) {
+        const message = parsed.error === "not-editable"
+          ? t("已发布或已归档课程不能作为草稿导入；发布课程请从课程库安装或在 Studio 创建派生草稿", "Published or archived courses cannot be imported as drafts. Install published courses from Learn, or create a derived draft in Studio.")
+          : t(`草稿文件格式无效${parsed.issues?.length ? `：${parsed.issues.length} 个问题` : ""}`, `Invalid draft file${parsed.issues?.length ? `: ${parsed.issues.length} issues` : ""}`);
+        setNotice(message);
+        return;
+      }
+      const nextDraftId = crypto.randomUUID();
+      const imported = nextDraftRevision(history, parsed.course, parsed.payload, nextDraftId);
+      const nextHistory = addDraftRevision(history, imported);
+      await putDeviceValue("drafts", "history", nextHistory);
+      setHistory(nextHistory);
+      restore(imported);
+      setEditorSection("overview");
+      setLearningView("studio");
+      setNotice(t(`已导入「${imported.title}」并保存为新的本地草稿`, `Imported “${imported.title}” as a new local draft`));
+    } catch {
+      setNotice(t("无法读取草稿文件", "The draft file could not be read"));
+    }
+  }
+
+  function exportDraftRevision(item: DraftRevision) {
+    const parsed = parseDraftFile(item.payload);
+    if (!parsed.payload) {
+      setNotice(t("这个修订已损坏，无法导出", "This revision is damaged and cannot be exported"));
+      return;
+    }
+    const blob = new Blob([parsed.payload], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = draftFileName(item);
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    setNotice(t(`已导出「${item.title}」修订 ${item.revision}`, `Exported “${item.title}” revision ${item.revision}`));
+  }
+
+  async function deleteLocalDraft(targetDraftId: string) {
+    const target = history.find((item) => item.draftId === targetDraftId);
+    if (!target) return;
+    const warning = t(`确定删除「${target.title}」的全部本地修订吗？此操作无法撤销。`, `Delete every local revision of “${target.title}”? This cannot be undone.`);
+    if (!window.confirm(warning)) return;
+    const nextHistory = removeDraft(history, targetDraftId);
+    try {
+      await putDeviceValue("drafts", "history", nextHistory);
+      setHistory(nextHistory);
+      if (draftId === targetDraftId) setDraftId(undefined);
+      setNotice(t(`已删除「${target.title}」的本地草稿；当前编辑内容未被清空`, `Deleted the local draft “${target.title}”; the open editor content was kept`));
+    } catch {
+      setNotice(t("草稿删除失败", "The draft could not be deleted"));
+    }
   }
 
   function saveAiSettings() {
@@ -929,6 +989,9 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   if (learningView === "library") {
     return <CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => window.location.assign("/studio")} onInstall={(entry) => void installLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} />;
   }
+  if (learningView === "drafts") {
+    return <DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />;
+  }
   if (learningView === "dashboard") {
     return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;
   }
@@ -949,7 +1012,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         <nav className="side-nav" aria-label={t("工作台导航", "Studio navigation")}>
           <a className="nav-item active" href="/studio"><BookOpen size={18} /><span>{t("课程编辑器", "Course editor")}</span></a>
           <button className="nav-item" onClick={enterLearningSpace}><GraduationCap size={18} /><span>{t("学习空间", "Learn")}</span>{dueReviewCount > 0 && <em>{dueReviewCount}</em>}</button>
-          <button className="nav-item"><Clock3 size={18} /><span>{t("本地草稿", "Local drafts")}</span><em>{history.length}</em></button>
+          <button className="nav-item" onClick={() => setLearningView("drafts")}><Clock3 size={18} /><span>{t("本地草稿", "Local drafts")}</span><em>{history.length}</em></button>
         </nav>
         <div className="section-label">{t("目标语言", "Target language")}</div>
         <div className="language-list">

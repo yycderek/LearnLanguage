@@ -5,11 +5,12 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, studio, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, starterLibrary, courseLibrary, courseFile, learnerBackup, learning, courseAuthoring, deviceRepository, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, studio, draftManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, deviceRepository, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
     readFile(new URL("app/course-studio.tsx", root), "utf8"),
+    readFile(new URL("app/draft-manager.tsx", root), "utf8"),
     readFile(new URL("app/learning-player.tsx", root), "utf8"),
     readFile(new URL("app/exercise-renderer.tsx", root), "utf8"),
     readFile(new URL("app/learning-dashboard.tsx", root), "utf8"),
@@ -20,6 +21,7 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("lib/starter-course-library.ts", root), "utf8"),
     readFile(new URL("lib/course-library.ts", root), "utf8"),
     readFile(new URL("lib/course-file.ts", root), "utf8"),
+    readFile(new URL("lib/draft-library.ts", root), "utf8"),
     readFile(new URL("lib/learner-backup.ts", root), "utf8"),
     readFile(new URL("lib/learning.ts", root), "utf8"),
     readFile(new URL("lib/course-authoring.ts", root), "utf8"),
@@ -67,6 +69,10 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /exportLibraryCourse/);
   assert.match(studio, /exportLearnerProfile/);
   assert.match(studio, /importLearnerProfile/);
+  assert.match(studio, /learningView === "drafts"/);
+  assert.match(studio, /importDraftFile/);
+  assert.match(studio, /exportDraftRevision/);
+  assert.match(studio, /deleteLocalDraft/);
   assert.match(studio, /课程内容许可证/);
   assert.match(studio, /verifyPublishedCourseIntegrity/);
   assert.match(studio, /所需语言能力/);
@@ -129,6 +135,13 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(courseLibrary, /bundledCatalogCourses/);
   assert.match(courseFile, /parseCourseFile/);
   assert.match(courseFile, /serializeCourseFile/);
+  assert.match(draftManager, /管理课程草稿/);
+  assert.match(draftManager, /恢复任意修订/);
+  assert.match(draftManager, /导入草稿文件/);
+  assert.match(draftManager, /导出最新草稿/);
+  assert.match(draftLibrary, /groupDraftRevisions/);
+  assert.match(draftLibrary, /parseDraftFile/);
+  assert.match(draftLibrary, /MAX_DRAFT_REVISIONS/);
   assert.match(learnerBackup, /createLearnerBackup/);
   assert.match(learnerBackup, /mergeLearnerRecords/);
   assert.doesNotMatch(learnerBackup, /apiKey/);
@@ -160,6 +173,7 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(css, /learning-home-shell/);
   assert.match(css, /course-library-shell/);
   assert.match(css, /learner-backup-bar/);
+  assert.match(css, /draft-library-shell/);
   assert.match(css, /review-player-shell/);
   assert.doesNotMatch(`${page}${studio}`, /Your site is taking shape|SkeletonPreview/);
 });
