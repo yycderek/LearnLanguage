@@ -30,11 +30,13 @@ import { LearningPlayer } from "@/app/learning-player";
 import { LearningDashboard } from "@/app/learning-dashboard";
 import { CourseLibrary } from "@/app/course-library";
 import { DraftManager } from "@/app/draft-manager";
+import { LanguagePackManager } from "@/app/language-pack-manager";
 import { ReviewPlayer } from "@/app/review-player";
 import { testAiConnection, type AiProvider, type AiSettings } from "@/lib/ai";
 import {
   getAllDeviceValues,
   getDeviceValue,
+  deleteDeviceValue,
   persistLearningState,
   putCourseRecord,
   putCourseRecords,
@@ -67,6 +69,7 @@ import {
 import {
   addDraftRevision,
   draftFileName,
+  groupDraftRevisions,
   MAX_DRAFT_FILE_BYTES,
   nextDraftRevision,
   normalizeDraftHistory,
@@ -74,6 +77,13 @@ import {
   removeDraft,
   type DraftRevision,
 } from "@/lib/draft-library";
+import {
+  languagePackFileName,
+  languagePackUsage,
+  MAX_LANGUAGE_PACK_FILE_BYTES,
+  parseLanguagePackFile,
+  serializeLanguagePackFile,
+} from "@/lib/language-pack-file";
 import {
   appendLesson,
   appendLessonStep,
@@ -135,6 +145,7 @@ type LanguageForm = {
 };
 
 const AI_SESSION_KEY = "learn-language-ai-key-session-v1";
+const BUILT_IN_LANGUAGE_IDS = new Set(builtInLanguagePacks.map((pack) => pack.id));
 
 const defaultAiSettings: AiSettings = { provider: "openai", model: "", endpoint: "", apiKey: "" };
 const defaultLanguageForm: LanguageForm = {
@@ -209,6 +220,13 @@ const englishValidationMessages: Record<string, string> = {
   "书写系统需要 code 和有效的 direction": "Each writing system needs a code and valid direction",
   "segmentation.strategy 不能为空": "segmentation.strategy is required",
   "segmentation.strategy 不受支持": "segmentation.strategy is not supported",
+  "语言名称必须是非空文本": "Language names must be non-empty text",
+  "每种书写系统至少需要一个名称": "Each writing system needs at least one name",
+  "Language Pack 必须且只能有一种主要书写系统": "A Language Pack must have exactly one primary writing system",
+  "adapter 需要 id 和 version": "adapter requires an id and version",
+  "adapter.capabilities 必须是数组": "adapter.capabilities must be an array",
+  "adapter.capabilities 包含不受支持的能力": "adapter.capabilities contains an unsupported capability",
+  "adapter 分词策略需要 adapter 定义": "The adapter segmentation strategy requires an adapter definition",
   "请填写兼容服务的 API 地址。": "Enter the compatible service API endpoint.",
   "API 地址必须使用 HTTP 或 HTTPS。": "The API endpoint must use HTTP or HTTPS.",
   "公开网站不能直连 HTTP 地址；请使用 HTTPS 接口，或在本地运行 LearnLanguage。": "A public site cannot connect directly to an HTTP endpoint. Use HTTPS or run LearnLanguage locally.",
@@ -222,6 +240,7 @@ function localizeRuntimeMessage(message: string, locale: AppLocale) {
   if (locale !== "en") return message;
   if (englishValidationMessages[message]) return englishValidationMessages[message];
   if (message.startsWith("JSON 格式无效：")) return `Invalid JSON: ${message.slice("JSON 格式无效：".length)}`;
+  if (message.startsWith("书写系统 code 重复：")) return `Duplicate writing-system code: ${message.slice("书写系统 code 重复：".length)}`;
   if (message.endsWith(" 必须是数组")) return `${message.slice(0, -" 必须是数组".length)} must be an array`;
   if (message.startsWith("发现重复 ID：")) return `Duplicate ID: ${message.slice("发现重复 ID：".length)}`;
   if (message.startsWith("引用不存在：")) return `Missing reference: ${message.slice("引用不存在：".length)}`;
@@ -261,7 +280,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [installedCourses, setInstalledCourses] = useState<CoursePack[]>([]);
   const [previewRecordsByCourse, setPreviewRecordsByCourse] = useState<Record<string, CourseLearningRecord>>({});
   const [learningContext, setLearningContext] = useState<"learn" | "preview">(space === "learn" ? "learn" : "preview");
-  const [learningView, setLearningView] = useState<"studio" | "drafts" | "library" | "dashboard" | "lesson" | "review">(space === "learn" ? "library" : "studio");
+  const [learningView, setLearningView] = useState<"studio" | "drafts" | "languages" | "library" | "dashboard" | "lesson" | "review">(space === "learn" ? "library" : "studio");
   const [selectedLessonId, setSelectedLessonId] = useState<string>();
   const [reviewTasks, setReviewTasks] = useState<ReviewTask[]>([]);
   const t = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
@@ -280,6 +299,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const courseLibrary = useMemo(
     () => buildCourseLibrary(catalogCourses, installedCourses, recordsByCourse),
     [catalogCourses, installedCourses, recordsByCourse],
+  );
+  const draftLanguageIds = useMemo(
+    () => groupDraftRevisions(history).map((group) => group.latest.languageId),
+    [history],
   );
 
   useEffect(() => {
@@ -719,6 +742,76 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     }
   }
 
+  function usageForLanguagePack(languageId: string) {
+    return languagePackUsage(
+      languageId,
+      course.manifest.languageId,
+      draftLanguageIds,
+      installedCourses.map((item) => item.manifest.languageId),
+    );
+  }
+
+  async function importLanguagePackFile(file: File) {
+    if (file.size > MAX_LANGUAGE_PACK_FILE_BYTES) {
+      setNotice(t("Language Pack 文件超过 1 MB，已停止导入", "The Language Pack file is larger than 1 MB and was not imported"));
+      return;
+    }
+    try {
+      const parsed = parseLanguagePackFile(await file.text());
+      if (!parsed.pack) {
+        setNotice(parsed.error ? localizeRuntimeMessage(parsed.error, uiLocale) : t("Language Pack 无效", "Invalid Language Pack"));
+        return;
+      }
+      if (BUILT_IN_LANGUAGE_IDS.has(parsed.pack.id)) {
+        setNotice(t("不能用文件覆盖应用内置 Language Pack", "A file cannot overwrite a built-in Language Pack"));
+        return;
+      }
+      const existing = languagePacks.find((item) => item.id === parsed.pack?.id);
+      if (existing) {
+        const usage = usageForLanguagePack(existing.id);
+        const warning = usage.draftCount > 0 || usage.installedCourseCount > 0 || usage.activeEditor
+          ? t(`「${languageName(existing, appLocale)}」仍被课程引用。替换定义可能改变分词和书写规则，确定继续吗？`, `“${languageName(existing, appLocale)}” is still referenced by courses. Replacing it may change segmentation and script behavior. Continue?`)
+          : t(`确定替换现有的「${languageName(existing, appLocale)}」Language Pack 吗？`, `Replace the existing “${languageName(existing, appLocale)}” Language Pack?`);
+        if (!window.confirm(warning)) return;
+      }
+      await putDeviceValue("languagePacks", parsed.pack.id, parsed.pack);
+      setLanguagePacks((current) => [...builtInLanguagePacks, parsed.pack!, ...current.filter((item) => !BUILT_IN_LANGUAGE_IDS.has(item.id) && item.id !== parsed.pack?.id)]);
+      setNotice(t(`已导入「${languageName(parsed.pack, "zh-CN")}」Language Pack`, `Imported the “${languageName(parsed.pack, "en")}” Language Pack`));
+    } catch {
+      setNotice(t("无法读取 Language Pack 文件", "The Language Pack file could not be read"));
+    }
+  }
+
+  function exportLanguagePack(pack: LanguagePack) {
+    const blob = new Blob([serializeLanguagePackFile(pack)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = languagePackFileName(pack);
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    setNotice(t(`已导出「${languageName(pack, "zh-CN")}」Language Pack`, `Exported the “${languageName(pack, "en")}” Language Pack`));
+  }
+
+  async function deleteLanguagePack(pack: LanguagePack) {
+    if (BUILT_IN_LANGUAGE_IDS.has(pack.id)) return;
+    const usage = usageForLanguagePack(pack.id);
+    if (!usage.canDelete) {
+      setNotice(t("这个 Language Pack 仍被当前编辑内容、草稿或已安装课程引用，不能删除", "This Language Pack is still used by the editor, a draft, or an installed course and cannot be deleted"));
+      return;
+    }
+    if (!window.confirm(t(`确定删除「${languageName(pack, appLocale)}」Language Pack 吗？`, `Delete the “${languageName(pack, appLocale)}” Language Pack?`))) return;
+    try {
+      await deleteDeviceValue("languagePacks", pack.id);
+      setLanguagePacks((current) => current.filter((item) => item.id !== pack.id));
+      setNotice(t(`已删除「${languageName(pack, "zh-CN")}」Language Pack`, `Deleted the “${languageName(pack, "en")}” Language Pack`));
+    } catch {
+      setNotice(t("Language Pack 删除失败", "The Language Pack could not be deleted"));
+    }
+  }
+
   function saveAiSettings() {
     void putDeviceValue("preferences", "ai", { ...aiSettings, apiKey: "" }).catch(() => setNotice(t("AI 偏好保存失败", "AI preferences could not be saved")));
     if (aiSettings.apiKey.trim()) sessionStorage.setItem(AI_SESSION_KEY, aiSettings.apiKey.trim());
@@ -992,6 +1085,9 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   if (learningView === "drafts") {
     return <DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />;
   }
+  if (learningView === "languages") {
+    return <LanguagePackManager packs={languagePacks} builtInIds={BUILT_IN_LANGUAGE_IDS} locale={appLocale} notice={notice} usageFor={usageForLanguagePack} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onCreate={() => { setLearningView("studio"); setLanguageOpen(true); }} onImport={(file) => void importLanguagePackFile(file)} onExport={exportLanguagePack} onDelete={(pack) => void deleteLanguagePack(pack)} />;
+  }
   if (learningView === "dashboard") {
     return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;
   }
@@ -1013,6 +1109,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
           <a className="nav-item active" href="/studio"><BookOpen size={18} /><span>{t("课程编辑器", "Course editor")}</span></a>
           <button className="nav-item" onClick={enterLearningSpace}><GraduationCap size={18} /><span>{t("学习空间", "Learn")}</span>{dueReviewCount > 0 && <em>{dueReviewCount}</em>}</button>
           <button className="nav-item" onClick={() => setLearningView("drafts")}><Clock3 size={18} /><span>{t("本地草稿", "Local drafts")}</span><em>{history.length}</em></button>
+          <button className="nav-item" onClick={() => setLearningView("languages")}><Languages size={18} /><span>{t("语言包管理", "Language Packs")}</span><em>{languagePacks.length}</em></button>
         </nav>
         <div className="section-label">{t("目标语言", "Target language")}</div>
         <div className="language-list">
