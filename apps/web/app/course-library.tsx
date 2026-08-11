@@ -4,8 +4,10 @@ import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  ArchiveRestore,
   BookOpen,
   Check,
+  DatabaseBackup,
   Download,
   FileDown,
   GraduationCap,
@@ -43,6 +45,9 @@ export function CourseLibrary({
   onOpen,
   onImportFile,
   onExport,
+  recordCount,
+  onExportProfile,
+  onImportProfile,
 }: {
   entries: CourseLibraryEntry[];
   locale: AppLocale;
@@ -55,6 +60,9 @@ export function CourseLibrary({
   onOpen: (entry: CourseLibraryEntry) => void;
   onImportFile: (file: File) => void;
   onExport: (entry: CourseLibraryEntry) => void;
+  recordCount: number;
+  onExportProfile: () => void;
+  onImportProfile: (file: File) => void;
 }) {
   const [filter, setFilter] = useState<"all" | "installed">("all");
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
@@ -78,6 +86,11 @@ export function CourseLibrary({
       <section className="course-library-toolbar">
         <div><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>{c("全部课程", "All courses")}</button><button className={filter === "installed" ? "active" : ""} onClick={() => setFilter("installed")}>{c("已安装", "Installed")}</button><label className="course-file-import"><Upload size={13} />{c("导入课程文件", "Import course file")}<input type="file" accept=".json,.course.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportFile(file); event.target.value = ""; }} /></label></div>
         <p><ShieldCheck size={14} />{notice ?? c("安装前会校验课程身份与内容完整性", "Course identity and content integrity are checked before installation")}</p>
+      </section>
+
+      <section className="learner-backup-bar">
+        <div><span><DatabaseBackup size={18} /></span><p><strong>{c("学习档案备份", "Learning profile backup")}</strong><small>{c(`包含 ${recordCount} 门课程的已完成课节、掌握度和复习计划；不包含作答内容、进行中步骤、课程内容、草稿或 AI 设置。`, `Includes completed lessons, mastery, and reviews for ${recordCount} courses; excludes answers, in-progress steps, course content, drafts, and AI settings.`)}</small></p></div>
+        <aside><button onClick={onExportProfile}><FileDown size={14} />{c("导出学习档案", "Export profile")}</button><label><ArchiveRestore size={14} />{c("恢复学习档案", "Restore profile")}<input type="file" accept=".json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportProfile(file); event.target.value = ""; }} /></label></aside>
       </section>
 
       {visibleEntries.length === 0 ? (

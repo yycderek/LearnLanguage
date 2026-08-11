@@ -108,6 +108,15 @@ export async function putCourseRecord(record: CourseLearningRecord): Promise<voi
   await putDeviceValue("courseRecords", record.courseId, record);
 }
 
+export async function putCourseRecords(records: CourseLearningRecord[]): Promise<void> {
+  if (records.length === 0) return;
+  const database = await openDeviceDatabase();
+  const transaction = database.transaction("courseRecords", "readwrite");
+  const store = transaction.objectStore("courseRecords");
+  for (const record of records) store.put(record, record.courseId);
+  await transactionDone(transaction);
+}
+
 export async function persistLearningState(
   record: CourseLearningRecord,
   progress: LearningProgress,

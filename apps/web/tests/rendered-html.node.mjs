@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, studio, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, starterLibrary, courseLibrary, courseFile, learning, courseAuthoring, deviceRepository, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, studio, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, starterLibrary, courseLibrary, courseFile, learnerBackup, learning, courseAuthoring, deviceRepository, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
@@ -20,6 +20,7 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("lib/starter-course-library.ts", root), "utf8"),
     readFile(new URL("lib/course-library.ts", root), "utf8"),
     readFile(new URL("lib/course-file.ts", root), "utf8"),
+    readFile(new URL("lib/learner-backup.ts", root), "utf8"),
     readFile(new URL("lib/learning.ts", root), "utf8"),
     readFile(new URL("lib/course-authoring.ts", root), "utf8"),
     readFile(new URL("lib/device-repository.ts", root), "utf8"),
@@ -64,6 +65,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /uninstallLibraryCourse/);
   assert.match(studio, /importCourseFile/);
   assert.match(studio, /exportLibraryCourse/);
+  assert.match(studio, /exportLearnerProfile/);
+  assert.match(studio, /importLearnerProfile/);
   assert.match(studio, /课程内容许可证/);
   assert.match(studio, /verifyPublishedCourseIntegrity/);
   assert.match(studio, /所需语言能力/);
@@ -119,11 +122,16 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(courseLibraryPage, /卸载不会删除学习记录/);
   assert.match(courseLibraryPage, /导入课程文件/);
   assert.match(courseLibraryPage, /导出备份/);
+  assert.match(courseLibraryPage, /学习档案备份/);
+  assert.match(courseLibraryPage, /恢复学习档案/);
   assert.match(courseLibrary, /assessCourseUpdate/);
   assert.match(courseLibrary, /upgradeCourseLearningRecord/);
   assert.match(courseLibrary, /bundledCatalogCourses/);
   assert.match(courseFile, /parseCourseFile/);
   assert.match(courseFile, /serializeCourseFile/);
+  assert.match(learnerBackup, /createLearnerBackup/);
+  assert.match(learnerBackup, /mergeLearnerRecords/);
+  assert.doesNotMatch(learnerBackup, /apiKey/);
   assert.match(reviewPlayer, /显示答案/);
   assert.match(reviewPlayer, /提高掌握度并延长间隔/);
   assert.match(reviewPlayer, /uiText\(locale/);
@@ -143,6 +151,7 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(deviceRepository, /persistLearningState/);
   assert.match(deviceRepository, /putInstalledCourseVersion/);
   assert.match(deviceRepository, /removeInstalledCourse/);
+  assert.match(deviceRepository, /putCourseRecords/);
   assert.match(ai, /requestAiFeedback/);
   assert.match(aiRoute, /api\.openai\.com\/v1\/responses/);
   assert.match(css, /studio-shell/);
@@ -150,6 +159,7 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(css, /learner-shell/);
   assert.match(css, /learning-home-shell/);
   assert.match(css, /course-library-shell/);
+  assert.match(css, /learner-backup-bar/);
   assert.match(css, /review-player-shell/);
   assert.doesNotMatch(`${page}${studio}`, /Your site is taking shape|SkeletonPreview/);
 });

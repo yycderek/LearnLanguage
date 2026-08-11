@@ -11,7 +11,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "pnpm build && node --experimental-strip-types --test tests/rendered-html.node.mjs tests/learning.node.mjs tests/ai.node.mjs tests/course.node.mjs tests/course-authoring.node.mjs tests/course-file.node.mjs tests/course-library.node.mjs tests/i18n.node.mjs tests/language-capabilities.node.mjs tests/starter-course-library.node.mjs",
+    "test": "pnpm build && node --experimental-strip-types --test tests/rendered-html.node.mjs tests/learning.node.mjs tests/ai.node.mjs tests/course.node.mjs tests/course-authoring.node.mjs tests/course-file.node.mjs tests/course-library.node.mjs tests/i18n.node.mjs tests/language-capabilities.node.mjs tests/learner-backup.node.mjs tests/starter-course-library.node.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {

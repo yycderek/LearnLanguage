@@ -36,6 +36,7 @@ import {
   getDeviceValue,
   persistLearningState,
   putCourseRecord,
+  putCourseRecords,
   putDeviceValue,
   putInstalledCourse,
   putInstalledCourseVersion,
@@ -54,6 +55,14 @@ import {
   parseCourseFile,
   serializeCourseFile,
 } from "@/lib/course-file";
+import {
+  createLearnerBackup,
+  learnerBackupFileName,
+  MAX_LEARNER_BACKUP_BYTES,
+  mergeLearnerRecords,
+  parseLearnerBackup,
+  serializeLearnerBackup,
+} from "@/lib/learner-backup";
 import {
   appendLesson,
   appendLessonStep,
@@ -590,6 +599,55 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     setNotice(t("课程备份已导出到下载目录", "The course backup was exported to your downloads"));
   }
 
+  function exportLearnerProfile() {
+    const records = Object.values(recordsByCourse);
+    if (records.length === 0) {
+      setNotice(t("还没有可备份的学习记录", "There is no learning progress to back up yet"));
+      return;
+    }
+    const backup = createLearnerBackup(records);
+    const blob = new Blob([serializeLearnerBackup(backup)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = learnerBackupFileName(backup.exportedAt);
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    setNotice(t(`已导出 ${records.length} 门课程的学习档案；未包含课程内容和 AI 设置`, `Exported learning records for ${records.length} courses without course content or AI settings`));
+  }
+
+  async function importLearnerProfile(file: File) {
+    if (file.size > MAX_LEARNER_BACKUP_BYTES) {
+      setNotice(t("学习档案超过 5 MB，已停止恢复", "The learning profile is larger than 5 MB and was not restored"));
+      return;
+    }
+    try {
+      const parsed = parseLearnerBackup(await file.text());
+      if (!parsed.records) {
+        const message = parsed.error === "unsupported-version"
+          ? t("学习档案版本暂不受支持", "This learning-profile version is not supported")
+          : t("学习档案格式无效或内容损坏", "The learning profile is invalid or damaged");
+        setNotice(message);
+        return;
+      }
+      const merged = mergeLearnerRecords(recordsByCourse, parsed.records);
+      const changed = parsed.records.filter((record) => {
+        const current = recordsByCourse[record.courseId];
+        return !current || Date.parse(record.updatedAt) > Date.parse(current.updatedAt);
+      });
+      await putCourseRecords(changed);
+      setRecordsByCourse(merged.records);
+      setNotice(t(
+        `学习档案已恢复：新增 ${merged.added}，更新 ${merged.replaced}，保留较新的本地记录 ${merged.skipped}。进行中的课节会从头开始。`,
+        `Learning profile restored: ${merged.added} added, ${merged.replaced} updated, ${merged.skipped} newer local records kept. In-progress lessons restart from the beginning.`,
+      ));
+    } catch {
+      setNotice(t("无法读取学习档案", "The learning profile could not be read"));
+    }
+  }
+
   function restore(item: HistoryItem) {
     const parsed = validateCourse(item.payload);
     if (!parsed.course) return;
@@ -869,7 +927,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const selectedProgress = selectedLessonId ? currentRecord?.lessonProgress[selectedLessonId] : undefined;
 
   if (learningView === "library") {
-    return <CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => window.location.assign("/studio")} onInstall={(entry) => void installLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} />;
+    return <CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => window.location.assign("/studio")} onInstall={(entry) => void installLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} />;
   }
   if (learningView === "dashboard") {
     return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;
