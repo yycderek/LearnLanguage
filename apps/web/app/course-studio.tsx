@@ -49,6 +49,12 @@ import {
   type CourseLibraryEntry,
 } from "@/lib/course-library";
 import {
+  courseFileName,
+  MAX_COURSE_FILE_BYTES,
+  parseCourseFile,
+  serializeCourseFile,
+} from "@/lib/course-file";
+import {
   appendLesson,
   appendLessonStep,
   moveLesson,
@@ -520,6 +526,70 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     setLearningView("dashboard");
   }
 
+  async function importCourseFile(file: File) {
+    if (file.size > MAX_COURSE_FILE_BYTES) {
+      setNotice(t("课程文件超过 5 MB，已停止导入", "The course file is larger than 5 MB and was not imported"));
+      return;
+    }
+    try {
+      const parsed = await parseCourseFile(await file.text());
+      if (!parsed.course) {
+        const message = parsed.error === "not-published"
+          ? t("只能直接安装已发布的不可变课程；草稿请在 Studio 中继续编辑", "Only immutable published courses can be installed directly. Continue editing drafts in Studio.")
+          : parsed.error === "integrity-failed"
+            ? t("课程文件内容哈希校验失败，已拒绝导入", "The course file failed its content-hash check and was rejected")
+            : t(`课程文件格式无效${parsed.issues?.length ? `：${parsed.issues.length} 个问题` : ""}`, `Invalid course file${parsed.issues?.length ? `: ${parsed.issues.length} issues` : ""}`);
+        setNotice(message);
+        return;
+      }
+
+      const imported = parsed.course;
+      const existing = installedCourses.find((item) => item.manifest.id === imported.manifest.id);
+      const currentRecord = recordsByCourse[imported.manifest.id];
+      if (existing) {
+        const assessment = assessCourseUpdate(existing, imported, currentRecord);
+        if (!assessment.newer) {
+          setNotice(t("设备上已有相同或更新版本的课程", "The same or a newer course version is already installed"));
+          return;
+        }
+        if (!assessment.compatible) {
+          setNotice(t("导入版本与现有学习记录不兼容，已保留原课程", "The imported version is incompatible with existing progress; the installed course was kept"));
+          return;
+        }
+        const upgradedRecord = currentRecord ? upgradeCourseLearningRecord(currentRecord, imported) : undefined;
+        await putInstalledCourseVersion(imported, upgradedRecord);
+        setInstalledCourses((current) => [imported, ...current.filter((item) => item.manifest.id !== imported.manifest.id)]);
+        if (upgradedRecord) setRecordsByCourse((current) => ({ ...current, [imported.manifest.id]: upgradedRecord }));
+        setNotice(t(`已从文件更新至 v${imported.manifest.version}，学习进度已保留`, `Updated from file to v${imported.manifest.version}; progress was preserved`));
+        return;
+      }
+
+      await putInstalledCourseVersion(imported);
+      setInstalledCourses((current) => [imported, ...current]);
+      setNotice(t(`已导入并安装「${displayText(imported.manifest.title, appLocale)}」`, `Imported and installed “${displayText(imported.manifest.title, appLocale)}”`));
+    } catch {
+      setNotice(t("无法读取课程文件", "The course file could not be read"));
+    }
+  }
+
+  function exportLibraryCourse(entry: CourseLibraryEntry) {
+    const installed = entry.installedCourse ?? installedCourses.find((item) => item.manifest.id === entry.id);
+    if (!installed || installed.manifest.status !== "published") {
+      setNotice(t("只有已发布课程可以导出为可安装备份", "Only published courses can be exported as installable backups"));
+      return;
+    }
+    const blob = new Blob([serializeCourseFile(installed as PublishedCoursePack)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = courseFileName(installed as PublishedCoursePack);
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    setNotice(t("课程备份已导出到下载目录", "The course backup was exported to your downloads"));
+  }
+
   function restore(item: HistoryItem) {
     const parsed = validateCourse(item.payload);
     if (!parsed.course) return;
@@ -799,7 +869,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const selectedProgress = selectedLessonId ? currentRecord?.lessonProgress[selectedLessonId] : undefined;
 
   if (learningView === "library") {
-    return <CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => window.location.assign("/studio")} onInstall={(entry) => void installLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} />;
+    return <CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => window.location.assign("/studio")} onInstall={(entry) => void installLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} />;
   }
   if (learningView === "dashboard") {
     return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;

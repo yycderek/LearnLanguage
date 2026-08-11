@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, studio, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, starterLibrary, courseLibrary, learning, courseAuthoring, deviceRepository, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, studio, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, starterLibrary, courseLibrary, courseFile, learning, courseAuthoring, deviceRepository, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
@@ -19,6 +19,7 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("lib/language-pack.ts", root), "utf8"),
     readFile(new URL("lib/starter-course-library.ts", root), "utf8"),
     readFile(new URL("lib/course-library.ts", root), "utf8"),
+    readFile(new URL("lib/course-file.ts", root), "utf8"),
     readFile(new URL("lib/learning.ts", root), "utf8"),
     readFile(new URL("lib/course-authoring.ts", root), "utf8"),
     readFile(new URL("lib/device-repository.ts", root), "utf8"),
@@ -61,6 +62,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /installLibraryCourse/);
   assert.match(studio, /updateLibraryCourse/);
   assert.match(studio, /uninstallLibraryCourse/);
+  assert.match(studio, /importCourseFile/);
+  assert.match(studio, /exportLibraryCourse/);
   assert.match(studio, /课程内容许可证/);
   assert.match(studio, /verifyPublishedCourseIntegrity/);
   assert.match(studio, /所需语言能力/);
@@ -114,9 +117,13 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(courseLibraryPage, /选择想学的课程/);
   assert.match(courseLibraryPage, /更新并保留进度/);
   assert.match(courseLibraryPage, /卸载不会删除学习记录/);
+  assert.match(courseLibraryPage, /导入课程文件/);
+  assert.match(courseLibraryPage, /导出备份/);
   assert.match(courseLibrary, /assessCourseUpdate/);
   assert.match(courseLibrary, /upgradeCourseLearningRecord/);
   assert.match(courseLibrary, /bundledCatalogCourses/);
+  assert.match(courseFile, /parseCourseFile/);
+  assert.match(courseFile, /serializeCourseFile/);
   assert.match(reviewPlayer, /显示答案/);
   assert.match(reviewPlayer, /提高掌握度并延长间隔/);
   assert.match(reviewPlayer, /uiText\(locale/);

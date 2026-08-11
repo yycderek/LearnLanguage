@@ -359,6 +359,8 @@ button { color: inherit; }
 .course-library-toolbar > div { display: flex; gap: 5px; }
 .course-library-toolbar button { padding: 8px 11px; border: 0; background: transparent; color: var(--muted); border-radius: 7px; cursor: pointer; font-size: 9px; font-weight: 750; }
 .course-library-toolbar button.active { background: var(--green-soft); color: var(--green); }
+.course-file-import { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border: 1px solid #c5d4cd; color: var(--green); border-radius: 7px; cursor: pointer; font-size: 9px; font-weight: 750; }
+.course-file-import input { display: none; }
 .course-library-toolbar p { margin: 0; display: flex; align-items: center; gap: 6px; color: #74827d; font-size: 8px; }
 .course-library-grid { max-width: 1160px; margin: 14px auto 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .library-course-card { min-height: 360px; display: grid; grid-template-columns: 105px minmax(0, 1fr); overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 32px rgba(36,62,55,.05); }

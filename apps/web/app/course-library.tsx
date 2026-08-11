@@ -7,12 +7,14 @@ import {
   BookOpen,
   Check,
   Download,
+  FileDown,
   GraduationCap,
   Languages,
   Library,
   RefreshCw,
   ShieldCheck,
   Trash2,
+  Upload,
   UserRound,
 } from "lucide-react";
 import { displayText } from "@/lib/course";
@@ -39,6 +41,8 @@ export function CourseLibrary({
   onUpdate,
   onUninstall,
   onOpen,
+  onImportFile,
+  onExport,
 }: {
   entries: CourseLibraryEntry[];
   locale: AppLocale;
@@ -49,6 +53,8 @@ export function CourseLibrary({
   onUpdate: (entry: CourseLibraryEntry) => void;
   onUninstall: (entry: CourseLibraryEntry) => void;
   onOpen: (entry: CourseLibraryEntry) => void;
+  onImportFile: (file: File) => void;
+  onExport: (entry: CourseLibraryEntry) => void;
 }) {
   const [filter, setFilter] = useState<"all" | "installed">("all");
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
@@ -70,7 +76,7 @@ export function CourseLibrary({
       </section>
 
       <section className="course-library-toolbar">
-        <div><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>{c("全部课程", "All courses")}</button><button className={filter === "installed" ? "active" : ""} onClick={() => setFilter("installed")}>{c("已安装", "Installed")}</button></div>
+        <div><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>{c("全部课程", "All courses")}</button><button className={filter === "installed" ? "active" : ""} onClick={() => setFilter("installed")}>{c("已安装", "Installed")}</button><label className="course-file-import"><Upload size={13} />{c("导入课程文件", "Import course file")}<input type="file" accept=".json,.course.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportFile(file); event.target.value = ""; }} /></label></div>
         <p><ShieldCheck size={14} />{notice ?? c("安装前会校验课程身份与内容完整性", "Course identity and content integrity are checked before installation")}</p>
       </section>
 
@@ -98,6 +104,7 @@ export function CourseLibrary({
                     {entry.status === "update-available" && <button className="primary" onClick={() => onUpdate(entry)}><RefreshCw size={15} />{c("更新并保留进度", "Update and keep progress")}</button>}
                     {entry.status === "update-blocked" && <button disabled><ShieldCheck size={15} />{c("需要兼容处理", "Compatibility review needed")}</button>}
                     {entry.status !== "available" && <button onClick={() => onOpen(entry)}>{c("进入学习", "Open course")}<ArrowRight size={14} /></button>}
+                    {entry.status !== "available" && <button onClick={() => onExport(entry)}><FileDown size={15} />{c("导出备份", "Export")}</button>}
                     {entry.status !== "available" && <button className="danger" onClick={() => onUninstall(entry)} aria-label={c(`卸载${displayText(course.manifest.title, locale)}`, `Remove ${displayText(course.manifest.title, locale)}`)}><Trash2 size={15} />{c("卸载", "Remove")}</button>}
                   </div>
                 </div>
