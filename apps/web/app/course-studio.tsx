@@ -2,6 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  BuiltInLanguagePackMutationError,
+  CourseLibraryApplicationService,
+  DraftApplicationService,
+  LanguagePackApplicationService,
+  LanguagePackInUseError,
+  ProfileBackupApplicationService,
+} from "@learn-language/application/workspace";
+import { assessCourseLanguageCompatibility, languageAdapterPin, type LanguageCompatibilityReport } from "@learn-language/language-runtime";
+import {
   ArrowDown,
   ArrowUp,
   BookOpen,
@@ -36,14 +45,14 @@ import { testAiConnection, type AiProvider, type AiSettings } from "@/lib/ai";
 import {
   getAllDeviceValues,
   getDeviceValue,
-  deleteDeviceValue,
+  IndexedDbDraftRepository,
+  IndexedDbInstalledCourseRepository,
+  IndexedDbLearningProfileRepository,
+  IndexedDbLanguagePackRepository,
   persistLearningState,
   putCourseRecord,
-  putCourseRecords,
   putDeviceValue,
-  putInstalledCourse,
   putInstalledCourseVersion,
-  removeInstalledCourse,
 } from "@/lib/device-repository";
 import {
   assessCourseUpdate,
@@ -62,19 +71,15 @@ import {
   createLearnerBackup,
   learnerBackupFileName,
   MAX_LEARNER_BACKUP_BYTES,
-  mergeLearnerRecords,
   parseLearnerBackup,
   serializeLearnerBackup,
 } from "@/lib/learner-backup";
 import {
-  addDraftRevision,
   draftFileName,
   groupDraftRevisions,
   MAX_DRAFT_FILE_BYTES,
-  nextDraftRevision,
   normalizeDraftHistory,
   parseDraftFile,
-  removeDraft,
   type DraftRevision,
 } from "@/lib/draft-library";
 import {
@@ -108,7 +113,6 @@ import {
 import {
   builtInLanguagePacks,
   languageName,
-  validateLanguagePack,
   type LanguageDirection,
   type LanguagePack,
 } from "@/lib/language-pack";
@@ -146,6 +150,10 @@ type LanguageForm = {
 
 const AI_SESSION_KEY = "learn-language-ai-key-session-v1";
 const BUILT_IN_LANGUAGE_IDS = new Set(builtInLanguagePacks.map((pack) => pack.id));
+const draftApplication = new DraftApplicationService(new IndexedDbDraftRepository());
+const languagePackApplication = new LanguagePackApplicationService(new IndexedDbLanguagePackRepository(), BUILT_IN_LANGUAGE_IDS);
+const installedCourseRepository = new IndexedDbInstalledCourseRepository();
+const profileBackupApplication = new ProfileBackupApplicationService<CourseLearningRecord>(new IndexedDbLearningProfileRepository());
 
 const defaultAiSettings: AiSettings = { provider: "openai", model: "", endpoint: "", apiKey: "" };
 const defaultLanguageForm: LanguageForm = {
@@ -304,16 +312,19 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     () => groupDraftRevisions(history).map((group) => group.latest.languageId),
     [history],
   );
+  const courseLibraryApplication = useMemo(() => new CourseLibraryApplicationService(installedCourseRepository, {
+    assess: (candidate) => assessCourseLanguageCompatibility(candidate, languagePacks.find((pack) => pack.id === candidate.manifest.languageId)),
+  }), [languagePacks]);
 
   useEffect(() => {
     let active = true;
     async function hydrate() {
       const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedAppLocale, storedTeachingLocale, storedUiLocale] = await Promise.all([
-        getDeviceValue<unknown>("drafts", "history"),
+        draftApplication.list(),
         getDeviceValue<AiSettings>("preferences", "ai"),
-        getAllDeviceValues<LanguagePack>("languagePacks"),
+        languagePackApplication.list(),
         getAllDeviceValues<unknown>("courseRecords"),
-        getAllDeviceValues<CoursePack>("installedCourses"),
+        installedCourseRepository.list(),
         getDeviceValue<unknown>("preferences", APP_LOCALE_PREFERENCE_KEY),
         getDeviceValue<unknown>("preferences", TEACHING_LOCALE_PREFERENCE_KEY),
         getDeviceValue<unknown>("preferences", UI_LOCALE_PREFERENCE_KEY),
@@ -329,9 +340,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       setHistory(normalizeDraftHistory(storedHistory));
       setAiSettings(hydratedAi);
       setAiConfigured(aiIsReady(hydratedAi));
-      setLanguagePacks([...builtInLanguagePacks, ...customPacks.filter((pack) => !builtInLanguagePacks.some((item) => item.id === pack.id))]);
+      const availableLanguagePacks = [...builtInLanguagePacks, ...customPacks.filter((pack) => !builtInLanguagePacks.some((item) => item.id === pack.id))];
+      setLanguagePacks(availableLanguagePacks);
       setRecordsByCourse(normalizedRecords);
-      setInstalledCourses(storedInstalledCourses);
+      setInstalledCourses([...storedInstalledCourses]);
       const nextLocale = resolveStoredAppLocale(storedAppLocale, storedUiLocale, storedTeachingLocale);
       setAppLocale(nextLocale);
       if (storedAppLocale === undefined) void putDeviceValue("preferences", APP_LOCALE_PREFERENCE_KEY, nextLocale).catch(() => undefined);
@@ -339,10 +351,17 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         ? uiText(nextLocale, "课程库已就绪；安装课程后即可开始学习", "The course library is ready. Install a course to begin learning.")
         : uiText(nextLocale, "示例课程已载入，可以直接编辑", "The sample course is ready to edit"));
       if (space === "learn" && storedInstalledCourses[0]) {
-        setCourse(storedInstalledCourses[0]);
-        setSource(JSON.stringify(storedInstalledCourses[0], null, 2));
-        setLanguage(storedInstalledCourses[0].manifest.languageId);
-        setLearningView("dashboard");
+        const firstCourse = storedInstalledCourses[0];
+        const compatibility = assessCourseLanguageCompatibility(firstCourse, availableLanguagePacks.find((pack) => pack.id === firstCourse.manifest.languageId));
+        if (compatibility.status === "blocked") {
+          setLearningView("library");
+          setNotice(uiText(nextLocale, "已安装课程缺少兼容的 Language Pack 或语言适配器；请先修复语言运行时", "An installed course is missing a compatible Language Pack or language adapter. Repair its language runtime first."));
+        } else {
+          setCourse(firstCourse);
+          setSource(JSON.stringify(firstCourse, null, 2));
+          setLanguage(firstCourse.manifest.languageId);
+          setLearningView("dashboard");
+        }
       }
     }
     void hydrate().catch(() => {
@@ -417,13 +436,17 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     }
     setSaving(true);
     const nextDraftId = draftId ?? crypto.randomUUID();
-    const local = nextDraftRevision(history, result.course, source, nextDraftId);
-    const nextHistory = addDraftRevision(history, local);
     try {
-      await putDeviceValue("drafts", "history", nextHistory);
+      const saved = await draftApplication.saveRevision({
+        draftId: nextDraftId,
+        title: displayText(result.course.manifest.title),
+        languageId: result.course.manifest.languageId,
+        payload: source,
+        updatedAt: new Date().toISOString(),
+      });
       setDraftId(nextDraftId);
-      setHistory(nextHistory);
-      setNotice(t(`已保存到当前设备 · 修订 ${local.revision}`, `Saved on this device · revision ${local.revision}`));
+      setHistory(normalizeDraftHistory(saved.history));
+      setNotice(t(`已保存到当前设备 · 修订 ${saved.revision.revision}`, `Saved on this device · revision ${saved.revision.revision}`));
     } catch {
       setNotice(t("草稿保存失败；请检查浏览器是否允许设备存储", "Draft save failed. Check whether the browser allows device storage."));
     } finally {
@@ -444,8 +467,17 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     }
     setPublishing(true);
     try {
-      const published = await publishCourseDraft(result.course);
-      commitCourse(published, t(`已发布不可变版本 · ${published.manifest.contentHash.slice(0, 22)}…`, `Immutable version published · ${published.manifest.contentHash.slice(0, 22)}…`));
+      const publishingDraft = cloneCourse(result.course);
+      const publishingLanguage = languagePacks.find((pack) => pack.id === publishingDraft.manifest.languageId);
+      if (!publishingLanguage) {
+        compatibilityBlocked(assessCourseLanguageCompatibility(publishingDraft, undefined));
+        return;
+      }
+      publishingDraft.manifest.languageAdapter = languageAdapterPin(publishingLanguage);
+      const published = await publishCourseDraft(publishingDraft);
+      const compatibility = languageCompatibility(published);
+      if (compatibilityBlocked(compatibility)) return;
+      commitCourse(published, t(`已发布不可变版本 · ${published.manifest.contentHash.slice(0, 22)}…`, `Immutable version published · ${published.manifest.contentHash.slice(0, 22)}…`) + compatibilitySuffix(compatibility));
       setDraftId(undefined);
     } catch (error) {
       setNotice(error instanceof Error ? localizeRuntimeMessage(error.message, uiLocale) : t("课程发布失败", "Course publishing failed"));
@@ -462,35 +494,62 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     setEditorSection("overview");
   }
 
+  function languageCompatibility(candidate: CoursePack) {
+    return assessCourseLanguageCompatibility(candidate, languagePacks.find((pack) => pack.id === candidate.manifest.languageId));
+  }
+
+  function compatibilityBlocked(report: LanguageCompatibilityReport) {
+    if (report.status !== "blocked") return false;
+    const first = report.issues.find((issue) => issue.severity === "blocked");
+    const message = first?.code === "language-pack-missing"
+      ? t(`缺少课程所需的 ${report.languageId} Language Pack；请先在 Studio 导入语言包`, `The ${report.languageId} Language Pack is missing. Import it in Studio before continuing.`)
+      : first?.code === "exercise-capability-missing"
+        ? t(`练习 ${first.exerciseId ?? ""} 缺少 ${first.capability ?? ""} 能力且没有显式降级规则`, `Exercise ${first.exerciseId ?? ""} requires ${first.capability ?? ""} but has no explicit fallback.`)
+        : t("课程固定的语言适配器与当前 Language Pack 或已安装运行时不兼容", "The course's pinned language adapter is incompatible with the current Language Pack or installed runtime.");
+    setNotice(message);
+    return true;
+  }
+
+  function compatibilitySuffix(report: LanguageCompatibilityReport) {
+    const degraded = report.issues.filter((issue) => issue.severity === "degraded").length;
+    return degraded > 0
+      ? t(`；${degraded} 项练习将使用显式降级方式`, `; ${degraded} exercises will use explicit fallbacks`)
+      : "";
+  }
+
   async function installCurrentCourse() {
     if (course.manifest.status !== "published") {
       setNotice(t("请先发布不可变课程版本，再安装到学习空间", "Publish an immutable course version before installing it in Learn"));
       return;
     }
+    const compatibility = languageCompatibility(course);
+    if (compatibilityBlocked(compatibility)) return;
     try {
       const integrity = await verifyPublishedCourseIntegrity(course);
       if (!integrity.valid) {
         setNotice(t("课程内容哈希校验失败，已拒绝安装", "Course content hash verification failed; installation was rejected"));
         return;
       }
-      await putInstalledCourse(course);
+      await courseLibraryApplication.install(course);
       setInstalledCourses((current) => [course, ...current.filter((item) => item.manifest.id !== course.manifest.id)]);
-      setNotice(t("已安装到学习空间；创作草稿和学习课程保持独立", "Installed in Learn; authoring drafts remain separate from learning courses"));
+      setNotice(t("已安装到学习空间；创作草稿和学习课程保持独立", "Installed in Learn; authoring drafts remain separate from learning courses") + compatibilitySuffix(compatibility));
     } catch {
       setNotice(t("课程安装失败；请检查浏览器是否允许设备存储", "Course installation failed. Check whether the browser allows device storage."));
     }
   }
 
   async function installLibraryCourse(entry: CourseLibraryEntry) {
+    const compatibility = languageCompatibility(entry.course);
+    if (compatibilityBlocked(compatibility)) return;
     try {
       const integrity = await verifyPublishedCourseIntegrity(entry.course);
       if (!integrity.valid) {
         setNotice(t("课程内容完整性校验失败，已拒绝安装", "Course integrity verification failed; installation was rejected"));
         return;
       }
-      await putInstalledCourseVersion(entry.course);
+      await courseLibraryApplication.install(entry.course);
       setInstalledCourses((current) => [entry.course, ...current.filter((item) => item.manifest.id !== entry.id)]);
-      setNotice(t(`已安装「${displayText(entry.course.manifest.title, appLocale)}」`, `Installed “${displayText(entry.course.manifest.title, appLocale)}”`));
+      setNotice(t(`已安装「${displayText(entry.course.manifest.title, appLocale)}」`, `Installed “${displayText(entry.course.manifest.title, appLocale)}”`) + compatibilitySuffix(compatibility));
     } catch {
       setNotice(t("课程安装失败；请检查浏览器是否允许设备存储", "Course installation failed. Check whether device storage is available."));
     }
@@ -505,6 +564,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       setNotice(t("更新会破坏现有学习记录，已停止更新", "The update would break existing learning progress and was stopped"));
       return;
     }
+    const runtimeCompatibility = languageCompatibility(entry.course);
+    if (compatibilityBlocked(runtimeCompatibility)) return;
     try {
       const integrity = await verifyPublishedCourseIntegrity(entry.course);
       if (!integrity.valid) {
@@ -516,7 +577,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       setInstalledCourses((current) => [entry.course, ...current.filter((item) => item.manifest.id !== entry.id)]);
       if (upgradedRecord) setRecordsByCourse((current) => ({ ...current, [entry.id]: upgradedRecord }));
       if (course.manifest.id === entry.id) setCourse(entry.course);
-      setNotice(t(`课程已更新至 v${entry.course.manifest.version}，学习进度已保留`, `Updated to v${entry.course.manifest.version}; learning progress was preserved`));
+      setNotice(t(`课程已更新至 v${entry.course.manifest.version}，学习进度已保留`, `Updated to v${entry.course.manifest.version}; learning progress was preserved`) + compatibilitySuffix(runtimeCompatibility));
     } catch {
       setNotice(t("课程更新失败；原版本和学习记录没有改变", "Course update failed; the installed version and progress were not changed"));
     }
@@ -531,7 +592,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       : t(`确定卸载「${title}」吗？学习记录会保留，可以随时重新安装。`, `Remove “${title}”? Progress is kept and the course can be reinstalled at any time.`);
     if (!window.confirm(warning)) return;
     try {
-      await removeInstalledCourse(entry.id);
+      await courseLibraryApplication.remove(entry.id);
       setInstalledCourses((current) => current.filter((item) => item.manifest.id !== entry.id));
       setNotice(t(`已卸载「${title}」；学习记录仍保存在当前设备`, `Removed “${title}”; learning progress remains on this device`));
     } catch {
@@ -542,6 +603,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   function openLibraryCourse(entry: CourseLibraryEntry) {
     const selected = entry.installedCourse ?? installedCourses.find((item) => item.manifest.id === entry.id);
     if (!selected) return;
+    if (compatibilityBlocked(languageCompatibility(selected))) return;
     setCourse(selected);
     setSource(JSON.stringify(selected, null, 2));
     setLanguage(selected.manifest.languageId);
@@ -568,6 +630,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       }
 
       const imported = parsed.course;
+      const runtimeCompatibility = languageCompatibility(imported);
+      if (compatibilityBlocked(runtimeCompatibility)) return;
       const existing = installedCourses.find((item) => item.manifest.id === imported.manifest.id);
       const currentRecord = recordsByCourse[imported.manifest.id];
       if (existing) {
@@ -584,13 +648,13 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         await putInstalledCourseVersion(imported, upgradedRecord);
         setInstalledCourses((current) => [imported, ...current.filter((item) => item.manifest.id !== imported.manifest.id)]);
         if (upgradedRecord) setRecordsByCourse((current) => ({ ...current, [imported.manifest.id]: upgradedRecord }));
-        setNotice(t(`已从文件更新至 v${imported.manifest.version}，学习进度已保留`, `Updated from file to v${imported.manifest.version}; progress was preserved`));
+        setNotice(t(`已从文件更新至 v${imported.manifest.version}，学习进度已保留`, `Updated from file to v${imported.manifest.version}; progress was preserved`) + compatibilitySuffix(runtimeCompatibility));
         return;
       }
 
-      await putInstalledCourseVersion(imported);
+      await courseLibraryApplication.install(imported);
       setInstalledCourses((current) => [imported, ...current]);
-      setNotice(t(`已导入并安装「${displayText(imported.manifest.title, appLocale)}」`, `Imported and installed “${displayText(imported.manifest.title, appLocale)}”`));
+      setNotice(t(`已导入并安装「${displayText(imported.manifest.title, appLocale)}」`, `Imported and installed “${displayText(imported.manifest.title, appLocale)}”`) + compatibilitySuffix(runtimeCompatibility));
     } catch {
       setNotice(t("无法读取课程文件", "The course file could not be read"));
     }
@@ -647,12 +711,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         setNotice(message);
         return;
       }
-      const merged = mergeLearnerRecords(recordsByCourse, parsed.records);
-      const changed = parsed.records.filter((record) => {
-        const current = recordsByCourse[record.courseId];
-        return !current || Date.parse(record.updatedAt) > Date.parse(current.updatedAt);
-      });
-      await putCourseRecords(changed);
+      const merged = await profileBackupApplication.restore(parsed.records);
       setRecordsByCourse(merged.records);
       setNotice(t(
         `学习档案已恢复：新增 ${merged.added}，更新 ${merged.replaced}，保留较新的本地记录 ${merged.skipped}。进行中的课节会从头开始。`,
@@ -695,10 +754,15 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         return;
       }
       const nextDraftId = crypto.randomUUID();
-      const imported = nextDraftRevision(history, parsed.course, parsed.payload, nextDraftId);
-      const nextHistory = addDraftRevision(history, imported);
-      await putDeviceValue("drafts", "history", nextHistory);
-      setHistory(nextHistory);
+      const saved = await draftApplication.saveRevision({
+        draftId: nextDraftId,
+        title: displayText(parsed.course.manifest.title),
+        languageId: parsed.course.manifest.languageId,
+        payload: parsed.payload,
+        updatedAt: new Date().toISOString(),
+      });
+      const imported = saved.revision;
+      setHistory(normalizeDraftHistory(saved.history));
       restore(imported);
       setEditorSection("overview");
       setLearningView("studio");
@@ -731,10 +795,9 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     if (!target) return;
     const warning = t(`确定删除「${target.title}」的全部本地修订吗？此操作无法撤销。`, `Delete every local revision of “${target.title}”? This cannot be undone.`);
     if (!window.confirm(warning)) return;
-    const nextHistory = removeDraft(history, targetDraftId);
     try {
-      await putDeviceValue("drafts", "history", nextHistory);
-      setHistory(nextHistory);
+      const nextHistory = await draftApplication.deleteDraft(targetDraftId);
+      setHistory(normalizeDraftHistory(nextHistory));
       if (draftId === targetDraftId) setDraftId(undefined);
       setNotice(t(`已删除「${target.title}」的本地草稿；当前编辑内容未被清空`, `Deleted the local draft “${target.title}”; the open editor content was kept`));
     } catch {
@@ -762,10 +825,6 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         setNotice(parsed.error ? localizeRuntimeMessage(parsed.error, uiLocale) : t("Language Pack 无效", "Invalid Language Pack"));
         return;
       }
-      if (BUILT_IN_LANGUAGE_IDS.has(parsed.pack.id)) {
-        setNotice(t("不能用文件覆盖应用内置 Language Pack", "A file cannot overwrite a built-in Language Pack"));
-        return;
-      }
       const existing = languagePacks.find((item) => item.id === parsed.pack?.id);
       if (existing) {
         const usage = usageForLanguagePack(existing.id);
@@ -774,10 +833,14 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
           : t(`确定替换现有的「${languageName(existing, appLocale)}」Language Pack 吗？`, `Replace the existing “${languageName(existing, appLocale)}” Language Pack?`);
         if (!window.confirm(warning)) return;
       }
-      await putDeviceValue("languagePacks", parsed.pack.id, parsed.pack);
+      await languagePackApplication.import(parsed.pack, Boolean(existing));
       setLanguagePacks((current) => [...builtInLanguagePacks, parsed.pack!, ...current.filter((item) => !BUILT_IN_LANGUAGE_IDS.has(item.id) && item.id !== parsed.pack?.id)]);
       setNotice(t(`已导入「${languageName(parsed.pack, "zh-CN")}」Language Pack`, `Imported the “${languageName(parsed.pack, "en")}” Language Pack`));
-    } catch {
+    } catch (error) {
+      if (error instanceof BuiltInLanguagePackMutationError) {
+        setNotice(t("不能用文件覆盖应用内置 Language Pack", "A file cannot overwrite a built-in Language Pack"));
+        return;
+      }
       setNotice(t("无法读取 Language Pack 文件", "The Language Pack file could not be read"));
     }
   }
@@ -796,7 +859,6 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   async function deleteLanguagePack(pack: LanguagePack) {
-    if (BUILT_IN_LANGUAGE_IDS.has(pack.id)) return;
     const usage = usageForLanguagePack(pack.id);
     if (!usage.canDelete) {
       setNotice(t("这个 Language Pack 仍被当前编辑内容、草稿或已安装课程引用，不能删除", "This Language Pack is still used by the editor, a draft, or an installed course and cannot be deleted"));
@@ -804,10 +866,14 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     }
     if (!window.confirm(t(`确定删除「${languageName(pack, appLocale)}」Language Pack 吗？`, `Delete the “${languageName(pack, appLocale)}” Language Pack?`))) return;
     try {
-      await deleteDeviceValue("languagePacks", pack.id);
+      await languagePackApplication.remove(pack.id, usage);
       setLanguagePacks((current) => current.filter((item) => item.id !== pack.id));
       setNotice(t(`已删除「${languageName(pack, "zh-CN")}」Language Pack`, `Deleted the “${languageName(pack, "en")}” Language Pack`));
-    } catch {
+    } catch (error) {
+      if (error instanceof BuiltInLanguagePackMutationError || error instanceof LanguagePackInUseError) {
+        setNotice(t("这个 Language Pack 仍受内置保护或被课程引用，不能删除", "This Language Pack is built-in or still referenced by a course and cannot be deleted"));
+        return;
+      }
       setNotice(t("Language Pack 删除失败", "The Language Pack could not be deleted"));
     }
   }
@@ -876,6 +942,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   function enterStudioPreview() {
+    if (compatibilityBlocked(languageCompatibility(course))) return;
     setLearningContext("preview");
     setLearningView("dashboard");
   }
@@ -883,6 +950,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   function selectLearningCourse(courseId: string) {
     const selected = learnCourses.find((item) => item.manifest.id === courseId);
     if (!selected) return;
+    if (compatibilityBlocked(languageCompatibility(selected))) return;
     setCourse(selected);
     setSource(JSON.stringify(selected, null, 2));
     setLanguage(selected.manifest.languageId);
@@ -1033,7 +1101,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     });
   }
 
-  function saveLanguagePack() {
+  async function saveLanguagePack() {
     let json = languageJson;
     if (languageMode === "quick") {
       json = JSON.stringify({
@@ -1050,22 +1118,31 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         segmentation: { strategy: languageForm.scriptCode === "Latn" ? "whitespace" : "grapheme" },
       });
     }
-    const result = validateLanguagePack(json);
+    const result = parseLanguagePackFile(json);
     if (!result.pack) {
       setLanguageError(result.error ? localizeRuntimeMessage(result.error, uiLocale) : t("Language Pack 无效", "Invalid Language Pack"));
       return;
     }
-    const custom = languagePacks
-      .filter((pack) => !builtInLanguagePacks.some((builtIn) => builtIn.id === pack.id) && pack.id !== result.pack?.id);
-    const nextCustom = [...custom, result.pack];
-    void putDeviceValue("languagePacks", result.pack.id, result.pack).catch(() => setNotice(t("Language Pack 保存失败", "Language Pack could not be saved")));
+    const pack = result.pack;
+    const existing = languagePacks.find((item) => !BUILT_IN_LANGUAGE_IDS.has(item.id) && item.id === pack.id);
+    if (existing && !window.confirm(t(`确定替换现有的「${languageName(existing, appLocale)}」Language Pack 吗？`, `Replace the existing “${languageName(existing, appLocale)}” Language Pack?`))) return;
+    try {
+      await languagePackApplication.import(pack, Boolean(existing));
+    } catch (error) {
+      setLanguageError(error instanceof BuiltInLanguagePackMutationError
+        ? t("不能覆盖应用内置 Language Pack", "A built-in Language Pack cannot be overwritten")
+        : t("Language Pack 保存失败", "The Language Pack could not be saved"));
+      return;
+    }
+    const custom = languagePacks.filter((item) => !BUILT_IN_LANGUAGE_IDS.has(item.id) && item.id !== pack.id);
+    const nextCustom = [...custom, pack];
     setLanguagePacks([...builtInLanguagePacks, ...nextCustom]);
     setLanguageOpen(false);
     setLanguageError("");
     setLanguageForm(defaultLanguageForm);
     setLanguageJson("");
-    loadLanguage(result.pack);
-    setNotice(t(`${languageName(result.pack, "zh-CN")} Language Pack 已保存并创建入门课程`, `${languageName(result.pack, "en")} Language Pack saved and starter course created`));
+    loadLanguage(pack);
+    setNotice(t(`${languageName(pack, "zh-CN")} Language Pack 已保存并创建入门课程`, `${languageName(pack, "en")} Language Pack saved and starter course created`));
   }
 
   const currentLanguage = languagePacks.find((item) => item.id === language);
@@ -1367,7 +1444,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
               {languageError && <div className="language-error"><TriangleAlert size={16} />{languageError}</div>}
               <div className="privacy-note"><ShieldCheck size={17} /><p>{t("自定义语言包只保存在当前浏览器。创建后会自动生成一份可编辑的入门课程，之后可继续补充语料。", "Custom language packs stay in this browser. Creating one also generates an editable starter course for your content.")}</p></div>
             </div>
-            <div className="dialog-footer"><button className="text-button" onClick={() => setLanguageOpen(false)}>{t("取消", "Cancel")}</button><button className="primary-button" onClick={saveLanguagePack}>{t("保存并创建课程", "Save and create course")}</button></div>
+            <div className="dialog-footer"><button className="text-button" onClick={() => setLanguageOpen(false)}>{t("取消", "Cancel")}</button><button className="primary-button" onClick={() => void saveLanguagePack()}>{t("保存并创建课程", "Save and create course")}</button></div>
           </section>
         </div>
       )}

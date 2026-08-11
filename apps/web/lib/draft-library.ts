@@ -1,17 +1,11 @@
+import { MAX_DRAFT_REVISIONS, normalizeDraftRevisions, type DraftRevisionRecord } from "@learn-language/application/workspace";
 import type { CoursePack, ImportIssue } from "@learn-language/protocol";
 import { displayText, validateCourse } from "./course.ts";
 
 export const MAX_DRAFT_FILE_BYTES = 5 * 1024 * 1024;
-export const MAX_DRAFT_REVISIONS = 24;
+export { MAX_DRAFT_REVISIONS };
 
-export type DraftRevision = {
-  draftId: string;
-  revision: number;
-  title: string;
-  languageId: string;
-  updatedAt: string;
-  payload: string;
-};
+export type DraftRevision = DraftRevisionRecord;
 
 export type DraftGroup = {
   draftId: string;
@@ -28,23 +22,8 @@ export type DraftFileImportResult = {
   issues?: ImportIssue[];
 };
 
-function isDraftRevision(value: unknown): value is DraftRevision {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Partial<DraftRevision>;
-  return typeof item.draftId === "string" && item.draftId.length > 0
-    && Number.isInteger(item.revision) && Number(item.revision) > 0
-    && typeof item.title === "string" && item.title.length > 0
-    && typeof item.languageId === "string" && item.languageId.length > 0
-    && typeof item.updatedAt === "string" && Number.isFinite(Date.parse(item.updatedAt))
-    && typeof item.payload === "string"
-    && Boolean(parseDraftFile(item.payload).course);
-}
-
 export function normalizeDraftHistory(value: unknown): DraftRevision[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(isDraftRevision)
-    .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))
-    .slice(0, MAX_DRAFT_REVISIONS);
+  return normalizeDraftRevisions(value).filter((item) => Boolean(parseDraftFile(item.payload).course));
 }
 
 export function groupDraftRevisions(history: DraftRevision[]): DraftGroup[] {

@@ -8,6 +8,14 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./workspace": {
+      "types": "./src/workspace.ts",
+      "default": "./src/workspace.ts"
+    },
+    "./authoring": {
+      "types": "./src/authoring.ts",
+      "default": "./src/authoring.ts"
     }
   },
   "dependencies": {

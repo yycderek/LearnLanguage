@@ -112,7 +112,11 @@ export function LearningPlayer({
   const stepIndex = currentStep ? (lesson?.steps.findIndex((item) => item.id === currentStep.id) ?? 0) : -1;
   const targetForms = knowledge.map((item) => item?.form.trim()).filter(Boolean) as string[];
   const activeResponse = exercise ? response ?? createExerciseResponse(exercise) : undefined;
-  const capabilityResolution = exercise && languagePack ? resolveExerciseCapabilities(exercise, languagePack) : { mode: "native" as const, missing: [] };
+  const capabilityResolution = exercise
+    ? languagePack
+      ? resolveExerciseCapabilities(exercise, languagePack)
+      : { mode: exercise.capabilityFallback ?? "disabled", missing: exercise.requiredCapabilities ?? [] }
+    : { mode: "native" as const, missing: [] };
 
   function persist(next: LearningProgress) {
     setProgress(next);

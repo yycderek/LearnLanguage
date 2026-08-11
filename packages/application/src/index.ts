@@ -11,6 +11,8 @@ import {
 import type { CoursePack } from "@learn-language/protocol";
 
 export * from "./exercise-response.js";
+export * from "./authoring.js";
+export * from "./workspace.js";
 
 export interface CourseRepository {
   get(courseId: string): Promise<CoursePack | undefined>;
@@ -38,37 +40,56 @@ export interface LearningUnitOfWork {
 }
 
 export class CourseNotFoundError extends Error {
-  constructor(readonly courseId: string) {
+  readonly courseId: string;
+  constructor(courseId: string) {
     super(`Course not found: ${courseId}`);
+    this.courseId = courseId;
     this.name = "CourseNotFoundError";
   }
 }
 
 export class SessionNotFoundError extends Error {
-  constructor(readonly sessionId: string) {
+  readonly sessionId: string;
+  constructor(sessionId: string) {
     super(`Session not found: ${sessionId}`);
+    this.sessionId = sessionId;
     this.name = "SessionNotFoundError";
   }
 }
 
 export class RepositoryConcurrencyError extends Error {
+  readonly sessionId: string;
+  readonly expectedSequence: number;
+  readonly actualSequence: number;
   constructor(
-    readonly sessionId: string,
-    readonly expectedSequence: number,
-    readonly actualSequence: number,
+    sessionId: string,
+    expectedSequence: number,
+    actualSequence: number,
   ) {
     super(`Session ${sessionId} expected sequence ${expectedSequence}, actual sequence is ${actualSequence}`);
+    this.sessionId = sessionId;
+    this.expectedSequence = expectedSequence;
+    this.actualSequence = actualSequence;
     this.name = "RepositoryConcurrencyError";
   }
 }
 
 export class LearningApplicationService {
+  private readonly courses: CourseRepository;
+  private readonly sessions: SessionEventRepository;
+  private readonly effects: EffectQueue;
+  private readonly unitOfWork: LearningUnitOfWork;
   constructor(
-    private readonly courses: CourseRepository,
-    private readonly sessions: SessionEventRepository,
-    private readonly effects: EffectQueue,
-    private readonly unitOfWork: LearningUnitOfWork,
-  ) {}
+    courses: CourseRepository,
+    sessions: SessionEventRepository,
+    effects: EffectQueue,
+    unitOfWork: LearningUnitOfWork,
+  ) {
+    this.courses = courses;
+    this.sessions = sessions;
+    this.effects = effects;
+    this.unitOfWork = unitOfWork;
+  }
 
   async startLesson(command: StartLessonCommand): Promise<SessionTransition> {
     const course = await this.requireCourse(command.courseId);
@@ -188,10 +209,15 @@ export class MemoryEffectQueue implements EffectQueue {
 }
 
 export class MemoryLearningUnitOfWork implements LearningUnitOfWork {
+  private readonly sessions: MemorySessionEventRepository;
+  private readonly effects: MemoryEffectQueue;
   constructor(
-    private readonly sessions: MemorySessionEventRepository,
-    private readonly effects: MemoryEffectQueue,
-  ) {}
+    sessions: MemorySessionEventRepository,
+    effects: MemoryEffectQueue,
+  ) {
+    this.sessions = sessions;
+    this.effects = effects;
+  }
 
   async transaction<T>(work: () => Promise<T>): Promise<T> {
     const sessionSnapshot = this.sessions.snapshot();

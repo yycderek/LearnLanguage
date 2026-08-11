@@ -109,6 +109,26 @@
 - [x] 内置 Language Pack 不可覆盖或删除；自定义定义被编辑器、草稿或已安装课程引用时禁止删除。
 - [x] 替换仍被课程引用的自定义定义前明确警告分词与书写规则可能变化。
 
+## R12：跨客户端 Application Service
+
+状态：已于 2026-08-11 完成。
+
+- [x] 在 `@learn-language/application` 中建立课程创作、草稿、Language Pack、已安装课程与学习档案的 Repository 合约和应用服务。
+- [x] 多课节编排、草稿修订、Language Pack 保护、课程安装门禁和档案新旧合并不再由 React 组件决定。
+- [x] Web IndexedDB 仅作为 Repository 适配器，实现与移动端、桌面端 SQLite 适配器可替换的边界。
+- [x] 应用服务使用显式时间、ID、兼容性策略和领域错误，不依赖 DOM、React、浏览器确认框或界面语言。
+- [x] 内存 Repository 与合约测试覆盖跨客户端服务行为。
+
+## R13：Language Runtime 兼容性门禁
+
+状态：已于 2026-08-11 完成。
+
+- [x] 统一输出 `compatible`、`degraded` 或 `blocked` 兼容性报告，并列出结构化问题。
+- [x] 校验 Course Pack 的目标语言、固定适配器 ID/版本、Language Pack 声明、实际注册运行时和练习能力。
+- [x] 缺少能力只有在练习声明显式降级方式时才允许运行；缺少 Language Pack 不再被误认为原生支持。
+- [x] 发布、Studio 预览、安装、更新、文件导入、打开课程和 Learn 启动都经过同一门禁。
+- [x] 所有内置课程通过门禁测试，并覆盖缺包、适配器版本冲突和缺少显式降级规则。
+
 ## 暂不实施
 
 - 发音训练、录音、TTS、STT 和语音评分。

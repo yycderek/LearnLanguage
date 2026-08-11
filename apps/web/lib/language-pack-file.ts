@@ -1,14 +1,10 @@
+import { languagePackReferenceUsage, type LanguagePackReferenceUsage } from "@learn-language/application/workspace";
 import { validateLanguagePack, type LanguagePack } from "./language-pack.ts";
 
 export const MAX_LANGUAGE_PACK_FILE_BYTES = 1024 * 1024;
 const LANGUAGE_CAPABILITIES = new Set(["normalization", "segmentation", "token-comparison", "script-detection", "reading-transform"]);
 
-export type LanguagePackUsage = {
-  activeEditor: boolean;
-  draftCount: number;
-  installedCourseCount: number;
-  canDelete: boolean;
-};
+export type LanguagePackUsage = LanguagePackReferenceUsage;
 
 export function parseLanguagePackFile(text: string): { pack?: LanguagePack; error?: string } {
   const result = validateLanguagePack(text);
@@ -52,13 +48,5 @@ export function languagePackUsage(
   draftLanguageIds: readonly string[],
   installedLanguageIds: readonly string[],
 ): LanguagePackUsage {
-  const draftCount = draftLanguageIds.filter((id) => id === languageId).length;
-  const installedCourseCount = installedLanguageIds.filter((id) => id === languageId).length;
-  const activeEditor = activeLanguageId === languageId;
-  return {
-    activeEditor,
-    draftCount,
-    installedCourseCount,
-    canDelete: !activeEditor && draftCount === 0 && installedCourseCount === 0,
-  };
+  return languagePackReferenceUsage(languageId, activeLanguageId, draftLanguageIds, installedLanguageIds);
 }

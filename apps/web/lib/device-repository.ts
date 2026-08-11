@@ -3,7 +3,15 @@ import type {
   PersistedEffect,
   SessionEventRepository,
 } from "@learn-language/application";
+import type {
+  DraftRepository,
+  DraftRevisionRecord,
+  InstalledCourseRepository,
+  LearningProfileRepository,
+  LanguagePackRepository,
+} from "@learn-language/application/workspace";
 import type { LearningEffect, SessionEvent } from "@learn-language/engine";
+import type { LanguageDefinition } from "@learn-language/protocol";
 import type { CoursePack } from "./course";
 import type { CourseLearningRecord, LearningProgress } from "./learning";
 
@@ -85,6 +93,62 @@ export async function deleteDeviceValue(storeName: DeviceStoreName, key: IDBVali
   const transaction = database.transaction(storeName, "readwrite");
   transaction.objectStore(storeName).delete(key);
   await transactionDone(transaction);
+}
+
+export class IndexedDbDraftRepository implements DraftRepository {
+  async load(): Promise<unknown> {
+    return (await getDeviceValue<unknown>("drafts", "history")) ?? [];
+  }
+
+  async save(revisions: readonly DraftRevisionRecord[]): Promise<void> {
+    await putDeviceValue("drafts", "history", [...revisions]);
+  }
+}
+
+export class IndexedDbLanguagePackRepository implements LanguagePackRepository {
+  async list(): Promise<readonly LanguageDefinition[]> {
+    return getAllDeviceValues<LanguageDefinition>("languagePacks");
+  }
+
+  async get(languageId: string): Promise<LanguageDefinition | undefined> {
+    return getDeviceValue<LanguageDefinition>("languagePacks", languageId);
+  }
+
+  async put(pack: LanguageDefinition): Promise<void> {
+    await putDeviceValue("languagePacks", pack.id, pack);
+  }
+
+  async remove(languageId: string): Promise<void> {
+    await deleteDeviceValue("languagePacks", languageId);
+  }
+}
+
+export class IndexedDbInstalledCourseRepository implements InstalledCourseRepository {
+  async list(): Promise<readonly CoursePack[]> {
+    return getAllDeviceValues<CoursePack>("installedCourses");
+  }
+
+  async get(courseId: string): Promise<CoursePack | undefined> {
+    return getDeviceValue<CoursePack>("installedCourses", courseId);
+  }
+
+  async put(course: CoursePack): Promise<void> {
+    await putInstalledCourse(course);
+  }
+
+  async remove(courseId: string): Promise<void> {
+    await deleteDeviceValue("installedCourses", courseId);
+  }
+}
+
+export class IndexedDbLearningProfileRepository implements LearningProfileRepository<CourseLearningRecord> {
+  async list(): Promise<readonly CourseLearningRecord[]> {
+    return getAllDeviceValues<CourseLearningRecord>("courseRecords");
+  }
+
+  async putMany(records: readonly CourseLearningRecord[]): Promise<void> {
+    await putCourseRecords([...records]);
+  }
 }
 
 export async function putInstalledCourse(course: CoursePack): Promise<void> {

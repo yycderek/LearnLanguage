@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { assessCourseLanguageCompatibility } from "@learn-language/language-runtime";
 import { sampleCourse } from "../lib/course.ts";
+import { bundledCatalogCourses } from "../lib/course-library.ts";
 import {
   builtInLanguagePacks,
   languageCapabilities,
@@ -43,4 +45,33 @@ test("generic non-adapter segmentation is exposed as a native capability", () =>
     segmentation: { strategy: "whitespace" },
   };
   assert.equal(languageCapabilities(generic).has("segmentation"), true);
+});
+
+test("every bundled course passes the language runtime installation gate", () => {
+  for (const course of bundledCatalogCourses()) {
+    const pack = builtInLanguagePacks.find((item) => item.id === course.manifest.languageId);
+    const report = assessCourseLanguageCompatibility(course, pack);
+    assert.notEqual(report.status, "blocked", `${course.manifest.id}: ${JSON.stringify(report.issues)}`);
+  }
+});
+
+test("missing packs and adapter version mismatches block a published course", () => {
+  const course = bundledCatalogCourses()[0];
+  assert.equal(assessCourseLanguageCompatibility(course, undefined).status, "blocked");
+
+  const pack = structuredClone(builtInLanguagePacks.find((item) => item.id === course.manifest.languageId));
+  pack.adapter.version = "999.0.0";
+  const report = assessCourseLanguageCompatibility(course, pack);
+  assert.equal(report.status, "blocked");
+  assert.ok(report.issues.some((issue) => issue.code === "course-adapter-mismatch"));
+});
+
+test("missing exercise capabilities require an explicit fallback", () => {
+  const course = structuredClone(bundledCatalogCourses()[0]);
+  course.exercises[0].requiredCapabilities = ["token-comparison"];
+  delete course.exercises[0].capabilityFallback;
+  const pack = builtInLanguagePacks.find((item) => item.id === course.manifest.languageId);
+  const report = assessCourseLanguageCompatibility(course, pack);
+  assert.equal(report.status, "blocked");
+  assert.ok(report.issues.some((issue) => issue.code === "exercise-capability-missing"));
 });

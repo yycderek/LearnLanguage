@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, studio, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, deviceRepository, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, studio, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
@@ -28,6 +28,9 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("lib/learning.ts", root), "utf8"),
     readFile(new URL("lib/course-authoring.ts", root), "utf8"),
     readFile(new URL("lib/device-repository.ts", root), "utf8"),
+    readFile(new URL("../../packages/application/src/workspace.ts", root), "utf8"),
+    readFile(new URL("../../packages/application/src/authoring.ts", root), "utf8"),
+    readFile(new URL("../../packages/language-runtime/src/index.ts", root), "utf8"),
     readFile(new URL("lib/ai.ts", root), "utf8"),
     readFile(new URL("app/api/ai/route.ts", root), "utf8"),
     access(new URL("dist/server/index.js", root)),
@@ -79,6 +82,12 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /importLanguagePackFile/);
   assert.match(studio, /exportLanguagePack/);
   assert.match(studio, /deleteLanguagePack/);
+  assert.match(studio, /draftApplication\.saveRevision/);
+  assert.match(studio, /languagePackApplication\.import/);
+  assert.match(studio, /courseLibraryApplication\.install/);
+  assert.match(studio, /compatibilityBlocked/);
+  assert.match(studio, /assessCourseLanguageCompatibility/);
+  assert.match(studio, /profileBackupApplication\.restore/);
   assert.match(studio, /课程内容许可证/);
   assert.match(studio, /verifyPublishedCourseIntegrity/);
   assert.match(studio, /所需语言能力/);
@@ -115,6 +124,7 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(player, /displayText\(exercise\.prompt, teachingLocale\)/);
   assert.match(player, /evaluateExerciseResponse/);
   assert.match(player, /serializeExerciseResponse/);
+  assert.match(player, /exercise\.capabilityFallback \?\? "disabled"/);
   assert.match(renderer, /rendererRegistry/);
   assert.match(renderer, /multiple-choice/);
   assert.match(renderer, /ordering-list/);
@@ -177,6 +187,18 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(deviceRepository, /putInstalledCourseVersion/);
   assert.match(deviceRepository, /removeInstalledCourse/);
   assert.match(deviceRepository, /putCourseRecords/);
+  assert.match(deviceRepository, /implements DraftRepository/);
+  assert.match(deviceRepository, /implements LanguagePackRepository/);
+  assert.match(deviceRepository, /implements InstalledCourseRepository/);
+  assert.match(deviceRepository, /implements LearningProfileRepository/);
+  assert.match(applicationWorkspace, /class DraftApplicationService/);
+  assert.match(applicationWorkspace, /class LanguagePackApplicationService/);
+  assert.match(applicationWorkspace, /class CourseLibraryApplicationService/);
+  assert.match(applicationWorkspace, /class ProfileBackupApplicationService/);
+  assert.match(applicationAuthoring, /class CourseAuthoringApplicationService/);
+  assert.match(languageRuntime, /assessCourseLanguageCompatibility/);
+  assert.match(languageRuntime, /course-adapter-mismatch/);
+  assert.match(languageRuntime, /exercise-capability-missing/);
   assert.match(ai, /requestAiFeedback/);
   assert.match(aiRoute, /api\.openai\.com\/v1\/responses/);
   assert.match(css, /studio-shell/);
