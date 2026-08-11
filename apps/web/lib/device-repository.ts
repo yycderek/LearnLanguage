@@ -80,8 +80,28 @@ export async function putDeviceValue<T>(storeName: DeviceStoreName, key: IDBVali
   await transactionDone(transaction);
 }
 
+export async function deleteDeviceValue(storeName: DeviceStoreName, key: IDBValidKey): Promise<void> {
+  const database = await openDeviceDatabase();
+  const transaction = database.transaction(storeName, "readwrite");
+  transaction.objectStore(storeName).delete(key);
+  await transactionDone(transaction);
+}
+
 export async function putInstalledCourse(course: CoursePack): Promise<void> {
   await putDeviceValue("installedCourses", course.manifest.id, course);
+}
+
+export async function putInstalledCourseVersion(course: CoursePack, record?: CourseLearningRecord): Promise<void> {
+  const storeNames: DeviceStoreName[] = record ? ["installedCourses", "courseRecords"] : ["installedCourses"];
+  const database = await openDeviceDatabase();
+  const transaction = database.transaction(storeNames, "readwrite");
+  transaction.objectStore("installedCourses").put(course, course.manifest.id);
+  if (record) transaction.objectStore("courseRecords").put(record, record.courseId);
+  await transactionDone(transaction);
+}
+
+export async function removeInstalledCourse(courseId: string): Promise<void> {
+  await deleteDeviceValue("installedCourses", courseId);
 }
 
 export async function putCourseRecord(record: CourseLearningRecord): Promise<void> {

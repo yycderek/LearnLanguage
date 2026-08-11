@@ -10,6 +10,7 @@ import {
   CirclePlay,
   Clock3,
   Flame,
+  Library,
   LockKeyhole,
   RotateCcw,
   Sparkles,
@@ -38,6 +39,7 @@ export function LearningDashboard({
   onLocaleChange,
   preview = false,
   onSelectCourse,
+  onOpenLibrary,
   onBack,
   onStartLesson,
   onStartReview,
@@ -49,6 +51,7 @@ export function LearningDashboard({
   onLocaleChange?: (locale: AppLocale) => void;
   preview?: boolean;
   onSelectCourse?: (courseId: string) => void;
+  onOpenLibrary?: () => void;
   onBack: () => void;
   onStartLesson: (lessonId: string, restart?: boolean) => void;
   onStartReview: (tasks: ReviewTask[]) => void;
@@ -68,7 +71,7 @@ export function LearningDashboard({
       <header className="learning-home-topbar">
         <button onClick={onBack}><ArrowLeft size={17} />{c("返回课程工作台", "Back to Course Studio")}</button>
         <div><span>{preview ? "STUDIO PREVIEW" : "LEARNING HOME"}</span><strong>{displayText(course.manifest.title, teachingLocale)}</strong>{!preview && courses.length > 1 && <select aria-label={c("选择学习课程", "Select a course")} value={course.manifest.id} onChange={(event) => onSelectCourse?.(event.target.value)}>{courses.map((item) => <option key={`${item.manifest.id}:${item.manifest.version}`} value={item.manifest.id}>{displayText(item.manifest.title, teachingLocale)}</option>)}</select>}</div>
-        <div className="learning-home-meta"><div className="locale-selectors"><label className="teaching-language-select compact"><span>{c("语言", "Language")}</span><select value={locale} onChange={(event) => onLocaleChange?.(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div><em>{preview ? c("临时预览档案 · 不保存", "Temporary preview profile · not saved") : c("设备本地学习档案", "Device-local learning profile")}</em></div>
+        <div className="learning-home-meta"><div className="locale-selectors"><label className="teaching-language-select compact"><span>{c("语言", "Language")}</span><select value={locale} onChange={(event) => onLocaleChange?.(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label>{!preview && <button className="open-library-button" onClick={onOpenLibrary}><Library size={13} />{c("课程库", "Library")}</button>}</div><em>{preview ? c("临时预览档案 · 不保存", "Temporary preview profile · not saved") : c("设备本地学习档案", "Device-local learning profile")}</em></div>
       </header>
 
       <section className="learning-home-hero">
