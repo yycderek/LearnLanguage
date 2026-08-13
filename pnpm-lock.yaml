@@ -31,6 +31,18 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2))
 
+  apps/headless:
+    dependencies:
+      '@learn-language/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@learn-language/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@learn-language/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+
   packages/application:
     dependencies:
       '@learn-language/engine':

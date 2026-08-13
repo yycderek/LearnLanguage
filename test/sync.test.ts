@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { SYNC_PROTOCOL_VERSION, type SyncMutation } from "@learn-language/protocol";
-import { ReferenceSyncService, createReferenceSyncHandler } from "../packages/sync/src/index.js";
+import {
+  MemorySyncClientStore,
+  ReferenceSyncService,
+  SyncClient,
+  createReferenceSyncHandler,
+} from "../packages/sync/src/index.js";
+import { SqliteReferenceSyncStateStore } from "../packages/sync/src/sqlite.js";
 
 const firstMutation: SyncMutation = {
   mutationId: "mutation-1",
@@ -74,5 +83,59 @@ describe("public sync protocol reference service", () => {
     const service = new ReferenceSyncService();
     await expect(service.pull({ protocolVersion: SYNC_PROTOCOL_VERSION, profileId: "profile", cursor: "10" }))
       .rejects.toThrow("cursor is ahead");
+  });
+
+  it("runs discovery, batched push, pull, and acknowledgement through the client", async () => {
+    const service = new ReferenceSyncService({ maxBatchSize: 1 });
+    const local = new MemorySyncClientStore([firstMutation, {
+      ...firstMutation,
+      mutationId: "mutation-2",
+      id: "course-2",
+    }]);
+    const result = await new SyncClient(service, local, "profile").run(["learning-records"]);
+    expect(result).toMatchObject({ pushed: 2, conflicts: [], cursor: "2" });
+    expect(local.pending.size).toBe(0);
+    expect(local.records.size).toBe(2);
+
+    const secondDevice = new MemorySyncClientStore();
+    const pulled = await new SyncClient(service, secondDevice, "profile").run(["learning-records"]);
+    expect(pulled.pulled).toBe(2);
+    expect(secondDevice.records.size).toBe(2);
+  });
+
+  it("persists reference sync state in SQLite across service restarts", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "learn-language-sync-"));
+    const filename = join(directory, "sync.sqlite");
+    try {
+      const firstStore = new SqliteReferenceSyncStateStore(filename);
+      const firstService = new ReferenceSyncService({ store: firstStore });
+      await firstService.push({ protocolVersion: SYNC_PROTOCOL_VERSION, profileId: "profile", mutations: [firstMutation] });
+      firstStore.close();
+
+      const reopenedStore = new SqliteReferenceSyncStateStore(filename);
+      const reopenedService = new ReferenceSyncService({ store: reopenedStore });
+      expect((await reopenedService.pull({ protocolVersion: SYNC_PROTOCOL_VERSION, profileId: "profile" })).records)
+        .toEqual([expect.objectContaining({ id: "course-1", version: 1 })]);
+      reopenedStore.close();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("requires an explicit conflict resolution before rebasing a local change", async () => {
+    const service = new ReferenceSyncService();
+    await service.push({ protocolVersion: SYNC_PROTOCOL_VERSION, profileId: "profile", mutations: [firstMutation] });
+    const local = new MemorySyncClientStore([{ ...firstMutation, mutationId: "stale-local", deviceId: "device-b", payload: { percent: 90 } }]);
+    const client = new SyncClient(service, local, "profile");
+    const conflicted = await client.run(["learning-records"]);
+    expect(conflicted.conflicts).toHaveLength(1);
+    expect(conflicted.pulled).toBe(0);
+    expect(local.pending.size).toBe(1);
+
+    const resolved = await client.resolve(conflicted.conflicts, "keep-local", ["learning-records"]);
+    expect(resolved.conflicts).toEqual([]);
+    expect(resolved.pushed).toBe(1);
+    expect((await service.pull({ protocolVersion: SYNC_PROTOCOL_VERSION, profileId: "profile" })).records.at(-1))
+      .toEqual(expect.objectContaining({ version: 2, payload: { percent: 90 } }));
   });
 });

@@ -9,6 +9,8 @@ import {
   LanguagePackInUseError,
   ProfileBackupApplicationService,
 } from "@learn-language/application/workspace";
+import { assessCourseTrust, type CourseTrustReport } from "@learn-language/application/trust";
+import type { SyncConflict } from "@learn-language/protocol";
 import { assessCourseLanguageCompatibility, languageAdapterPin, type LanguageCompatibilityReport } from "@learn-language/language-runtime";
 import {
   ArrowDown,
@@ -18,11 +20,14 @@ import {
   Braces,
   Check,
   ChevronRight,
+  ClipboardCheck,
   Clock3,
+  Copy,
   FileJson,
   GraduationCap,
   KeyRound,
   Languages,
+  LayoutTemplate,
   Play,
   Plus,
   RotateCcw,
@@ -92,11 +97,15 @@ import {
 import {
   appendLesson,
   appendLessonStep,
+  duplicateLesson,
   moveLesson,
   moveLessonStep,
   removeLesson,
   removeLessonStep,
 } from "@/lib/course-authoring";
+import { courseTemplates, createCourseFromTemplate, type CourseTemplateId } from "@/lib/course-templates";
+import { assessPublishReadiness, canPublish } from "@/lib/publish-readiness";
+import { runDeviceSync, type DeviceSyncSettings } from "@/lib/sync";
 import {
   displayText,
   forkPublishedCourse,
@@ -149,6 +158,7 @@ type LanguageForm = {
 };
 
 const AI_SESSION_KEY = "learn-language-ai-key-session-v1";
+const SYNC_TOKEN_SESSION_KEY = "learn-language-sync-token-session-v1";
 const BUILT_IN_LANGUAGE_IDS = new Set(builtInLanguagePacks.map((pack) => pack.id));
 const draftApplication = new DraftApplicationService(new IndexedDbDraftRepository());
 const languagePackApplication = new LanguagePackApplicationService(new IndexedDbLanguagePackRepository(), BUILT_IN_LANGUAGE_IDS);
@@ -291,6 +301,9 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [learningView, setLearningView] = useState<"studio" | "drafts" | "languages" | "library" | "dashboard" | "lesson" | "review">(space === "learn" ? "library" : "studio");
   const [selectedLessonId, setSelectedLessonId] = useState<string>();
   const [reviewTasks, setReviewTasks] = useState<ReviewTask[]>([]);
+  const [syncSettings, setSyncSettings] = useState<DeviceSyncSettings>({ endpoint: "", profileId: "local-profile", deviceId: "" });
+  const [syncToken, setSyncToken] = useState("");
+  const [syncStatus, setSyncStatus] = useState<{ state: "idle" | "syncing" | "success" | "error" | "conflict"; message?: string; conflicts?: readonly SyncConflict[] }>({ state: "idle" });
   const t = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
 
   const stats = useMemo(
@@ -319,7 +332,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   useEffect(() => {
     let active = true;
     async function hydrate() {
-      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedAppLocale, storedTeachingLocale, storedUiLocale] = await Promise.all([
+      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedAppLocale, storedTeachingLocale, storedUiLocale, storedSync] = await Promise.all([
         draftApplication.list(),
         getDeviceValue<AiSettings>("preferences", "ai"),
         languagePackApplication.list(),
@@ -328,9 +341,11 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         getDeviceValue<unknown>("preferences", APP_LOCALE_PREFERENCE_KEY),
         getDeviceValue<unknown>("preferences", TEACHING_LOCALE_PREFERENCE_KEY),
         getDeviceValue<unknown>("preferences", UI_LOCALE_PREFERENCE_KEY),
+        getDeviceValue<Partial<DeviceSyncSettings>>("preferences", "sync-settings"),
       ]);
       if (!active) return;
       const sessionKey = sessionStorage.getItem(AI_SESSION_KEY) ?? "";
+      const syncSessionToken = sessionStorage.getItem(SYNC_TOKEN_SESSION_KEY) ?? "";
       const hydratedAi = { ...defaultAiSettings, ...storedAi, apiKey: sessionKey };
       const normalizedRecords: Record<string, CourseLearningRecord> = {};
       for (const value of storedRecords) {
@@ -340,6 +355,11 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       setHistory(normalizeDraftHistory(storedHistory));
       setAiSettings(hydratedAi);
       setAiConfigured(aiIsReady(hydratedAi));
+      const hydratedSync = { endpoint: "", profileId: "local-profile", deviceId: crypto.randomUUID(), ...storedSync } as DeviceSyncSettings;
+      if (!hydratedSync.deviceId) hydratedSync.deviceId = crypto.randomUUID();
+      setSyncSettings(hydratedSync);
+      setSyncToken(syncSessionToken);
+      if (!storedSync?.deviceId) void putDeviceValue("preferences", "sync-settings", hydratedSync).catch(() => undefined);
       const availableLanguagePacks = [...builtInLanguagePacks, ...customPacks.filter((pack) => !builtInLanguagePacks.some((item) => item.id === pack.id))];
       setLanguagePacks(availableLanguagePacks);
       setRecordsByCourse(normalizedRecords);
@@ -374,12 +394,6 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   useEffect(() => {
     document.documentElement.lang = appLocale;
   }, [appLocale]);
-
-  useEffect(() => {
-    if (!course.lessons.some((lesson) => lesson.id === selectedStudioLessonId)) {
-      setSelectedStudioLessonId(course.lessons[0]?.id ?? "");
-    }
-  }, [course.lessons, selectedStudioLessonId]);
 
   function changeAppLocale(locale: AppLocale) {
     setAppLocale(locale);
@@ -473,6 +487,13 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         compatibilityBlocked(assessCourseLanguageCompatibility(publishingDraft, undefined));
         return;
       }
+      const readiness = assessPublishReadiness(publishingDraft, appLocale, result.issues, true);
+      if (!canPublish(readiness)) {
+        setEditorMode("visual");
+        setEditorSection("overview");
+        setNotice(t("发布检查仍有未完成项", "The publishing checklist still has blockers"));
+        return;
+      }
       publishingDraft.manifest.languageAdapter = languageAdapterPin(publishingLanguage);
       const published = await publishCourseDraft(publishingDraft);
       const compatibility = languageCompatibility(published);
@@ -517,6 +538,19 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       : "";
   }
 
+  function confirmCourseTrust(candidate: CoursePack, report: CourseTrustReport = assessCourseTrust(candidate)) {
+    if (!report.canInstall) {
+      setNotice(t("课程来源、许可证或发布完整性校验未通过，已拒绝安装", "The course failed provenance, license, or publication checks and was blocked"));
+      return false;
+    }
+    if (!report.requiresConfirmation) return true;
+    const sourceLabel = candidate.manifest.source.title ?? candidate.manifest.source.url ?? t("未提供外部来源", "No external source provided");
+    return window.confirm(t(
+      `这是由「${candidate.manifest.author.displayName}」提供的非官方课程。许可证：${candidate.manifest.license?.id ?? "-"}；来源：${sourceLabel}。仅在信任作者和内容时安装。继续吗？`,
+      `This is a non-official course from “${candidate.manifest.author.displayName}”. License: ${candidate.manifest.license?.id ?? "-"}; source: ${sourceLabel}. Install only if you trust the author and content. Continue?`,
+    ));
+  }
+
   async function installCurrentCourse() {
     if (course.manifest.status !== "published") {
       setNotice(t("请先发布不可变课程版本，再安装到学习空间", "Publish an immutable course version before installing it in Learn"));
@@ -524,6 +558,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     }
     const compatibility = languageCompatibility(course);
     if (compatibilityBlocked(compatibility)) return;
+    if (!confirmCourseTrust(course)) return;
     try {
       const integrity = await verifyPublishedCourseIntegrity(course);
       if (!integrity.valid) {
@@ -541,6 +576,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   async function installLibraryCourse(entry: CourseLibraryEntry) {
     const compatibility = languageCompatibility(entry.course);
     if (compatibilityBlocked(compatibility)) return;
+    if (!confirmCourseTrust(entry.course, entry.trust)) return;
     try {
       const integrity = await verifyPublishedCourseIntegrity(entry.course);
       if (!integrity.valid) {
@@ -630,6 +666,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       }
 
       const imported = parsed.course;
+      if (!confirmCourseTrust(imported)) return;
       const runtimeCompatibility = languageCompatibility(imported);
       if (compatibilityBlocked(runtimeCompatibility)) return;
       const existing = installedCourses.find((item) => item.manifest.id === imported.manifest.id);
@@ -1042,6 +1079,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     return next.lessons.find((lesson) => lesson.id === selectedStudioLessonId) ?? next.lessons[0];
   }
 
+  function activeStudioLessonId(next: CoursePack = course) {
+    return next.lessons.find((lesson) => lesson.id === selectedStudioLessonId)?.id ?? next.lessons[0]?.id ?? "";
+  }
+
   function addCourseLesson() {
     let createdId = "";
     editCourse((next) => {
@@ -1051,7 +1092,62 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   function moveCourseLesson(offset: -1 | 1) {
-    editCourse((next) => { moveLesson(next, selectedStudioLessonId, offset); });
+    editCourse((next) => { moveLesson(next, activeStudioLessonId(next), offset); });
+  }
+
+  function duplicateCourseLesson() {
+    let createdId: string | undefined;
+    editCourse((next) => { createdId = duplicateLesson(next, activeStudioLessonId(next), appLocale); });
+    if (createdId) {
+      setSelectedStudioLessonId(createdId);
+      setNotice(t("课节副本已创建，可独立修改", "A lesson copy was created and can be edited independently"));
+    }
+  }
+
+  async function performDeviceSync(resolution?: "keep-local" | "use-remote") {
+    if (!syncSettings.endpoint.trim() || !syncSettings.profileId.trim()) {
+      setSyncStatus({ state: "error", message: t("请填写同步服务地址和档案 ID", "Enter a sync endpoint and profile ID") });
+      return;
+    }
+    try {
+      const endpoint = new URL(syncSettings.endpoint);
+      const localEndpoint = ["localhost", "127.0.0.1", "::1"].includes(endpoint.hostname);
+      if (window.location.protocol === "https:" && endpoint.protocol !== "https:" && !localEndpoint) {
+        throw new Error(t("公开网站只能连接 HTTPS 同步服务", "The public site can connect only to an HTTPS sync service"));
+      }
+    } catch (error) {
+      setSyncStatus({ state: "error", message: error instanceof Error ? error.message : t("同步服务地址无效", "The sync endpoint is invalid") });
+      return;
+    }
+    setSyncStatus({ state: "syncing", message: t("正在安全同步…", "Syncing safely…") });
+    await putDeviceValue("preferences", "sync-settings", syncSettings);
+    if (syncToken.trim()) sessionStorage.setItem(SYNC_TOKEN_SESSION_KEY, syncToken.trim());
+    else sessionStorage.removeItem(SYNC_TOKEN_SESSION_KEY);
+    try {
+      const result = await runDeviceSync(syncSettings, syncToken.trim() || undefined, resolution ? syncStatus.conflicts : undefined, resolution);
+      if (result.conflicts.length > 0) {
+        setSyncStatus({ state: "conflict", conflicts: result.conflicts, message: t(`${result.conflicts.length} 项内容在其他设备上也有修改，请选择保留哪一侧`, `${result.conflicts.length} items were also changed on another device. Choose which side to keep`) });
+        return;
+      }
+      const [nextHistory, customPacks, nextRecords, nextCourses] = await Promise.all([
+        draftApplication.list(), languagePackApplication.list(), profileBackupApplication.snapshot(), installedCourseRepository.list(),
+      ]);
+      setHistory(normalizeDraftHistory(nextHistory));
+      setLanguagePacks([...builtInLanguagePacks, ...customPacks.filter((pack) => !BUILT_IN_LANGUAGE_IDS.has(pack.id))]);
+      setRecordsByCourse(Object.fromEntries(nextRecords.map((record) => [record.courseId, record])));
+      setInstalledCourses([...nextCourses]);
+      setSyncStatus({ state: "success", message: t(`同步完成：上传 ${result.pushed} 项，接收 ${result.pulled} 项`, `Sync complete: ${result.pushed} uploaded, ${result.pulled} received`) });
+    } catch (error) {
+      setSyncStatus({ state: "error", message: error instanceof Error ? error.message : t("同步失败，请检查服务配置", "Sync failed. Check the service settings") });
+    }
+  }
+
+  function applyCourseTemplate(templateId: CourseTemplateId) {
+    if (!window.confirm(t("应用模板会替换当前编辑器内容，尚未保存的修改将丢失。继续吗？", "Applying a template replaces the editor contents and discards unsaved changes. Continue?"))) return;
+    const next = createCourseFromTemplate(templateId, language, appLocale);
+    setDraftId(undefined);
+    setSelectedStudioLessonId(next.lessons[0]?.id ?? "");
+    commitCourse(next, t("课程模板已载入", "Course template loaded"));
   }
 
   function deleteCourseLesson() {
@@ -1059,15 +1155,16 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       setNotice(t("课程至少需要保留一个课节", "A course must keep at least one lesson"));
       return;
     }
-    const selected = course.lessons.find((lesson) => lesson.id === selectedStudioLessonId);
+    const selectedId = activeStudioLessonId();
+    const selected = course.lessons.find((lesson) => lesson.id === selectedId);
     if (!selected || !window.confirm(t(`确定删除课节“${displayText(selected.title, appLocale)}”吗？`, `Delete the lesson “${displayText(selected.title, appLocale)}”?`))) return;
     let nextId: string | undefined;
-    editCourse((next) => { nextId = removeLesson(next, selectedStudioLessonId); });
+    editCourse((next) => { nextId = removeLesson(next, selectedId); });
     if (nextId) setSelectedStudioLessonId(nextId);
   }
 
   function renameCourseLesson(id: string) {
-    const previous = selectedStudioLessonId;
+    const previous = activeStudioLessonId();
     editCourse((next) => {
       const lesson = next.lessons.find((item) => item.id === previous);
       if (lesson) lesson.id = id;
@@ -1090,7 +1187,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   function removeStep(index: number) {
-    const lesson = course.lessons.find((item) => item.id === selectedStudioLessonId) ?? course.lessons[0];
+    const lesson = course.lessons.find((item) => item.id === activeStudioLessonId()) ?? course.lessons[0];
     if (!lesson || lesson.steps.length <= 1) {
       setNotice(t("每个课节至少需要保留一个学习步骤", "Each lesson must keep at least one learning step"));
       return;
@@ -1146,6 +1243,11 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   const currentLanguage = languagePacks.find((item) => item.id === language);
+  const liveValidationIssues = useMemo(() => validateCourse(source).issues, [source]);
+  const publishReadiness = useMemo(
+    () => assessPublishReadiness(course, appLocale, liveValidationIssues, Boolean(currentLanguage)),
+    [course, appLocale, liveValidationIssues, currentLanguage],
+  );
   const selectedStudioLessonIndex = Math.max(0, course.lessons.findIndex((lesson) => lesson.id === selectedStudioLessonId));
   const selectedStudioLesson = course.lessons[selectedStudioLessonIndex];
   const flow = selectedStudioLesson?.steps ?? [];
@@ -1157,7 +1259,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const selectedProgress = selectedLessonId ? currentRecord?.lessonProgress[selectedLessonId] : undefined;
 
   if (learningView === "library") {
-    return <CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => window.location.assign("/studio")} onInstall={(entry) => void installLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} />;
+    return <CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => window.location.assign("/studio")} onInstall={(entry) => void installLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />;
   }
   if (learningView === "drafts") {
     return <DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />;
@@ -1245,6 +1347,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                   {editorSection === "overview" && (
                     <div className="form-section">
                       <div className="section-intro"><div><h3>{t("课程基本信息", "Course overview")}</h3><p>{t(`界面与课程内容已统一为${appLocale === "en" ? "英文" : "中文"}；切换右上角语言可维护另一版本。`, `The interface and course content are both using ${appLocale === "en" ? "English" : "Chinese"}. Use the Language selector to maintain the other version.`)}</p></div></div>
+                      {course.manifest.status !== "published" && <div className="template-strip"><div><LayoutTemplate size={17} /><span><strong>{t("从课程模板开始", "Start from a course template")}</strong><small>{t("模板只创建可编辑内容，不会覆盖已保存草稿", "Templates create editable content and do not overwrite saved drafts")}</small></span></div><aside>{courseTemplates.map((template) => <button key={template.id} type="button" onClick={() => applyCourseTemplate(template.id)} title={t(template.descriptionZh, template.descriptionEn)}>{t(template.zh, template.en)}</button>)}</aside></div>}
                       <div className="form-grid two-column">
                         <label><span>{t("课程 ID", "Course ID")}</span><input value={course.manifest.id} onChange={(event) => editCourse((next) => { next.manifest.id = event.target.value; })} /></label>
                         <label><span>{t("版本", "Version")}</span><input value={course.manifest.version} onChange={(event) => editCourse((next) => { next.manifest.version = event.target.value; })} /></label>
@@ -1254,6 +1357,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                         <label><span>{t("作者显示名", "Author display name")}</span><input value={course.manifest.author.displayName} onChange={(event) => editCourse((next) => { next.manifest.author.displayName = event.target.value; })} /></label>
                         <label><span>{t("课程内容许可证", "Course content license")}</span><select value={course.manifest.license?.id ?? ""} onChange={(event) => editCourse((next) => { const id = event.target.value; if (id) next.manifest.license = { id }; else delete next.manifest.license; })}><option value="">{t("发布前必须选择", "Required before publishing")}</option><option value="CC-BY-4.0">CC BY 4.0</option><option value="CC-BY-SA-4.0">CC BY-SA 4.0</option><option value="CC0-1.0">CC0 1.0</option><option value="ARR">{t("保留所有权利", "All rights reserved")}</option></select></label>
                       </div>
+                      {course.manifest.status !== "published" && <section className="publish-checklist"><header><div><ClipboardCheck size={18} /><span><strong>{t("发布检查清单", "Publishing checklist")}</strong><small>{t("阻塞项全部完成后才可发布；建议项不会阻止发布", "Complete every blocker before publishing; recommendations do not block publishing")}</small></span></div><em className={canPublish(publishReadiness) ? "ready" : "blocked"}>{canPublish(publishReadiness) ? t("可以发布", "Ready") : t("需要完善", "Needs work")}</em></header><div>{publishReadiness.map((check) => <p className={check.status} key={check.id}>{check.status === "pass" ? <Check size={14} /> : <TriangleAlert size={14} />}<span>{t(check.zh, check.en)}</span></p>)}</div></section>}
                     </div>
                   )}
 
@@ -1348,7 +1452,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                         {course.lessons.map((lesson, index) => <button type="button" role="tab" aria-selected={lesson.id === selectedStudioLesson?.id} className={lesson.id === selectedStudioLesson?.id ? "active" : ""} key={`${lesson.id}-${index}`} onClick={() => setSelectedStudioLessonId(lesson.id)}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{displayText(lesson.title, teachingLocale)}</strong><small>{lesson.id} · {t(`${lesson.steps.length} 步`, `${lesson.steps.length} steps`)}</small></div></button>)}
                       </div>
                       {selectedStudioLesson && <div className="selected-lesson-panel">
-                        <div className="selected-lesson-heading"><div><span>{t(`正在编辑第 ${selectedStudioLessonIndex + 1} 课`, `Editing lesson ${selectedStudioLessonIndex + 1}`)}</span><strong>{displayText(selectedStudioLesson.title, teachingLocale)}</strong></div><div><button type="button" onClick={() => moveCourseLesson(-1)} disabled={selectedStudioLessonIndex === 0} aria-label={t("课节前移", "Move lesson earlier")}><ArrowUp size={15} /></button><button type="button" onClick={() => moveCourseLesson(1)} disabled={selectedStudioLessonIndex === course.lessons.length - 1} aria-label={t("课节后移", "Move lesson later")}><ArrowDown size={15} /></button><button type="button" className="danger" onClick={deleteCourseLesson} disabled={course.lessons.length <= 1} aria-label={t("删除当前课节", "Delete current lesson")}><Trash2 size={15} /></button></div></div>
+                        <div className="selected-lesson-heading"><div><span>{t(`正在编辑第 ${selectedStudioLessonIndex + 1} 课`, `Editing lesson ${selectedStudioLessonIndex + 1}`)}</span><strong>{displayText(selectedStudioLesson.title, teachingLocale)}</strong></div><div><button type="button" onClick={duplicateCourseLesson} aria-label={t("复制当前课节", "Duplicate current lesson")}><Copy size={15} /></button><button type="button" onClick={() => moveCourseLesson(-1)} disabled={selectedStudioLessonIndex === 0} aria-label={t("课节前移", "Move lesson earlier")}><ArrowUp size={15} /></button><button type="button" onClick={() => moveCourseLesson(1)} disabled={selectedStudioLessonIndex === course.lessons.length - 1} aria-label={t("课节后移", "Move lesson later")}><ArrowDown size={15} /></button><button type="button" className="danger" onClick={deleteCourseLesson} disabled={course.lessons.length <= 1} aria-label={t("删除当前课节", "Delete current lesson")}><Trash2 size={15} /></button></div></div>
                         <div className="form-grid three-column lesson-fields">
                           <label><span>{t("课节 ID", "Lesson ID")}</span><input value={selectedStudioLesson.id} onChange={(event) => renameCourseLesson(event.target.value)} /></label>
                           <label><span>{t("课节名称", "Lesson title")}（{teachingLocale === "en" ? "English" : "中文"}）</span><input value={selectedStudioLesson.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.title[teachingLocale] = event.target.value; })} /></label>

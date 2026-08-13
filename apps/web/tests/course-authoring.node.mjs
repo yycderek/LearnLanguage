@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   appendLesson,
   appendLessonStep,
+  duplicateLesson,
   moveLesson,
   moveLessonStep,
   removeLesson,
@@ -23,6 +24,18 @@ test("a no-code author can add and reorder lessons without changing their identi
   assert.equal(moveLesson(course, id, -1), true);
   assert.equal(course.lessons.at(-2).id, id);
   assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
+});
+
+test("a no-code author can duplicate a lesson with independent step identities", () => {
+  const course = sampleCourse("ja");
+  const source = course.lessons[0];
+  const duplicatedId = duplicateLesson(course, source.id, "en");
+  const copy = course.lessons.find((lesson) => lesson.id === duplicatedId);
+  assert.ok(copy);
+  assert.notEqual(copy.id, source.id);
+  assert.equal(copy.steps.length, source.steps.length);
+  assert.equal(new Set(copy.steps.map((step) => step.id)).size, copy.steps.length);
+  assert.ok(copy.steps.every((step) => !source.steps.some((sourceStep) => sourceStep.id === step.id)));
 });
 
 test("lesson removal chooses a stable adjacent lesson and preserves the last lesson", () => {

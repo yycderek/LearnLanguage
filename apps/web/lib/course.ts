@@ -1,20 +1,19 @@
 import type {
   CoursePack,
   CourseStep,
-  ExerciseKind,
   ImportIssue,
   LessonPhase,
   LocalizedText,
   PublishedCoursePack,
   SupportLevel,
 } from "@learn-language/protocol";
+export type { ExerciseKind } from "@learn-language/protocol";
 import { localizedText, type TeachingLocale } from "./i18n.ts";
 import { bundledStarterCourse } from "./starter-course-library.ts";
 
 export type {
   CoursePack,
   CourseStep,
-  ExerciseKind,
   ImportIssue,
   LessonPhase,
   LocalizedText,
@@ -205,7 +204,7 @@ function genericStarterCourse(languageId = "ja", languageName?: string): CourseP
     lessons: [
       { id: "cafe-request", title: { "zh-CN": "可编辑入门课节", en: "Editable starter lesson" }, canDoGoalRefs: ["order-drink"], entryStepId: "diagnose", steps: lessonSteps() },
     ],
-  };
+};
 }
 
 function canonicalize(value: unknown): string {

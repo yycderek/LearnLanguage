@@ -12,6 +12,7 @@ import type { CoursePack } from "@learn-language/protocol";
 
 export * from "./exercise-response.js";
 export * from "./authoring.js";
+export * from "./trust.js";
 export * from "./workspace.js";
 
 export interface CourseRepository {

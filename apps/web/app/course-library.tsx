@@ -6,7 +6,7 @@ import {
   ArrowRight,
   ArchiveRestore,
   BookOpen,
-  Check,
+  Cloud,
   DatabaseBackup,
   Download,
   FileDown,
@@ -22,6 +22,7 @@ import {
 import { displayText } from "@/lib/course";
 import type { CourseLibraryEntry, CourseUpdateIssue } from "@/lib/course-library";
 import { uiText, type AppLocale } from "@/lib/i18n";
+import type { DeviceSyncSettings } from "@/lib/sync";
 
 const issueLabels: Record<CourseUpdateIssue, [string, string]> = {
   "not-newer": ["目录版本不比已安装版本新", "The catalog version is not newer"],
@@ -48,6 +49,13 @@ export function CourseLibrary({
   recordCount,
   onExportProfile,
   onImportProfile,
+  syncSettings,
+  syncToken,
+  syncStatus,
+  onSyncSettingsChange,
+  onSyncTokenChange,
+  onSync,
+  onResolveSync,
 }: {
   entries: CourseLibraryEntry[];
   locale: AppLocale;
@@ -63,6 +71,13 @@ export function CourseLibrary({
   recordCount: number;
   onExportProfile: () => void;
   onImportProfile: (file: File) => void;
+  syncSettings: DeviceSyncSettings;
+  syncToken: string;
+  syncStatus: { state: "idle" | "syncing" | "success" | "error" | "conflict"; message?: string };
+  onSyncSettingsChange: (settings: DeviceSyncSettings) => void;
+  onSyncTokenChange: (token: string) => void;
+  onSync: () => void;
+  onResolveSync: (resolution: "keep-local" | "use-remote") => void;
 }) {
   const [filter, setFilter] = useState<"all" | "installed">("all");
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
@@ -93,6 +108,18 @@ export function CourseLibrary({
         <aside><button onClick={onExportProfile}><FileDown size={14} />{c("导出学习档案", "Export profile")}</button><label><ArchiveRestore size={14} />{c("恢复学习档案", "Restore profile")}<input type="file" accept=".json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportProfile(file); event.target.value = ""; }} /></label></aside>
       </section>
 
+      <section className="device-sync-panel">
+        <header><div><span><Cloud size={18} /></span><p><strong>{c("可选设备同步", "Optional device sync")}</strong><small>{c("无需账户；连接兼容的自托管服务。没有服务时，本地学习功能保持完整。", "No account required. Connect a compatible self-hosted service; local learning stays complete without it.")}</small></p></div><em className={syncStatus.state}>{syncStatus.state === "syncing" ? c("同步中", "Syncing") : syncStatus.state === "success" ? c("已同步", "Synced") : syncStatus.state === "conflict" ? c("有冲突", "Conflict") : syncStatus.state === "error" ? c("连接失败", "Error") : c("未启用", "Not enabled")}</em></header>
+        <div className="sync-fields">
+          <label><span>{c("服务地址", "Service endpoint")}</span><input type="url" value={syncSettings.endpoint} onChange={(event) => onSyncSettingsChange({ ...syncSettings, endpoint: event.target.value })} placeholder="https://sync.example.com" /></label>
+          <label><span>{c("档案 ID", "Profile ID")}</span><input value={syncSettings.profileId} onChange={(event) => onSyncSettingsChange({ ...syncSettings, profileId: event.target.value })} /></label>
+          <label><span>{c("访问令牌（可选）", "Access token (optional)")}</span><input type="password" value={syncToken} onChange={(event) => onSyncTokenChange(event.target.value)} autoComplete="off" placeholder={c("只保留到标签页关闭", "Cleared when this tab closes")} /></label>
+          <button onClick={onSync} disabled={syncStatus.state === "syncing"}><RefreshCw size={14} />{c("立即同步", "Sync now")}</button>
+        </div>
+        {syncStatus.message && <p className={`sync-message ${syncStatus.state}`}>{syncStatus.message}</p>}
+        {syncStatus.state === "conflict" && <div className="sync-conflict-actions"><button onClick={() => onResolveSync("keep-local")}>{c("保留本机修改", "Keep this device")}</button><button onClick={() => onResolveSync("use-remote")}>{c("使用服务端版本", "Use server version")}</button></div>}
+      </section>
+
       {visibleEntries.length === 0 ? (
         <section className="course-library-empty"><BookOpen size={28} /><h2>{c("还没有安装课程", "No courses installed yet")}</h2><p>{c("切换到全部课程，选择一门课程安装。", "Switch to All courses and install one to begin.")}</p><button onClick={() => setFilter("all")}>{c("浏览全部课程", "Browse all courses")}</button></section>
       ) : (
@@ -106,6 +133,7 @@ export function CourseLibrary({
                 <div className="library-card-cover"><span>{course.manifest.languageId === "ja" ? "日" : course.manifest.languageId === "yue-Hant-HK" ? "粵" : course.manifest.languageId.slice(0, 2).toUpperCase()}</span><small>{course.manifest.languageId}</small></div>
                 <div className="library-card-content">
                   <div className="library-card-badges"><span className={entry.source}>{entry.source === "bundled" ? <><Languages size={11} />{c("内置课程", "Built-in")}</> : <><UserRound size={11} />{c("用户课程", "User course")}</>}</span><em className={entry.status}>{entry.status === "available" ? c("可安装", "Available") : entry.status === "installed" ? c("已安装", "Installed") : entry.status === "update-available" ? c("可更新", "Update available") : c("更新需处理", "Update blocked")}</em></div>
+                  <div className={`course-trust-badge ${entry.trust.level}`}><ShieldCheck size={12} /><span>{entry.trust.level === "official" ? c("官方可信来源", "Official trusted source") : entry.trust.level === "community" ? c("社区课程 · 安装前确认", "Community course · confirm before install") : entry.trust.level === "local" ? c("本地作者课程", "Local author course") : c("来源校验未通过", "Provenance check failed")}</span></div>
                   <h2>{displayText(course.manifest.title, locale)}</h2>
                   <p>{displayText(course.manifest.description, locale)}</p>
                   <div className="library-course-meta"><span><BookOpen size={13} />{c(`${course.lessons.length} 个课节`, `${course.lessons.length} lessons`)}</span><span><GraduationCap size={13} />{c(`${course.goals.length} 个目标`, `${course.goals.length} goals`)}</span><span>v{course.manifest.version}</span></div>
@@ -113,7 +141,7 @@ export function CourseLibrary({
                   {entry.status === "update-available" && installed && <div className="library-update-note"><RefreshCw size={13} /><span>{c(`可从 v${installed.manifest.version} 更新；学习进度会保留。`, `Update from v${installed.manifest.version}; learning progress will be preserved.`)}</span></div>}
                   {entry.status === "update-blocked" && updateIssue && <div className="library-update-note blocked"><ShieldCheck size={13} /><span>{c(...issueLabels[updateIssue])}</span></div>}
                   <div className="library-card-actions">
-                    {entry.status === "available" && <button className="primary" onClick={() => onInstall(entry)}><Download size={15} />{c("安装课程", "Install")}</button>}
+                    {entry.status === "available" && <button className="primary" disabled={!entry.trust.canInstall} onClick={() => onInstall(entry)}><Download size={15} />{entry.trust.canInstall ? c("安装课程", "Install") : c("不可安装", "Blocked")}</button>}
                     {entry.status === "update-available" && <button className="primary" onClick={() => onUpdate(entry)}><RefreshCw size={15} />{c("更新并保留进度", "Update and keep progress")}</button>}
                     {entry.status === "update-blocked" && <button disabled><ShieldCheck size={15} />{c("需要兼容处理", "Compatibility review needed")}</button>}
                     {entry.status !== "available" && <button onClick={() => onOpen(entry)}>{c("进入学习", "Open course")}<ArrowRight size={14} /></button>}

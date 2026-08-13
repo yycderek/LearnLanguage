@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "release:verify": "node scripts/verify-release.mjs",
-    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm release:verify"
+    "client:smoke": "node apps/headless/src/main.mjs",
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm client:smoke && pnpm release:verify"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

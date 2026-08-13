@@ -1,0 +1,15 @@
+{
+  "name": "@learn-language/headless-client",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "smoke": "node src/main.mjs"
+  },
+  "dependencies": {
+    "@learn-language/application": "workspace:*",
+    "@learn-language/engine": "workspace:*",
+    "@learn-language/protocol": "workspace:*"
+  }
+}

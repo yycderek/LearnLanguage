@@ -1,4 +1,5 @@
 import type { CoursePack, PublishedCoursePack } from "@learn-language/protocol";
+import { assessCourseTrust, type CourseTrustReport } from "@learn-language/application/trust";
 import type { CourseLearningRecord } from "./learning.ts";
 import { bundledStarterCourses } from "./starter-course-library.ts";
 
@@ -31,6 +32,7 @@ export interface CourseLibraryEntry {
   course: CoursePack;
   installedCourse?: CoursePack;
   update?: CourseUpdateAssessment;
+  trust: CourseTrustReport;
 }
 
 function versionParts(value: string) {
@@ -128,15 +130,15 @@ export function buildCourseLibrary(
   const installedById = new Map(installed.map((course) => [course.manifest.id, course]));
   const entries = available.map((course): CourseLibraryEntry => {
     const installedCourse = installedById.get(course.manifest.id);
-    if (!installedCourse) return { id: course.manifest.id, source: "bundled", status: "available", course };
+    if (!installedCourse) return { id: course.manifest.id, source: "bundled", status: "available", course, trust: assessCourseTrust(course) };
     installedById.delete(course.manifest.id);
     const update = assessCourseUpdate(installedCourse, course, records[course.manifest.id]);
     const status = update.newer ? (update.compatible ? "update-available" : "update-blocked") : "installed";
-    return { id: course.manifest.id, source: "bundled", status, course, installedCourse, update };
+    return { id: course.manifest.id, source: "bundled", status, course, installedCourse, update, trust: assessCourseTrust(course) };
   });
 
   for (const course of installedById.values()) {
-    entries.push({ id: course.manifest.id, source: "user", status: "installed", course, installedCourse: course });
+    entries.push({ id: course.manifest.id, source: "user", status: "installed", course, installedCourse: course, trust: assessCourseTrust(course) });
   }
   return entries;
 }

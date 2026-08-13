@@ -49,6 +49,26 @@ export class CourseAuthoringApplicationService {
     return course.lessons[Math.min(index, course.lessons.length - 1)]?.id;
   }
 
+  duplicateLesson(course: CoursePack, lessonId: string, locale: string) {
+    const sourceIndex = course.lessons.findIndex((lesson) => lesson.id === lessonId);
+    if (sourceIndex < 0) return undefined;
+    const source = course.lessons[sourceIndex]!;
+    const id = uniqueId("lesson", course.lessons.map((lesson) => lesson.id));
+    const copy = structuredClone(source);
+    copy.id = id;
+    copy.title = { ...copy.title, [locale]: `${copy.title[locale] ?? Object.values(copy.title)[0] ?? id} ${locale === "en" ? "(copy)" : "（副本）"}` };
+    const stepIds = new Map<string, string>();
+    copy.steps.forEach((step, index) => stepIds.set(step.id, `${id}-step-${index + 1}`));
+    copy.steps.forEach((step) => {
+      const previous = step.id;
+      step.id = stepIds.get(previous)!;
+      step.next = step.next.map((next) => stepIds.get(next) ?? next);
+    });
+    copy.entryStepId = stepIds.get(source.entryStepId) ?? copy.steps[0]?.id ?? "";
+    course.lessons.splice(sourceIndex + 1, 0, copy);
+    return id;
+  }
+
   appendLessonStep(lesson: LessonFlow, locale: string, title: string) {
     const id = uniqueId("step", lesson.steps.map((step) => step.id));
     lesson.steps.push({
@@ -79,6 +99,7 @@ const authoring = new CourseAuthoringApplicationService();
 export const appendLesson = authoring.appendLesson.bind(authoring);
 export const moveLesson = authoring.moveLesson.bind(authoring);
 export const removeLesson = authoring.removeLesson.bind(authoring);
+export const duplicateLesson = authoring.duplicateLesson.bind(authoring);
 export const appendLessonStep = authoring.appendLessonStep.bind(authoring);
 export const moveLessonStep = authoring.moveLessonStep.bind(authoring);
 export const removeLessonStep = authoring.removeLessonStep.bind(authoring);

@@ -20,6 +20,9 @@ importers:
       '@learn-language/protocol':
         specifier: link:../../packages/protocol
         version: link:../../packages/protocol
+      '@learn-language/sync':
+        specifier: link:../../packages/sync
+        version: link:../../packages/sync
       lucide-react:
         specifier: 0.468.0
         version: 0.468.0(react@19.2.6)

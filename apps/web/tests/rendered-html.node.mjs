@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, studio, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, studio, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
@@ -27,6 +27,9 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("lib/learner-backup.ts", root), "utf8"),
     readFile(new URL("lib/learning.ts", root), "utf8"),
     readFile(new URL("lib/course-authoring.ts", root), "utf8"),
+    readFile(new URL("lib/course-templates.ts", root), "utf8"),
+    readFile(new URL("lib/publish-readiness.ts", root), "utf8"),
+    readFile(new URL("lib/sync.ts", root), "utf8"),
     readFile(new URL("lib/device-repository.ts", root), "utf8"),
     readFile(new URL("../../packages/application/src/workspace.ts", root), "utf8"),
     readFile(new URL("../../packages/application/src/authoring.ts", root), "utf8"),
@@ -89,6 +92,11 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /assessCourseLanguageCompatibility/);
   assert.match(studio, /profileBackupApplication\.restore/);
   assert.match(studio, /课程内容许可证/);
+  assert.match(studio, /发布检查清单/);
+  assert.match(studio, /从课程模板开始/);
+  assert.match(studio, /duplicateLesson/);
+  assert.match(studio, /confirmCourseTrust/);
+  assert.match(studio, /performDeviceSync/);
   assert.match(studio, /verifyPublishedCourseIntegrity/);
   assert.match(studio, /所需语言能力/);
   assert.match(studio, /能力不足时/);
@@ -146,6 +154,12 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(courseLibraryPage, /导出备份/);
   assert.match(courseLibraryPage, /学习档案备份/);
   assert.match(courseLibraryPage, /恢复学习档案/);
+  assert.match(courseLibraryPage, /可选设备同步/);
+  assert.match(courseLibraryPage, /官方可信来源/);
+  assert.match(courseTemplates, /scenario-course/);
+  assert.match(publishReadiness, /assessPublishReadiness/);
+  assert.match(deviceSync, /class DeviceSyncClientStore/);
+  assert.match(deviceSync, /resolveConflicts/);
   assert.match(courseLibrary, /assessCourseUpdate/);
   assert.match(courseLibrary, /upgradeCourseLearningRecord/);
   assert.match(courseLibrary, /bundledCatalogCourses/);

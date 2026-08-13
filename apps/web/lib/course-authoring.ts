@@ -2,6 +2,7 @@ export {
   CourseAuthoringApplicationService,
   appendLesson,
   appendLessonStep,
+  duplicateLesson,
   moveLesson,
   moveLessonStep,
   removeLesson,

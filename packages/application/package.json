@@ -16,6 +16,10 @@
     "./authoring": {
       "types": "./src/authoring.ts",
       "default": "./src/authoring.ts"
+    },
+    "./trust": {
+      "types": "./src/trust.ts",
+      "default": "./src/trust.ts"
     }
   },
   "dependencies": {

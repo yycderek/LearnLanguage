@@ -13,6 +13,8 @@ import {
   type SyncTransport,
 } from "@learn-language/protocol";
 
+export * from "./client.js";
+
 const DEFAULT_RESOURCES: readonly SyncResource[] = [
   "session-events",
   "learning-records",
@@ -21,16 +23,44 @@ const DEFAULT_RESOURCES: readonly SyncResource[] = [
   "language-packs",
 ];
 
-interface Change {
+export interface ReferenceSyncChange {
   cursor: number;
   record: SyncRecord;
 }
 
-interface ProfileState {
+export interface ReferenceSyncProfileState {
   records: Map<string, SyncRecord>;
-  changes: Change[];
+  changes: ReferenceSyncChange[];
   mutations: Map<string, SyncAcceptedMutation>;
   cursor: number;
+}
+
+export interface ReferenceSyncStateStore {
+  load(profileId: string): Promise<ReferenceSyncProfileState>;
+  save(profileId: string, state: ReferenceSyncProfileState): Promise<void>;
+}
+
+function emptyProfileState(): ReferenceSyncProfileState {
+  return { records: new Map(), changes: [], mutations: new Map(), cursor: 0 };
+}
+
+function cloneProfileState(state: ReferenceSyncProfileState): ReferenceSyncProfileState {
+  return {
+    records: new Map([...state.records].map(([key, value]) => [key, structuredClone(value)])),
+    changes: state.changes.map((change) => structuredClone(change)),
+    mutations: new Map([...state.mutations].map(([key, value]) => [key, structuredClone(value)])),
+    cursor: state.cursor,
+  };
+}
+
+export class MemoryReferenceSyncStateStore implements ReferenceSyncStateStore {
+  readonly #profiles = new Map<string, ReferenceSyncProfileState>();
+  async load(profileId: string): Promise<ReferenceSyncProfileState> {
+    return cloneProfileState(this.#profiles.get(profileId) ?? emptyProfileState());
+  }
+  async save(profileId: string, state: ReferenceSyncProfileState): Promise<void> {
+    this.#profiles.set(profileId, cloneProfileState(state));
+  }
 }
 
 export class SyncProtocolError extends Error {
@@ -44,18 +74,20 @@ export interface ReferenceSyncServiceOptions {
   serverId?: string;
   maxBatchSize?: number;
   now?: () => string;
+  store?: ReferenceSyncStateStore;
 }
 
 export class ReferenceSyncService implements SyncTransport {
-  readonly #profiles = new Map<string, ProfileState>();
   readonly #serverId: string;
   readonly #maxBatchSize: number;
   readonly #now: () => string;
+  readonly #store: ReferenceSyncStateStore;
 
   constructor(options: ReferenceSyncServiceOptions = {}) {
     this.#serverId = options.serverId ?? "learn-language-reference";
     this.#maxBatchSize = options.maxBatchSize ?? 100;
     this.#now = options.now ?? (() => new Date().toISOString());
+    this.#store = options.store ?? new MemoryReferenceSyncStateStore();
   }
 
   async capabilities(): Promise<SyncServerCapabilities> {
@@ -78,7 +110,7 @@ export class ReferenceSyncService implements SyncTransport {
       throw new SyncProtocolError(400, `mutations must contain at most ${this.#maxBatchSize} items`);
     }
 
-    const state = this.#profile(request.profileId);
+    const state = await this.#store.load(request.profileId);
     const accepted: SyncAcceptedMutation[] = [];
     const conflicts: SyncConflict[] = [];
     for (const mutation of request.mutations) {
@@ -117,13 +149,14 @@ export class ReferenceSyncService implements SyncTransport {
       state.mutations.set(mutation.mutationId, acceptance);
       accepted.push(acceptance);
     }
+    if (accepted.length > 0) await this.#store.save(request.profileId, state);
     return { accepted, conflicts, cursor: String(state.cursor) };
   }
 
   async pull(request: SyncPullRequest): Promise<SyncPullResponse> {
     if (!request || typeof request !== "object") throw new SyncProtocolError(400, "request body is required");
     this.#validateRequest(request.protocolVersion, request.profileId);
-    const state = this.#profile(request.profileId);
+    const state = await this.#store.load(request.profileId);
     const cursor = this.#parseCursor(request.cursor);
     if (cursor > state.cursor) throw new SyncProtocolError(409, "cursor is ahead of the server state");
     const limit = Math.min(Math.max(request.limit ?? this.#maxBatchSize, 1), this.#maxBatchSize);
@@ -134,14 +167,6 @@ export class ReferenceSyncService implements SyncTransport {
       cursor: String(nextCursor),
       hasMore: state.changes.some((change) => change.cursor > nextCursor),
     };
-  }
-
-  #profile(profileId: string): ProfileState {
-    const existing = this.#profiles.get(profileId);
-    if (existing) return existing;
-    const state: ProfileState = { records: new Map(), changes: [], mutations: new Map(), cursor: 0 };
-    this.#profiles.set(profileId, state);
-    return state;
   }
 
   #validateRequest(protocolVersion: number, profileId: string): void {
