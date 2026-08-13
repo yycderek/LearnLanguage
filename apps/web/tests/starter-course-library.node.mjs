@@ -26,7 +26,7 @@ function reachableStepIds(lesson) {
   return visited;
 }
 
-test("the bundled library contains complete Japanese and Cantonese starter courses", () => {
+test("the bundled library contains progressive Japanese and Cantonese zero-beginner courses", () => {
   assert.deepEqual(bundledStarterLanguageIds, ["ja", "yue-Hant-HK"]);
   const courses = bundledStarterCourses();
   assert.equal(courses.length, 2);
@@ -34,12 +34,12 @@ test("the bundled library contains complete Japanese and Cantonese starter cours
   for (const course of courses) {
     assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
     assert.equal(course.schemaVersion, 2);
-    assert.equal(course.manifest.version, "0.2.0");
-    assert.equal(course.lessons.length, 3);
-    assert.equal(course.goals.length, 3);
-    assert.ok(course.knowledge.length >= 9);
-    assert.ok(course.utterances.length >= 6);
-    assert.ok(course.exercises.length >= 9);
+    assert.equal(course.manifest.version, "0.3.0");
+    assert.equal(course.lessons.length, 7);
+    assert.equal(course.goals.length, 7);
+    assert.ok(course.knowledge.length >= 21);
+    assert.ok(course.utterances.length >= 14);
+    assert.ok(course.exercises.length >= 21);
 
     assertBilingual(course.manifest.title, "manifest.title");
     assertBilingual(course.manifest.description, "manifest.description");
@@ -82,9 +82,37 @@ test("the bundled library contains complete Japanese and Cantonese starter cours
   }
 });
 
+test("foundation lessons cover each language's writing or romanization system before scenarios", () => {
+  const [japanese, cantonese] = bundledStarterCourses();
+
+  assert.deepEqual(japanese.lessons.slice(0, 4).map((lesson) => lesson.id), [
+    "writing-and-vowels",
+    "hiragana-core",
+    "kana-patterns",
+    "katakana-core",
+  ]);
+  assert.deepEqual(cantonese.lessons.slice(0, 4).map((lesson) => lesson.id), [
+    "jyutping-structure",
+    "jyutping-finals",
+    "jyutping-tones",
+    "greeting-and-identity",
+  ]);
+  assert.equal(japanese.lessons[4].id, "basic-order");
+  assert.equal(cantonese.lessons[4].id, "basic-order");
+
+  const japaneseTags = new Set(japanese.knowledge.flatMap((item) => item.tags ?? []));
+  const cantoneseTags = new Set(cantonese.knowledge.flatMap((item) => item.tags ?? []));
+  for (const tag of ["foundation", "writing-system", "hiragana", "kana-pattern", "katakana"]) assert.ok(japaneseTags.has(tag), `Japanese needs ${tag}`);
+  for (const tag of ["foundation", "writing-system", "jyutping", "tone", "grammar"]) assert.ok(cantoneseTags.has(tag), `Cantonese needs ${tag}`);
+
+  assert.ok(japanese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("がっこう")));
+  assert.ok(cantonese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("ngo5")));
+  assert.ok(cantonese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("si6")));
+});
+
 test("sampleCourse selects bundled content while custom languages receive an editable scaffold", () => {
-  assert.equal(sampleCourse("ja").lessons[0].id, "basic-order");
-  assert.equal(sampleCourse("yue-Hant-HK").lessons[2].id, "dine-or-takeaway");
+  assert.equal(sampleCourse("ja").lessons[0].id, "writing-and-vowels");
+  assert.equal(sampleCourse("yue-Hant-HK").lessons[2].id, "jyutping-tones");
 
   const custom = sampleCourse("fr", "French");
   assert.equal(custom.manifest.languageId, "fr");

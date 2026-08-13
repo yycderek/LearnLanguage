@@ -345,6 +345,8 @@ export function courseLearningPercent(course: CoursePack, record?: CourseLearnin
 
 export function lessonIsUnlocked(course: CoursePack, record: CourseLearningRecord | undefined, lessonIndex: number) {
   if (lessonIndex === 0) return true;
+  const lesson = course.lessons[lessonIndex];
+  if (lesson && (record?.lessonProgress[lesson.id] || record?.completedLessonIds.includes(lesson.id))) return true;
   const previous = course.lessons[lessonIndex - 1];
   return previous ? record?.completedLessonIds.includes(previous.id) === true : false;
 }

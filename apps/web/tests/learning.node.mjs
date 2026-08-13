@@ -70,13 +70,13 @@ test("course record unlocks lessons and reschedules completed reviews", () => {
   }
 
   assert.equal(lessonIsUnlocked(course, record, 1), true);
-  assert.equal(courseLearningPercent(course, record), 33);
+  assert.equal(courseLearningPercent(course, record), 14);
   assert.ok(record.reviews.length > 0);
 
   const replay = startLearning(course, course.lessons[0].id, "2026-08-06T08:00:00.000Z");
   record = updateCourseLearningRecord(record, replay);
   assert.equal(lessonIsUnlocked(course, record, 1), true);
-  assert.equal(courseLearningPercent(course, record), 33);
+  assert.equal(courseLearningPercent(course, record), 14);
 
   const original = record.reviews[0];
   const reviewed = completeReviewTask(record, original.id, "remembered", "2026-08-06T12:00:00.000Z");
@@ -98,4 +98,13 @@ test("a capability fallback can advance without creating mastery evidence", () =
   assert.equal(progress.engineEvents.find((event) => event.type === "attempt.recorded")?.evidenceEligible, false);
   assert.deepEqual(progress.mastery, {});
   assert.deepEqual(progress.reviews, []);
+});
+
+test("a compatible course update keeps previously started lessons unlocked", () => {
+  const course = sampleCourse("ja");
+  const record = createCourseLearningRecord(course, "2026-08-05T10:00:00.000Z");
+  record.lessonProgress["basic-order"] = startLearning(course, "basic-order", "2026-08-05T10:00:00.000Z");
+
+  assert.equal(lessonIsUnlocked(course, record, course.lessons.findIndex((lesson) => lesson.id === "basic-order")), true);
+  assert.equal(lessonIsUnlocked(course, record, course.lessons.findIndex((lesson) => lesson.id === "drink-details")), false);
 });
