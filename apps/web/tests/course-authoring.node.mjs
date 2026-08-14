@@ -36,6 +36,11 @@ test("a no-code author can duplicate a lesson with independent step identities",
   assert.equal(copy.steps.length, source.steps.length);
   assert.equal(new Set(copy.steps.map((step) => step.id)).size, copy.steps.length);
   assert.ok(copy.steps.every((step) => !source.steps.some((sourceStep) => sourceStep.id === step.id)));
+  const copiedDiagnostic = copy.steps.find((step) => step.diagnostic);
+  assert.ok(copiedDiagnostic?.diagnostic);
+  assert.ok(copiedDiagnostic.next.includes(copiedDiagnostic.diagnostic.learnNextStepId));
+  assert.ok(copiedDiagnostic.next.includes(copiedDiagnostic.diagnostic.passNextStepId));
+  assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
 });
 
 test("lesson removal chooses a stable adjacent lesson and preserves the last lesson", () => {

@@ -48,7 +48,7 @@ test("learning session advances, retries, projects mastery, and schedules review
 
   assert.equal(progress.status, "completed");
   assert.equal(learningPercent(course, progress), 100);
-  assert.equal(progress.completedStepIds.length, course.lessons[0].steps.length);
+  assert.equal(progress.completedStepIds.length, course.lessons[0].steps.length - 1);
   assert.ok(Object.keys(progress.mastery).length > 0);
   assert.equal(progress.reviews.length, Object.keys(progress.mastery).length);
   assert.equal(progress.events.at(-1)?.type, "session.completed");
@@ -70,13 +70,13 @@ test("course record unlocks lessons and reschedules completed reviews", () => {
   }
 
   assert.equal(lessonIsUnlocked(course, record, 1), true);
-  assert.equal(courseLearningPercent(course, record), 14);
+  assert.equal(courseLearningPercent(course, record), 8);
   assert.ok(record.reviews.length > 0);
 
   const replay = startLearning(course, course.lessons[0].id, "2026-08-06T08:00:00.000Z");
   record = updateCourseLearningRecord(record, replay);
   assert.equal(lessonIsUnlocked(course, record, 1), true);
-  assert.equal(courseLearningPercent(course, record), 14);
+  assert.equal(courseLearningPercent(course, record), 8);
 
   const original = record.reviews[0];
   const reviewed = completeReviewTask(record, original.id, "remembered", "2026-08-06T12:00:00.000Z");
@@ -84,6 +84,54 @@ test("course record unlocks lessons and reschedules completed reviews", () => {
   assert.equal(reviewed.reviewEvents.length, 1);
   assert.notEqual(rescheduled.id, original.id);
   assert.ok(Date.parse(rescheduled.dueAt) > Date.parse("2026-08-06T12:00:00.000Z"));
+});
+
+test("a passed diagnostic skips teaching and completes through the short branch", () => {
+  const course = sampleCourse("ja");
+  const lesson = course.lessons[0];
+  const diagnostic = lesson.steps.find((step) => step.diagnostic);
+  assert.ok(diagnostic?.diagnostic);
+
+  let progress = startLearning(course, lesson.id, "2026-08-05T10:00:00.000Z");
+  progress = submitLearningStep(course, progress, {
+    decision: "advance",
+    nextStepId: diagnostic.diagnostic.passNextStepId,
+    score: 1,
+    now: "2026-08-05T10:01:00.000Z",
+  });
+
+  assert.equal(progress.currentStepId, "diagnostic-skip");
+  assert.ok(Object.values(progress.mastery).every((item) => item.level === "comprehended"));
+
+  progress = submitLearningStep(course, progress, {
+    decision: "advance",
+    now: "2026-08-05T10:02:00.000Z",
+  });
+  assert.equal(progress.status, "completed");
+  assert.deepEqual(progress.completedStepIds, ["diagnose", "diagnostic-skip"]);
+});
+
+test("a failed diagnostic enters teaching without creating mastery evidence", () => {
+  const course = sampleCourse("ja");
+  const lesson = course.lessons[0];
+  const diagnostic = lesson.steps.find((step) => step.diagnostic);
+  assert.ok(diagnostic?.diagnostic);
+
+  const progress = submitLearningStep(
+    course,
+    startLearning(course, lesson.id, "2026-08-05T10:00:00.000Z"),
+    {
+      decision: "advance",
+      nextStepId: diagnostic.diagnostic.learnNextStepId,
+      score: 0,
+      evidenceEligible: false,
+      now: "2026-08-05T10:01:00.000Z",
+    },
+  );
+
+  assert.equal(progress.currentStepId, "preteach");
+  assert.deepEqual(progress.mastery, {});
+  assert.deepEqual(progress.reviews, []);
 });
 
 test("a capability fallback can advance without creating mastery evidence", () => {

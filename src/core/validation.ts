@@ -99,6 +99,23 @@ function validateLesson(
         `${stepPath}.exerciseRefs`,
       ),
     );
+    if (step.diagnostic) {
+      const { learnNextStepId, passNextStepId } = step.diagnostic;
+      if (step.phase !== "diagnostic") {
+        issues.push({ code: "invalid-diagnostic-step", path: `${stepPath}.diagnostic`, message: "Diagnostic branching is only valid on diagnostic steps" });
+      }
+      if (step.exerciseRefs.length === 0) {
+        issues.push({ code: "missing-diagnostic-exercise", path: `${stepPath}.exerciseRefs`, message: "Diagnostic branching requires an exercise" });
+      }
+      if (learnNextStepId === passNextStepId) {
+        issues.push({ code: "invalid-diagnostic-branch", path: `${stepPath}.diagnostic`, message: "Learn and pass branches must be different" });
+      }
+      for (const reference of [learnNextStepId, passNextStepId]) {
+        if (!step.next.includes(reference)) {
+          issues.push({ code: "missing-diagnostic-branch", path: `${stepPath}.next`, message: `Diagnostic target must be listed in next: ${reference}` });
+        }
+      }
+    }
   }
 
   if (!lesson.steps.some((step) => step.next.length === 0)) {

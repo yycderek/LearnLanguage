@@ -69,4 +69,23 @@ describe("course pack import", () => {
     }
     expect(() => importCoursePack(invalidCourse)).toThrow(CourseImportError);
   });
+
+  it("rejects a diagnostic branch whose targets are not declared as next steps", () => {
+    const invalidCourse = structuredClone(japaneseCafeCourse);
+    const step = invalidCourse.lessons[0]!.steps[0]!;
+    step.exerciseRefs = [invalidCourse.exercises[0]!.id];
+    step.diagnostic = {
+      learnNextStepId: step.next[0]!,
+      passNextStepId: "missing-diagnostic-target",
+    };
+
+    const result = safeImportCoursePack(invalidCourse);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.issues).toContainEqual(expect.objectContaining({
+        stage: "domain",
+        code: "missing-diagnostic-branch",
+      }));
+    }
+  });
 });

@@ -8,6 +8,7 @@ function uniqueId(prefix: string, values: readonly string[]) {
 
 export function rewireLinearLesson(lesson: LessonFlow) {
   lesson.steps.forEach((step, index) => {
+    delete step.diagnostic;
     step.next = index < lesson.steps.length - 1 ? [lesson.steps[index + 1]!.id] : [];
   });
   lesson.entryStepId = lesson.steps[0]?.id ?? "";
@@ -63,6 +64,10 @@ export class CourseAuthoringApplicationService {
       const previous = step.id;
       step.id = stepIds.get(previous)!;
       step.next = step.next.map((next) => stepIds.get(next) ?? next);
+      if (step.diagnostic) {
+        step.diagnostic.learnNextStepId = stepIds.get(step.diagnostic.learnNextStepId) ?? step.diagnostic.learnNextStepId;
+        step.diagnostic.passNextStepId = stepIds.get(step.diagnostic.passNextStepId) ?? step.diagnostic.passNextStepId;
+      }
     });
     copy.entryStepId = stepIds.get(source.entryStepId) ?? copy.steps[0]?.id ?? "";
     course.lessons.splice(sourceIndex + 1, 0, copy);

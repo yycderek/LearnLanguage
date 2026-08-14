@@ -41,7 +41,15 @@ import {
   type ReviewMode,
 } from "@/lib/learning";
 
-type Feedback = { kind: "success" | "retry" | "review"; title: string; message: string; source?: "ai" | "local"; detail?: string };
+type Feedback = {
+  kind: "success" | "retry" | "review";
+  title: string;
+  message: string;
+  source?: "ai" | "local";
+  detail?: string;
+  diagnosticAction?: "skip" | "learn";
+  nextStepId?: string;
+};
 
 const phaseNames: Record<string, [string, string]> = {
   diagnostic: ["诊断", "Diagnostic"],
@@ -130,15 +138,16 @@ export function LearningPlayer({
     setEvaluating(false);
   }
 
-  function advance(evaluationSource: EvaluationSource = "deterministic", evidenceEligible = true) {
+  function advance(evaluationSource: EvaluationSource = "deterministic", evidenceEligible = true, nextStepId?: string, score = 1) {
     if (!currentStep) return;
     const next = submitLearningStep(course, progress, {
       decision: "advance",
       answer: serializeExerciseResponse(activeResponse),
-      score: 1,
+      score,
       evaluationSource,
       evidenceEligible,
       usedSupport: showSupport,
+      nextStepId,
     });
     persist(next);
     resetStepUi();
@@ -183,6 +192,26 @@ export function LearningPlayer({
     const deterministic = evaluateExerciseResponse(exercise, exerciseResponse);
     if (deterministic.status === "empty") {
       setFeedback({ kind: "retry", title: c("先完成这道练习", "Complete the exercise first"), message: c("作答后再提交；不必追求一次就完美。", "Add your response before submitting. It does not need to be perfect.") });
+      return;
+    }
+    if (currentStep.diagnostic && deterministic.status === "pass") {
+      setFeedback({
+        kind: "success",
+        title: c("基础检查通过", "Diagnostic passed"),
+        message: c("你已掌握本课检查内容，可以直接完成本课；之后仍可随时重新学习。", "You already know the checked material, so you can complete this lesson now and revisit it later."),
+        diagnosticAction: "skip",
+        nextStepId: currentStep.diagnostic.passNextStepId,
+      });
+      return;
+    }
+    if (currentStep.diagnostic && deterministic.status === "retry") {
+      setFeedback({
+        kind: "review",
+        title: c("建议学习本课", "Study this lesson"),
+        message: c("这次检查还没有覆盖本课目标，接下来会从核心内容开始学习，不需要反复重做检查。", "This check did not yet meet the lesson goal. Continue into the lesson instead of repeating the diagnostic."),
+        diagnosticAction: "learn",
+        nextStepId: currentStep.diagnostic.learnNextStepId,
+      });
       return;
     }
     if (deterministic.status === "pass") {
@@ -354,7 +383,7 @@ export function LearningPlayer({
 
           <footer className="learning-actions">
             {!showSupport && (exercise || currentStep.supportLevel !== "none") ? <button className="support-button" onClick={() => setShowSupport(true)}><Eye size={16} />{c("查看提示", "View support")}</button> : <span />}
-            {feedback?.kind === "success" ? <button className="learner-primary" onClick={() => advance("deterministic")}>{c("继续下一步", "Continue")}<ArrowRight size={17} /></button> : feedback?.kind === "retry" ? <button className="learner-primary retry-button" onClick={tryAgain}><RotateCcw size={16} />{c("根据提示重试", "Try again with support")}</button> : feedback?.kind === "review" ? <div className="ai-review-actions"><button className="support-button" onClick={tryAgain}><RotateCcw size={16} />{c("继续修改", "Keep editing")}</button><button className="learner-primary" onClick={() => advance("self")}>{c("我确认已完成", "I confirm completion")}<ArrowRight size={17} /></button></div> : capabilityResolution.mode === "disabled" ? <button className="learner-primary" onClick={submitAnswer}>{c("跳过不兼容练习", "Skip incompatible exercise")}<ArrowRight size={17} /></button> : <button className="learner-primary" onClick={submitAnswer} disabled={evaluating}>{evaluating ? <><Sparkles size={16} />{c("AI 反馈中…", "Getting AI feedback…")}</> : exercise ? <><ListChecks size={16} />{c("提交答案", "Submit answer")}</> : <><Sparkles size={16} />{c("完成并继续", "Complete and continue")}</>}</button>}
+            {feedback?.diagnosticAction === "skip" ? <button className="learner-primary" onClick={() => advance("deterministic", true, feedback.nextStepId, 1)}>{c("跳过并完成本课", "Skip and complete lesson")}<ArrowRight size={17} /></button> : feedback?.diagnosticAction === "learn" ? <button className="learner-primary" onClick={() => advance("deterministic", false, feedback.nextStepId, 0)}>{c("开始学习本课", "Start this lesson")}<ArrowRight size={17} /></button> : feedback?.kind === "success" ? <button className="learner-primary" onClick={() => advance("deterministic")}>{c("继续下一步", "Continue")}<ArrowRight size={17} /></button> : feedback?.kind === "retry" ? <button className="learner-primary retry-button" onClick={tryAgain}><RotateCcw size={16} />{c("根据提示重试", "Try again with support")}</button> : feedback?.kind === "review" ? <div className="ai-review-actions"><button className="support-button" onClick={tryAgain}><RotateCcw size={16} />{c("继续修改", "Keep editing")}</button><button className="learner-primary" onClick={() => advance("self")}>{c("我确认已完成", "I confirm completion")}<ArrowRight size={17} /></button></div> : capabilityResolution.mode === "disabled" ? <button className="learner-primary" onClick={submitAnswer}>{c("跳过不兼容练习", "Skip incompatible exercise")}<ArrowRight size={17} /></button> : <button className="learner-primary" onClick={submitAnswer} disabled={evaluating}>{evaluating ? <><Sparkles size={16} />{c("AI 反馈中…", "Getting AI feedback…")}</> : exercise ? <><ListChecks size={16} />{c("提交答案", "Submit answer")}</> : <><Sparkles size={16} />{c("完成并继续", "Complete and continue")}</>}</button>}
           </footer>
         </article>
       </section>

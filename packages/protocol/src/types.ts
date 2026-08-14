@@ -176,6 +176,10 @@ export interface LessonStep {
   phase: LessonPhase;
   title: LocalizedText;
   supportLevel?: SupportLevel;
+  diagnostic?: {
+    learnNextStepId: string;
+    passNextStepId: string;
+  };
   knowledgeRefs: string[];
   utteranceRefs: string[];
   exerciseRefs: string[];

@@ -169,7 +169,7 @@ export function startLearning(course: CoursePack, lessonId = course.lessons[0]?.
 export function submitLearningStep(
   course: CoursePack,
   progress: LearningProgress,
-  input: { decision: "advance" | "retry"; answer?: string; score?: number; evaluationSource?: EvaluationSource; evidenceEligible?: boolean; usedSupport?: boolean; now?: string },
+  input: { decision: "advance" | "retry"; answer?: string; score?: number; evaluationSource?: EvaluationSource; evidenceEligible?: boolean; usedSupport?: boolean; nextStepId?: string; now?: string },
 ): LearningProgress {
   if (progress.status !== "active" || !progress.currentStepId) throw new Error("学习会话已经结束");
   const lesson = course.lessons.find((item) => item.id === progress.lessonId);
@@ -202,7 +202,7 @@ export function submitLearningStep(
     promptLevel: input.usedSupport ? 1 : 0,
     ...(input.answer === undefined ? {} : { answer: input.answer }),
     ...(input.score === undefined ? {} : { scores: { "task-completion": input.score } }),
-    ...(step.next.length > 1 && step.next[0] ? { nextStepId: step.next[0] } : {}),
+    ...(input.nextStepId ? { nextStepId: input.nextStepId } : step.next.length > 1 && step.next[0] ? { nextStepId: step.next[0] } : {}),
   });
   const next = JSON.parse(JSON.stringify(progress)) as LearningProgress;
   next.updatedAt = now;
@@ -329,18 +329,18 @@ export function completeReviewTask(
 
 export function learningPercent(course: CoursePack, progress?: LearningProgress) {
   if (!progress) return 0;
+  if (progress.status === "completed") return 100;
   const count = course.lessons.find((item) => item.id === progress.lessonId)?.steps.length ?? 0;
   return count === 0 ? 0 : Math.round((progress.completedStepIds.length / count) * 100);
 }
 
 export function courseLearningPercent(course: CoursePack, record?: CourseLearningRecord) {
-  const total = course.lessons.reduce((count, lesson) => count + lesson.steps.length, 0);
-  if (!record || total === 0) return 0;
-  const completed = course.lessons.reduce((count, lesson) => {
-    if (record.completedLessonIds.includes(lesson.id)) return count + lesson.steps.length;
-    return count + (record.lessonProgress[lesson.id]?.completedStepIds.length ?? 0);
+  if (!record || course.lessons.length === 0) return 0;
+  const completed = course.lessons.reduce((sum, lesson) => {
+    if (record.completedLessonIds.includes(lesson.id)) return sum + 1;
+    return sum + learningPercent(course, record.lessonProgress[lesson.id]) / 100;
   }, 0);
-  return Math.round((completed / total) * 100);
+  return Math.round((completed / course.lessons.length) * 100);
 }
 
 export function lessonIsUnlocked(course: CoursePack, record: CourseLearningRecord | undefined, lessonIndex: number) {

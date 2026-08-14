@@ -34,12 +34,13 @@ test("the bundled library contains progressive Japanese and Cantonese zero-begin
   for (const course of courses) {
     assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
     assert.equal(course.schemaVersion, 2);
-    assert.equal(course.manifest.version, "0.3.0");
-    assert.equal(course.lessons.length, 7);
-    assert.equal(course.goals.length, 7);
-    assert.ok(course.knowledge.length >= 21);
-    assert.ok(course.utterances.length >= 14);
-    assert.ok(course.exercises.length >= 21);
+    assert.equal(course.manifest.version, "0.4.0");
+    assert.equal(course.lessons.length, 12);
+    assert.equal(course.goals.length, 12);
+    assert.ok(course.knowledge.length >= 36);
+    assert.ok(course.utterances.length >= 24);
+    assert.ok(course.exercises.length >= 36);
+    assert.ok(course.goals.every((goal) => goal.framework?.name === "CEFR Can-do" && goal.framework.level === "A1"));
 
     assertBilingual(course.manifest.title, "manifest.title");
     assertBilingual(course.manifest.description, "manifest.description");
@@ -63,9 +64,15 @@ test("the bundled library contains progressive Japanese and Cantonese zero-begin
     const exerciseSets = [];
     for (const lesson of course.lessons) {
       assertBilingual(lesson.title, `lesson.${lesson.id}.title`);
-      assert.equal(lesson.steps.length, 9);
+      const diagnostic = lesson.steps.find((step) => step.diagnostic);
+      assert.equal(lesson.steps.length, diagnostic ? 10 : 9);
       assert.equal(reachableStepIds(lesson).size, lesson.steps.length, `${lesson.id} has unreachable steps`);
-      assert.equal(lesson.steps.filter((step) => step.next.length === 0).length, 1, `${lesson.id} needs one terminal step`);
+      assert.equal(lesson.steps.filter((step) => step.next.length === 0).length, diagnostic ? 2 : 1, `${lesson.id} has the wrong terminal count`);
+      if (diagnostic) {
+        assert.equal(diagnostic.phase, "diagnostic");
+        assert.equal(diagnostic.exerciseRefs.length, 1);
+        assert.deepEqual(new Set(diagnostic.next), new Set([diagnostic.diagnostic.learnNextStepId, diagnostic.diagnostic.passNextStepId]));
+      }
       lesson.steps.forEach((step) => {
         assertBilingual(step.title, `lesson.${lesson.id}.step.${step.id}.title`);
         step.exerciseRefs.forEach((id) => usedExerciseIds.add(id));
@@ -97,8 +104,22 @@ test("foundation lessons cover each language's writing or romanization system be
     "jyutping-tones",
     "greeting-and-identity",
   ]);
-  assert.equal(japanese.lessons[4].id, "basic-order");
-  assert.equal(cantonese.lessons[4].id, "basic-order");
+  assert.deepEqual(japanese.lessons.slice(4, 9).map((lesson) => lesson.id), [
+    "greeting-and-identity",
+    "numbers-and-time",
+    "places-and-questions",
+    "shopping-and-prices",
+    "transport-and-help",
+  ]);
+  assert.deepEqual(cantonese.lessons.slice(4, 9).map((lesson) => lesson.id), [
+    "numbers-and-time",
+    "places-and-questions",
+    "shopping-and-prices",
+    "transport-and-directions",
+    "help-and-negation",
+  ]);
+  assert.equal(japanese.lessons[9].id, "basic-order");
+  assert.equal(cantonese.lessons[9].id, "basic-order");
 
   const japaneseTags = new Set(japanese.knowledge.flatMap((item) => item.tags ?? []));
   const cantoneseTags = new Set(cantonese.knowledge.flatMap((item) => item.tags ?? []));
@@ -108,6 +129,7 @@ test("foundation lessons cover each language's writing or romanization system be
   assert.ok(japanese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("がっこう")));
   assert.ok(cantonese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("ngo5")));
   assert.ok(cantonese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("si6")));
+  assert.ok(japanese.knowledge.some((item) => item.tags?.includes("jlpt-n5-relevant")));
 });
 
 test("sampleCourse selects bundled content while custom languages receive an editable scaffold", () => {

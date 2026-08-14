@@ -465,6 +465,7 @@ const masteryRank: Readonly<Record<MasteryLevel, number>> = {
 
 function levelForAttempt(phase: LessonPhase, attempt: AttemptRecordedEvent): MasteryLevel {
   if (attempt.decision === "retry") return "encountered";
+  if (phase === "diagnostic") return "comprehended";
   if (phase === "supported-input" || phase === "comprehension") return "comprehended";
   if (phase === "guided-output") return "prompted-output";
   if (attempt.evaluationSource === "self") return "prompted-output";

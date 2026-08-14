@@ -337,6 +337,15 @@
         "supportLevel": {
           "enum": ["full", "target-language-only", "none"]
         },
+        "diagnostic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["learnNextStepId", "passNextStepId"],
+          "properties": {
+            "learnNextStepId": { "$ref": "#/$defs/id" },
+            "passNextStepId": { "$ref": "#/$defs/id" }
+          }
+        },
         "knowledgeRefs": { "$ref": "#/$defs/references" },
         "utteranceRefs": { "$ref": "#/$defs/references" },
         "exerciseRefs": { "$ref": "#/$defs/references" },
