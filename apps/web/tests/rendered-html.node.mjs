@@ -5,11 +5,13 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, studio, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, readme, studio, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
+    readFile(new URL("../../README.md", root), "utf8"),
     readFile(new URL("app/course-studio.tsx", root), "utf8"),
+    readFile(new URL("app/product-guide.tsx", root), "utf8"),
     readFile(new URL("app/draft-manager.tsx", root), "utf8"),
     readFile(new URL("app/language-pack-manager.tsx", root), "utf8"),
     readFile(new URL("app/learning-player.tsx", root), "utf8"),
@@ -41,6 +43,10 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(page, /redirect\("\/learn"\)/);
   assert.match(learnPage, /CourseStudio space="learn"/);
   assert.match(studioPage, /CourseStudio space="studio"/);
+  assert.match(readme, /五分钟快速开始/);
+  assert.match(readme, /learnlanguage-studio\.yycderek\.chatgpt\.site\/learn/);
+  assert.match(readme, /AI 是可选的/);
+  assert.match(readme, /本地数据与备份/);
   assert.match(studio, /课程编辑器/);
   assert.match(studio, /可视化/);
   assert.match(studio, /基本信息/);
@@ -58,6 +64,9 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /导入 JSON/);
   assert.doesNotMatch(studio, /语音区域代码/);
   assert.match(studio, /AI 设置/);
+  assert.match(studio, /PRODUCT_GUIDE_SEEN_KEY/);
+  assert.match(studio, /使用帮助/);
+  assert.match(studio, /ProductGuide/);
   assert.match(studio, /测试连接/);
   assert.match(studio, /sessionStorage/);
   assert.doesNotMatch(studio, /localStorage/);
@@ -144,10 +153,12 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(dashboard, /Course outline/);
   assert.match(dashboard, /onLocaleChange/);
   assert.match(dashboard, /onOpenLibrary/);
+  assert.match(dashboard, /onOpenHelp/);
   assert.match(dashboard, /uiText\(locale/);
   assert.doesNotMatch(dashboard, /onTeachingLocaleChange|onUiLocaleChange/);
   assert.match(dashboard, /displayText\(course\.manifest\.title, teachingLocale\)/);
   assert.match(courseLibraryPage, /选择想学的课程/);
+  assert.match(courseLibraryPage, /使用帮助/);
   assert.match(courseLibraryPage, /更新并保留进度/);
   assert.match(courseLibraryPage, /卸载不会删除学习记录/);
   assert.match(courseLibraryPage, /导入课程文件/);
@@ -215,6 +226,12 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(languageRuntime, /exercise-capability-missing/);
   assert.match(ai, /requestAiFeedback/);
   assert.match(aiRoute, /api\.openai\.com\/v1\/responses/);
+  assert.match(productGuide, /学习和课程设计是两个独立空间/);
+  assert.match(productGuide, /基础检查决定是否跳过/);
+  assert.match(productGuide, /AI 可以不设置/);
+  assert.match(productGuide, /保存、预览、发布、安装是四个不同动作/);
+  assert.match(productGuide, /aria-modal="true"/);
+  assert.match(productGuide, /event\.key === "Escape"/);
   assert.match(css, /studio-shell/);
   assert.match(css, /visual-editor/);
   assert.match(css, /learner-shell/);
@@ -224,5 +241,6 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(css, /draft-library-shell/);
   assert.match(css, /language-library-shell/);
   assert.match(css, /review-player-shell/);
+  assert.match(css, /product-guide-dialog/);
   assert.doesNotMatch(`${page}${studio}`, /Your site is taking shape|SkeletonPreview/);
 });

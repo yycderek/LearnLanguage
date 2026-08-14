@@ -20,6 +20,7 @@ import {
   Braces,
   Check,
   ChevronRight,
+  CircleHelp,
   ClipboardCheck,
   Clock3,
   Copy,
@@ -46,6 +47,7 @@ import { CourseLibrary } from "@/app/course-library";
 import { DraftManager } from "@/app/draft-manager";
 import { LanguagePackManager } from "@/app/language-pack-manager";
 import { ReviewPlayer } from "@/app/review-player";
+import { ProductGuide, type ProductGuideAudience } from "@/app/product-guide";
 import { testAiConnection, type AiProvider, type AiSettings } from "@/lib/ai";
 import {
   getAllDeviceValues,
@@ -159,6 +161,7 @@ type LanguageForm = {
 
 const AI_SESSION_KEY = "learn-language-ai-key-session-v1";
 const SYNC_TOKEN_SESSION_KEY = "learn-language-sync-token-session-v1";
+const PRODUCT_GUIDE_SEEN_KEY = "product-guide-seen-v1";
 const BUILT_IN_LANGUAGE_IDS = new Set(builtInLanguagePacks.map((pack) => pack.id));
 const draftApplication = new DraftApplicationService(new IndexedDbDraftRepository());
 const languagePackApplication = new LanguagePackApplicationService(new IndexedDbLanguagePackRepository(), BUILT_IN_LANGUAGE_IDS);
@@ -304,6 +307,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [syncSettings, setSyncSettings] = useState<DeviceSyncSettings>({ endpoint: "", profileId: "local-profile", deviceId: "" });
   const [syncToken, setSyncToken] = useState("");
   const [syncStatus, setSyncStatus] = useState<{ state: "idle" | "syncing" | "success" | "error" | "conflict"; message?: string; conflicts?: readonly SyncConflict[] }>({ state: "idle" });
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideAudience, setGuideAudience] = useState<ProductGuideAudience>(space);
   const t = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
 
   const stats = useMemo(
@@ -332,7 +337,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   useEffect(() => {
     let active = true;
     async function hydrate() {
-      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedAppLocale, storedTeachingLocale, storedUiLocale, storedSync] = await Promise.all([
+      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedAppLocale, storedTeachingLocale, storedUiLocale, storedSync, guideSeen] = await Promise.all([
         draftApplication.list(),
         getDeviceValue<AiSettings>("preferences", "ai"),
         languagePackApplication.list(),
@@ -342,6 +347,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         getDeviceValue<unknown>("preferences", TEACHING_LOCALE_PREFERENCE_KEY),
         getDeviceValue<unknown>("preferences", UI_LOCALE_PREFERENCE_KEY),
         getDeviceValue<Partial<DeviceSyncSettings>>("preferences", "sync-settings"),
+        getDeviceValue<boolean>("preferences", PRODUCT_GUIDE_SEEN_KEY),
       ]);
       if (!active) return;
       const sessionKey = sessionStorage.getItem(AI_SESSION_KEY) ?? "";
@@ -366,6 +372,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       setInstalledCourses([...storedInstalledCourses]);
       const nextLocale = resolveStoredAppLocale(storedAppLocale, storedUiLocale, storedTeachingLocale);
       setAppLocale(nextLocale);
+      if (!guideSeen) {
+        setGuideAudience(space);
+        setGuideOpen(true);
+      }
       if (storedAppLocale === undefined) void putDeviceValue("preferences", APP_LOCALE_PREFERENCE_KEY, nextLocale).catch(() => undefined);
       setNotice(space === "learn"
         ? uiText(nextLocale, "课程库已就绪；安装课程后即可开始学习", "The course library is ready. Install a course to begin learning.")
@@ -398,6 +408,16 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   function changeAppLocale(locale: AppLocale) {
     setAppLocale(locale);
     void putDeviceValue("preferences", APP_LOCALE_PREFERENCE_KEY, locale).catch(() => setNotice(uiText(locale, "语言偏好保存失败", "Could not save the language preference")));
+  }
+
+  function openProductGuide(audience: ProductGuideAudience) {
+    setGuideAudience(audience);
+    setGuideOpen(true);
+  }
+
+  function closeProductGuide() {
+    setGuideOpen(false);
+    void putDeviceValue("preferences", PRODUCT_GUIDE_SEEN_KEY, true).catch(() => undefined);
   }
 
   function commitCourse(next: CoursePack, message = t("可视化修改已同步到课程包", "Visual changes synced to the Course Pack")) {
@@ -1257,24 +1277,25 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const dueReviewCount = currentRecord ? reviewsDue(currentRecord).length : 0;
   const ongoingLesson = course.lessons.find((lesson) => currentRecord?.lessonProgress[lesson.id]?.status === "active");
   const selectedProgress = selectedLessonId ? currentRecord?.lessonProgress[selectedLessonId] : undefined;
+  const productGuide = <ProductGuide key={`${guideAudience}:${guideOpen ? "open" : "closed"}`} open={guideOpen} audience={guideAudience} locale={appLocale} onClose={closeProductGuide} />;
 
   if (learningView === "library") {
-    return <CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => window.location.assign("/studio")} onInstall={(entry) => void installLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />;
+    return <><CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onOpenHelp={() => openProductGuide("learn")} onBack={() => window.location.assign("/studio")} onInstall={(entry) => void installLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />{productGuide}</>;
   }
   if (learningView === "drafts") {
-    return <DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />;
+    return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />{productGuide}</>;
   }
   if (learningView === "languages") {
-    return <LanguagePackManager packs={languagePacks} builtInIds={BUILT_IN_LANGUAGE_IDS} locale={appLocale} notice={notice} usageFor={usageForLanguagePack} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onCreate={() => { setLearningView("studio"); setLanguageOpen(true); }} onImport={(file) => void importLanguagePackFile(file)} onExport={exportLanguagePack} onDelete={(pack) => void deleteLanguagePack(pack)} />;
+    return <><LanguagePackManager packs={languagePacks} builtInIds={BUILT_IN_LANGUAGE_IDS} locale={appLocale} notice={notice} usageFor={usageForLanguagePack} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onCreate={() => { setLearningView("studio"); setLanguageOpen(true); }} onImport={(file) => void importLanguagePackFile(file)} onExport={exportLanguagePack} onDelete={(pack) => void deleteLanguagePack(pack)} />{productGuide}</>;
   }
   if (learningView === "dashboard") {
-    return <LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />;
+    return <><LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onOpenHelp={() => openProductGuide(learningContext === "preview" ? "studio" : "learn")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />{productGuide}</>;
   }
   if (learningView === "lesson" && selectedProgress) {
-    return <LearningPlayer course={course} languagePack={currentLanguage} locale={appLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />;
+    return <><LearningPlayer course={course} languagePack={currentLanguage} locale={appLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />{productGuide}</>;
   }
   if (learningView === "review" && currentRecord) {
-    return <ReviewPlayer course={course} locale={appLocale} initialRecord={currentRecord} tasks={reviewTasks} preview={learningContext === "preview"} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />;
+    return <><ReviewPlayer course={course} locale={appLocale} initialRecord={currentRecord} tasks={reviewTasks} preview={learningContext === "preview"} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />{productGuide}</>;
   }
 
   return (
@@ -1318,6 +1339,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
           </div>
           <div className="top-actions">
             <div className="locale-selectors studio-locale-selectors"><label className="teaching-language-select"><Languages size={16} /><span>{t("语言", "Language")}</span><select value={appLocale} onChange={(event) => changeAppLocale(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
+            <button className="outline-button help-button" onClick={() => openProductGuide("studio")}><CircleHelp size={17} />{t("使用帮助", "Guide")}</button>
             <button className="ai-button" onClick={() => setAiOpen(true)}><Bot size={17} />{t("AI 设置", "AI settings")}<span className={`ai-state ${aiConfigured ? "configured" : ""}`} /></button>
             {course.manifest.status === "published" ? <><button className="outline-button" onClick={installCurrentCourse}><GraduationCap size={17} />{t("安装到学习空间", "Install in Learn")}</button><button className="save-button" onClick={forkCurrentCourse}><RotateCcw size={17} />{t("创建派生草稿", "Create derived draft")}</button></> : <><button className="outline-button" onClick={publishCurrentCourse} disabled={publishing}>{publishing ? t("正在发布…", "Publishing…") : t("校验并发布", "Validate and publish")}</button><button className="save-button" onClick={saveDraft} disabled={saving}><Save size={17} />{saving ? t("正在保存…", "Saving…") : t("保存草稿", "Save draft")}</button></>}
           </div>
@@ -1569,6 +1591,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
           </section>
         </div>
       )}
+
+      {productGuide}
     </main>
   );
 }

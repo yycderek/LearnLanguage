@@ -6,6 +6,7 @@ import {
   ArrowRight,
   ArchiveRestore,
   BookOpen,
+  CircleHelp,
   Cloud,
   DatabaseBackup,
   Download,
@@ -39,6 +40,7 @@ export function CourseLibrary({
   locale,
   notice,
   onLocaleChange,
+  onOpenHelp,
   onBack,
   onInstall,
   onUpdate,
@@ -61,6 +63,7 @@ export function CourseLibrary({
   locale: AppLocale;
   notice?: string;
   onLocaleChange: (locale: AppLocale) => void;
+  onOpenHelp: () => void;
   onBack: () => void;
   onInstall: (entry: CourseLibraryEntry) => void;
   onUpdate: (entry: CourseLibraryEntry) => void;
@@ -88,8 +91,8 @@ export function CourseLibrary({
     <main className="course-library-shell">
       <header className="course-library-topbar">
         <button onClick={onBack}><ArrowLeft size={17} />{c("返回课程工作台", "Back to Course Studio")}</button>
-        <div><span>LOCAL COURSE LIBRARY</span><strong>{c("课程库", "Course library")}</strong></div>
-        <label><span>{c("语言", "Language")}</span><select value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label>
+        <div className="course-library-title"><span>LOCAL COURSE LIBRARY</span><strong>{c("课程库", "Course library")}</strong></div>
+        <div className="course-library-tools"><button onClick={onOpenHelp}><CircleHelp size={15} />{c("使用帮助", "Guide")}</button><label><span>{c("语言", "Language")}</span><select value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
       </header>
 
       <section className="course-library-hero">
