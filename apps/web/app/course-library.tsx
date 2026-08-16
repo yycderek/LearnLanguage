@@ -37,6 +37,23 @@ const issueLabels: Record<CourseUpdateIssue, [string, string]> = {
   "learned-knowledge-removed": ["新版本删除了已掌握或待复习的知识点", "The update removes learned or scheduled knowledge"],
 };
 
+function representativeGoals(entry: CourseLibraryEntry) {
+  const goals = entry.course.goals;
+  if (goals.length <= 3) return goals;
+  return [goals[0], goals[Math.floor((goals.length - 1) / 2)], goals[goals.length - 1]];
+}
+
+function estimatedStudyTime(lessonCount: number, locale: AppLocale) {
+  const minimumMinutes = lessonCount * 15;
+  const maximumMinutes = lessonCount * 25;
+  if (maximumMinutes < 60) {
+    return uiText(locale, `约 ${minimumMinutes}–${maximumMinutes} 分钟`, `About ${minimumMinutes}–${maximumMinutes} min`);
+  }
+  const minimumHours = Math.max(1, Math.round(minimumMinutes / 60));
+  const maximumHours = Math.max(minimumHours, Math.round(maximumMinutes / 60));
+  return uiText(locale, `约 ${minimumHours}–${maximumHours} 小时`, `About ${minimumHours}–${maximumHours} hr`);
+}
+
 export function CourseLibrary({
   entries,
   locale,
@@ -92,20 +109,20 @@ export function CourseLibrary({
   return (
     <main className="course-library-shell">
       <header className="course-library-topbar">
-        <button onClick={onBack}><ArrowLeft size={17} />{c("返回学习首页", "Back to learning home")}</button>
+        {installedCount > 0 ? <button onClick={onBack}><ArrowLeft size={17} />{c("返回学习首页", "Back to learning home")}</button> : <span className="course-library-back-placeholder" aria-hidden="true" />}
         <div className="course-library-title"><span>LOCAL COURSE LIBRARY</span><strong>{c("课程库", "Course library")}</strong></div>
         <div className="course-library-tools"><button onClick={onOpenHelp}><CircleHelp size={15} />{c("使用帮助", "Guide")}</button><label><span>{c("语言", "Language")}</span><select value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
       </header>
 
       <section className="course-library-hero">
         <div className="library-hero-icon"><Library size={26} /></div>
-        <div><span className="kicker">LEARN OFFLINE · NO ACCOUNT REQUIRED</span><h1>{c("选择想学的课程", "Choose what you want to learn")}</h1><p>{c("课程安装在当前设备。卸载不会删除学习记录，重新安装兼容版本即可继续。", "Courses are installed on this device. Removing one keeps your progress so a compatible reinstall can continue.")}</p></div>
+        <div><span className="kicker">LEARN OFFLINE · NO ACCOUNT REQUIRED</span><h1>{c("选择想学的课程", "Choose what you want to learn")}</h1><p>{c("无需账户或课程文件。点击“一键开始学习”，进度会自动保存在当前设备。", "No account or course file needed. Select Start learning and your progress is saved on this device.")}</p></div>
         <div className="library-summary"><strong>{installedCount}</strong><span>{c("已安装课程", "installed courses")}</span></div>
       </section>
 
       <section className="course-library-toolbar">
-        <div><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>{c("全部课程", "All courses")}</button><button className={filter === "installed" ? "active" : ""} onClick={() => setFilter("installed")}>{c("已安装", "Installed")}</button><label className="course-file-import"><Upload size={13} />{c("导入课程文件", "Import course file")}<input type="file" accept=".json,.course.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportFile(file); event.target.value = ""; }} /></label></div>
-        <p><ShieldCheck size={14} />{notice ?? c("安装前会校验课程身份与内容完整性", "Course identity and content integrity are checked before installation")}</p>
+        <div><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>{c("全部课程", "All courses")}</button><button className={filter === "installed" ? "active" : ""} onClick={() => setFilter("installed")}>{c("我的课程", "My courses")}</button></div>
+        <p><ShieldCheck size={14} />{notice ?? c("选择课程即可开始；课程来源与内容完整性会自动校验", "Choose a course to begin; its source and content integrity are checked automatically")}</p>
       </section>
 
       {visibleEntries.length === 0 ? (
@@ -117,7 +134,8 @@ export function CourseLibrary({
             const installed = entry.installedCourse;
             const updateIssue = entry.update?.issues.find((issue) => issue !== "not-newer");
             const level = course.goals.find((goal) => goal.framework?.level)?.framework?.level ?? c("入门", "Beginner");
-            const firstGoal = course.goals[0];
+            const outcomeGoals = representativeGoals(entry);
+            const studyTime = estimatedStudyTime(course.lessons.length, locale);
             return (
               <article className="library-course-card" key={entry.id}>
                 <div className="library-card-cover"><span>{course.manifest.languageId === "ja" ? "日" : course.manifest.languageId === "yue-Hant-HK" ? "粵" : course.manifest.languageId.slice(0, 2).toUpperCase()}</span><small>{course.manifest.languageId}</small></div>
@@ -126,9 +144,9 @@ export function CourseLibrary({
                   <div className={`course-trust-badge ${entry.trust.level}`}><ShieldCheck size={12} /><span>{entry.trust.level === "official" ? c("官方可信来源", "Official trusted source") : entry.trust.level === "community" ? c("社区课程 · 安装前确认", "Community course · confirm before install") : entry.trust.level === "local" ? c("本地作者课程", "Local author course") : c("来源校验未通过", "Provenance check failed")}</span></div>
                   <h2>{displayText(course.manifest.title, locale)}</h2>
                   <p>{displayText(course.manifest.description, locale)}</p>
-                  {firstGoal && <div className="library-learning-outcome"><Target size={13} /><span><strong>{c("学完可以", "Learning outcome")}</strong>{displayText(firstGoal.description, locale)}</span></div>}
+                  {outcomeGoals.length > 0 && <div className="library-learning-outcome"><Target size={13} /><span><strong>{c("完成课程后，你将能够", "By the end of this course")}</strong><ul>{outcomeGoals.map((goal) => <li key={goal.id}>{displayText(goal.description, locale)}</li>)}</ul><small>{c(`以上为 ${course.goals.length} 个课程目标中的代表成果`, `Representative outcomes from ${course.goals.length} course goals`)}</small></span></div>}
                   <div className="library-course-meta"><span><BookOpen size={13} />{c(`${course.lessons.length} 个课节`, `${course.lessons.length} lessons`)}</span><span><GraduationCap size={13} />{c(`${course.goals.length} 个目标`, `${course.goals.length} goals`)}</span><span>v{course.manifest.version}</span></div>
-                  <div className="library-course-details"><span>{c("课程等级", "Course level")}<strong>{level}</strong></span><span>{c("适合人群", "For learners")}<strong>{entry.source === "bundled" ? c("零基础可学", "Zero beginner") : c("以课程说明为准", "See course description")}</strong></span><span>{c("学习方式", "Format")}<strong>{c("结构化课节 · 随时继续", "Structured lessons")}</strong></span></div>
+                  <div className="library-course-details"><span>{c("课程等级", "Course level")}<strong>{level}</strong></span><span>{c("适合人群", "For learners")}<strong>{entry.source === "bundled" ? c("零基础学习者", "Complete beginners") : c("请查看课程说明", "See course description")}</strong></span><span>{c("预计用时", "Estimated time")}<strong>{studyTime}</strong></span><span>{c("学习节奏", "Pace")}<strong>{c("每课约 15–25 分钟", "About 15–25 min per lesson")}</strong></span></div>
                   {entry.status === "update-available" && installed && <div className="library-update-note"><RefreshCw size={13} /><span>{c(`可从 v${installed.manifest.version} 更新；学习进度会保留。`, `Update from v${installed.manifest.version}; learning progress will be preserved.`)}</span></div>}
                   {entry.status === "update-blocked" && updateIssue && <div className="library-update-note blocked"><ShieldCheck size={13} /><span>{c(...issueLabels[updateIssue])}</span></div>}
                   <div className="library-card-actions">
@@ -149,6 +167,11 @@ export function CourseLibrary({
       <details className="course-library-advanced">
         <summary><span><Settings2 size={16} /><strong>{c("课程与数据管理", "Course and data management")}</strong></span><small>{c("导入、备份或设置可选同步", "Import, back up, or configure optional sync")}</small></summary>
         <div className="course-library-advanced-content">
+          <section className="course-file-management">
+            <div><span><Upload size={18} /></span><p><strong>{c("导入他人分享的课程", "Import a shared course")}</strong><small>{c("只有收到课程文件时才需要使用。内置课程可直接在上方开始学习。", "Use this only when someone shares a course file with you. Built-in courses can be started above.")}</small></p></div>
+            <label><Upload size={14} />{c("选择课程文件", "Choose course file")}<input type="file" accept=".json,.course.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportFile(file); event.target.value = ""; }} /></label>
+          </section>
+
           <section className="learner-backup-bar">
             <div><span><DatabaseBackup size={18} /></span><p><strong>{c("学习档案备份", "Learning profile backup")}</strong><small>{c(`包含 ${recordCount} 门课程的已完成课节、掌握度和复习计划；不包含作答内容、进行中步骤、课程内容、草稿或 AI 设置。`, `Includes completed lessons, mastery, and reviews for ${recordCount} courses; excludes answers, in-progress steps, course content, drafts, and AI settings.`)}</small></p></div>
             <aside><button onClick={onExportProfile}><FileDown size={14} />{c("导出学习档案", "Export profile")}</button><label><ArchiveRestore size={14} />{c("恢复学习档案", "Restore profile")}<input type="file" accept=".json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportProfile(file); event.target.value = ""; }} /></label></aside>

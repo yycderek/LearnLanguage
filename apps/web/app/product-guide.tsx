@@ -47,7 +47,7 @@ const learnSteps: GuideStep[] = [
     description: ["Learn 用于正式学习并保存进度；Studio 用于创建、预览和发布课程。Studio 预览不会写入真实学习档案。", "Learn saves real progress. Studio creates, previews, and publishes courses; Studio previews never change your real learning profile."],
     icon: GraduationCap,
     items: [
-      { icon: GraduationCap, title: ["Learn 学习空间", "Learn space"], body: ["安装课程、完成课节、查看掌握度并按计划复习。", "Install courses, complete lessons, track mastery, and review on schedule."] },
+      { icon: GraduationCap, title: ["Learn 学习空间", "Learn space"], body: ["选择课程并一键开始，完成课节、查看掌握度并按计划复习。", "Choose a course and start in one click, complete lessons, track mastery, and review on schedule."] },
       { icon: PencilRuler, title: ["Studio 创作空间", "Studio space"], body: ["使用模板编辑课程内容，预览后发布，再安装到 Learn。", "Edit with templates, preview, publish, then install the course in Learn."] },
     ],
   },

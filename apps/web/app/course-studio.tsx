@@ -285,7 +285,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState(() => space === "learn"
-    ? "课程库已就绪；选择一门课程即可开始学习"
+    ? "选择一门课程，点击“一键开始学习”即可直接进入第一课"
     : "示例课程已载入，可以直接编辑");
   const [editorMode, setEditorMode] = useState<"visual" | "json">("visual");
   const [editorSection, setEditorSection] = useState<EditorSection>("overview");
@@ -380,7 +380,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       }
       if (storedAppLocale === undefined) void putDeviceValue("preferences", APP_LOCALE_PREFERENCE_KEY, nextLocale).catch(() => undefined);
       setNotice(space === "learn"
-        ? uiText(nextLocale, "课程库已就绪；安装课程后即可开始学习", "The course library is ready. Install a course to begin learning.")
+        ? uiText(nextLocale, "选择一门课程，点击“一键开始学习”即可直接进入第一课", "Choose a course and select Start learning to enter the first lesson.")
         : uiText(nextLocale, "示例课程已载入，可以直接编辑", "The sample course is ready to edit"));
       if (space === "learn" && storedInstalledCourses[0]) {
         const firstCourse = storedInstalledCourses[0];
@@ -708,7 +708,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   function returnToLearningHome() {
     const selected = installedCourses.find((item) => item.manifest.id === course.manifest.id) ?? installedCourses[0];
     if (!selected) {
-      setNotice(t("先选择一门课程开始学习；高级数据工具已收在页面底部", "Choose a course to begin. Advanced data tools are available at the bottom of this page."));
+      setNotice(t("选择一门课程，点击“一键开始学习”即可直接进入第一课", "Choose a course and select Start learning to enter the first lesson."));
       return;
     }
     setCourse(selected);
