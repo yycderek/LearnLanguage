@@ -4,8 +4,8 @@ import type { CourseLearningRecord } from "./learning.ts";
 import { bundledStarterCourses } from "./starter-course-library.ts";
 
 const BUNDLED_CONTENT_HASHES: Record<string, string> = {
-  ja: "sha256:973609f4b446c8671505c2ff4167db75e45d80b6c8699c9a66fb4077dd1aa750",
-  "yue-Hant-HK": "sha256:39970068aa1efbc62f87a8b968450bc46d1ed583cbf464502c9d24f72ce47602",
+  ja: "sha256:f3280b31dd7cacafec829cd1dfbe89d4c96d763f5c273e856f91d94bb46303a1",
+  "yue-Hant-HK": "sha256:57baf6bf9e8b0a2338fe5bb9cb54af0ca36bf0ae9a3b45fe63be6ae16086980d",
 };
 
 export type CourseLibrarySource = "bundled" | "user";

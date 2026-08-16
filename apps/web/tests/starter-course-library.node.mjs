@@ -34,12 +34,12 @@ test("the bundled library contains progressive Japanese and Cantonese zero-begin
   for (const course of courses) {
     assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
     assert.equal(course.schemaVersion, 2);
-    assert.equal(course.manifest.version, "0.4.0");
+    assert.equal(course.manifest.version, "0.5.0");
     assert.equal(course.lessons.length, 12);
     assert.equal(course.goals.length, 12);
-    assert.ok(course.knowledge.length >= 36);
-    assert.ok(course.utterances.length >= 24);
-    assert.ok(course.exercises.length >= 36);
+    assert.ok(course.knowledge.length >= 52);
+    assert.ok(course.utterances.length >= 28);
+    assert.ok(course.exercises.length >= 40);
     assert.ok(course.goals.every((goal) => goal.framework?.name === "CEFR Can-do" && goal.framework.level === "A1"));
 
     assertBilingual(course.manifest.title, "manifest.title");
@@ -65,7 +65,8 @@ test("the bundled library contains progressive Japanese and Cantonese zero-begin
     for (const lesson of course.lessons) {
       assertBilingual(lesson.title, `lesson.${lesson.id}.title`);
       const diagnostic = lesson.steps.find((step) => step.diagnostic);
-      assert.equal(lesson.steps.length, diagnostic ? 10 : 9);
+      const readingStep = lesson.steps.find((step) => step.id === "reading-comprehension");
+      assert.equal(lesson.steps.length, 9 + (diagnostic ? 1 : 0) + (readingStep ? 1 : 0));
       assert.equal(reachableStepIds(lesson).size, lesson.steps.length, `${lesson.id} has unreachable steps`);
       assert.equal(lesson.steps.filter((step) => step.next.length === 0).length, diagnostic ? 2 : 1, `${lesson.id} has the wrong terminal count`);
       if (diagnostic) {
@@ -75,6 +76,7 @@ test("the bundled library contains progressive Japanese and Cantonese zero-begin
       }
       lesson.steps.forEach((step) => {
         assertBilingual(step.title, `lesson.${lesson.id}.step.${step.id}.title`);
+        assert.ok(step.exerciseRefs.length <= 1, `${lesson.id}.${step.id} exceeds the player exercise limit`);
         step.exerciseRefs.forEach((id) => usedExerciseIds.add(id));
       });
       exerciseSets.push([...new Set(lesson.steps.flatMap((step) => step.exerciseRefs))].sort().join(","));
@@ -85,6 +87,25 @@ test("the bundled library contains progressive Japanese and Cantonese zero-begin
     const kinds = new Set(course.exercises.map((exercise) => exercise.kind));
     for (const kind of ["single-choice", "multiple-choice", "ordering", "role-play"]) {
       assert.ok(kinds.has(kind), `${course.manifest.languageId} needs a ${kind} exercise`);
+    }
+  }
+});
+
+test("A1 courses include denser vocabulary and short-text information extraction", () => {
+  for (const course of bundledStarterCourses()) {
+    const readingKnowledge = course.knowledge.filter((item) => item.tags?.includes("reading"));
+    const readingTexts = course.utterances.filter((item) => item.id.includes("reading-"));
+    const readingExercises = course.exercises.filter((item) => item.id.includes("-read-"));
+
+    assert.ok(readingKnowledge.length >= 15, `${course.manifest.languageId} needs denser reading vocabulary`);
+    assert.equal(readingTexts.length, 4, `${course.manifest.languageId} needs four short reading texts`);
+    assert.equal(readingExercises.length, 4, `${course.manifest.languageId} needs four information-extraction exercises`);
+
+    const readingTextIds = new Set(readingTexts.map((item) => item.id));
+    for (const exercise of readingExercises) {
+      assert.equal(exercise.kind, "single-choice");
+      assert.ok(exercise.utteranceRefs?.some((id) => readingTextIds.has(id)), `${exercise.id} must cite its reading text`);
+      assert.ok(course.lessons.some((lesson) => lesson.steps.some((step) => step.id === "reading-comprehension" && step.exerciseRefs.includes(exercise.id))), `${exercise.id} must run in a dedicated reading step`);
     }
   }
 });
