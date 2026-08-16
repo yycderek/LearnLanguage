@@ -53,11 +53,11 @@ const learnSteps: GuideStep[] = [
   },
   {
     eyebrow: ["开始学习", "START LEARNING"],
-    title: ["安装一门课程，然后从第一节已解锁课程开始", "Install a course, then start the first unlocked lesson"],
-    description: ["内置日语和粤语课程可以直接安装。课程和进度保存在当前浏览器，卸载课程不会删除学习记录。", "The built-in Japanese and Cantonese courses are ready to install. Courses and progress stay in this browser, and removing a course keeps its learning record."],
+    title: ["选择一门课程，一次点击开始学习", "Choose a course and start in one click"],
+    description: ["内置日语和粤语课程可以直接开始。系统会自动安装并进入当前应学课节；课程和进度保存在当前浏览器。", "The built-in Japanese and Cantonese courses can start immediately. The app installs the course and opens the right lesson; course data and progress stay in this browser."],
     icon: Library,
     items: [
-      { icon: Library, title: ["1. 选择并安装", "1. Choose and install"], body: ["在课程库点击“安装课程”，随后点击“进入学习”。", "Select Install in the course library, then choose Open course."] },
+      { icon: Library, title: ["1. 选择并开始", "1. Choose and start"], body: ["在课程库点击“一键开始学习”，系统会自动安装并进入当前应学课节。", "Choose Start learning in the course library to install the course and enter the right lesson automatically."] },
       { icon: BookOpen, title: ["2. 按顺序学习", "2. Follow the path"], body: ["完成一课会解锁下一课；已完成课程可以随时重新学习。", "Completing a lesson unlocks the next one, and completed lessons can be revisited anytime."] },
     ],
   },

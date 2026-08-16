@@ -72,7 +72,7 @@ export function LearningDashboard({
   return (
     <main className="learning-home-shell">
       <header className="learning-home-topbar">
-        <button onClick={onBack}><ArrowLeft size={17} />{c("返回课程工作台", "Back to Course Studio")}</button>
+        <button onClick={onBack}><ArrowLeft size={17} />{preview ? c("返回课程编辑器", "Back to course editor") : c("课程创作", "Course Studio")}</button>
         <div><span>{preview ? "STUDIO PREVIEW" : "LEARNING HOME"}</span><strong>{displayText(course.manifest.title, teachingLocale)}</strong>{!preview && courses.length > 1 && <select aria-label={c("选择学习课程", "Select a course")} value={course.manifest.id} onChange={(event) => onSelectCourse?.(event.target.value)}>{courses.map((item) => <option key={`${item.manifest.id}:${item.manifest.version}`} value={item.manifest.id}>{displayText(item.manifest.title, teachingLocale)}</option>)}</select>}</div>
         <div className="learning-home-meta"><div className="locale-selectors"><label className="teaching-language-select compact"><span>{c("语言", "Language")}</span><select value={locale} onChange={(event) => onLocaleChange?.(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label>{!preview && <button className="open-library-button" onClick={onOpenLibrary}><Library size={13} />{c("课程库", "Library")}</button>}<button className="open-library-button" onClick={onOpenHelp}><CircleHelp size={13} />{c("帮助", "Guide")}</button></div><em>{preview ? c("临时预览档案 · 不保存", "Temporary preview profile · not saved") : c("设备本地学习档案", "Device-local learning profile")}</em></div>
       </header>

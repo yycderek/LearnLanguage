@@ -133,6 +133,10 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(player, /advance\("self"\)/);
   assert.doesNotMatch(player, /result\.verdict === "pass"\) setFeedback\(\{ kind: "success"/);
   assert.match(player, /已生成的复习任务/);
+  assert.match(player, /buildLearnerStages/);
+  assert.match(player, /理解/);
+  assert.match(player, /练习/);
+  assert.match(player, /运用/);
   assert.match(player, /Lesson complete/);
   assert.match(player, /locale/);
   assert.match(player, /uiText\(locale/);
@@ -158,6 +162,10 @@ test("build contains the visual course studio and language pack workflow", async
   assert.doesNotMatch(dashboard, /onTeachingLocaleChange|onUiLocaleChange/);
   assert.match(dashboard, /displayText\(course\.manifest\.title, teachingLocale\)/);
   assert.match(courseLibraryPage, /选择想学的课程/);
+  assert.match(courseLibraryPage, /一键开始学习/);
+  assert.match(courseLibraryPage, /学完可以/);
+  assert.match(courseLibraryPage, /课程与数据管理/);
+  assert.match(courseLibraryPage, /返回学习首页/);
   assert.match(courseLibraryPage, /使用帮助/);
   assert.match(courseLibraryPage, /更新并保留进度/);
   assert.match(courseLibraryPage, /卸载不会删除学习记录/);
@@ -227,6 +235,7 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(ai, /requestAiFeedback/);
   assert.match(aiRoute, /api\.openai\.com\/v1\/responses/);
   assert.match(productGuide, /学习和课程设计是两个独立空间/);
+  assert.match(productGuide, /一键开始学习/);
   assert.match(productGuide, /基础检查决定是否跳过/);
   assert.match(productGuide, /AI 可以不设置/);
   assert.match(productGuide, /保存、预览、发布、安装是四个不同动作/);

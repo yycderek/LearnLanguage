@@ -284,7 +284,9 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [draftId, setDraftId] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [notice, setNotice] = useState("示例课程已载入，可以直接编辑");
+  const [notice, setNotice] = useState(() => space === "learn"
+    ? "课程库已就绪；选择一门课程即可开始学习"
+    : "示例课程已载入，可以直接编辑");
   const [editorMode, setEditorMode] = useState<"visual" | "json">("visual");
   const [editorSection, setEditorSection] = useState<EditorSection>("overview");
   const [selectedStudioLessonId, setSelectedStudioLessonId] = useState("cafe-request");
@@ -595,20 +597,55 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
 
   async function installLibraryCourse(entry: CourseLibraryEntry) {
     const compatibility = languageCompatibility(entry.course);
-    if (compatibilityBlocked(compatibility)) return;
-    if (!confirmCourseTrust(entry.course, entry.trust)) return;
+    if (compatibilityBlocked(compatibility)) return false;
+    if (!confirmCourseTrust(entry.course, entry.trust)) return false;
     try {
       const integrity = await verifyPublishedCourseIntegrity(entry.course);
       if (!integrity.valid) {
         setNotice(t("课程内容完整性校验失败，已拒绝安装", "Course integrity verification failed; installation was rejected"));
-        return;
+        return false;
       }
       await courseLibraryApplication.install(entry.course);
       setInstalledCourses((current) => [entry.course, ...current.filter((item) => item.manifest.id !== entry.id)]);
       setNotice(t(`已安装「${displayText(entry.course.manifest.title, appLocale)}」`, `Installed “${displayText(entry.course.manifest.title, appLocale)}”`) + compatibilitySuffix(compatibility));
+      return true;
     } catch {
       setNotice(t("课程安装失败；请检查浏览器是否允许设备存储", "Course installation failed. Check whether device storage is available."));
+      return false;
     }
+  }
+
+  async function startLibraryCourse(entry: CourseLibraryEntry) {
+    const selected = entry.installedCourse ?? entry.course;
+    if (entry.status === "available" && !await installLibraryCourse(entry)) return;
+    if (compatibilityBlocked(languageCompatibility(selected))) return;
+
+    setCourse(selected);
+    setSource(JSON.stringify(selected, null, 2));
+    setLanguage(selected.manifest.languageId);
+    setLearningContext("learn");
+
+    const record = recordsByCourse[selected.manifest.id] ?? createCourseLearningRecord(selected);
+    const activeLesson = selected.lessons.find((lesson) => record.lessonProgress[lesson.id]?.status === "active");
+    const nextLesson = activeLesson ?? selected.lessons.find((lesson, index) =>
+      !record.completedLessonIds.includes(lesson.id)
+      && (index === 0 || record.completedLessonIds.includes(selected.lessons[index - 1]!.id)));
+    if (!nextLesson) {
+      setSelectedLessonId(undefined);
+      setLearningView("dashboard");
+      return;
+    }
+
+    const existing = record.lessonProgress[nextLesson.id];
+    const compatible = Boolean(existing
+      && existing.courseVersion === selected.manifest.version
+      && (existing.status === "completed" || nextLesson.steps.some((step) => step.id === existing.currentStepId)));
+    const progress = compatible && existing ? existing : startLearning(selected, nextLesson.id);
+    const nextRecord = updateCourseLearningRecord(record, progress);
+    setRecordsByCourse((current) => ({ ...current, [selected.manifest.id]: nextRecord }));
+    void persistLearningState(nextRecord, progress).catch(() => setNotice(t("学习记录保存失败；当前页面中的进度仍然可用", "Learning progress could not be saved; it remains available on this page")));
+    setSelectedLessonId(nextLesson.id);
+    setLearningView("lesson");
   }
 
   async function updateLibraryCourse(entry: CourseLibraryEntry) {
@@ -665,6 +702,20 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     setLanguage(selected.manifest.languageId);
     setSelectedLessonId(undefined);
     setLearningContext("learn");
+    setLearningView("dashboard");
+  }
+
+  function returnToLearningHome() {
+    const selected = installedCourses.find((item) => item.manifest.id === course.manifest.id) ?? installedCourses[0];
+    if (!selected) {
+      setNotice(t("先选择一门课程开始学习；高级数据工具已收在页面底部", "Choose a course to begin. Advanced data tools are available at the bottom of this page."));
+      return;
+    }
+    setCourse(selected);
+    setSource(JSON.stringify(selected, null, 2));
+    setLanguage(selected.manifest.languageId);
+    setLearningContext("learn");
+    setSelectedLessonId(undefined);
     setLearningView("dashboard");
   }
 
@@ -1280,7 +1331,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const productGuide = <ProductGuide key={`${guideAudience}:${guideOpen ? "open" : "closed"}`} open={guideOpen} audience={guideAudience} locale={appLocale} onClose={closeProductGuide} />;
 
   if (learningView === "library") {
-    return <><CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onOpenHelp={() => openProductGuide("learn")} onBack={() => window.location.assign("/studio")} onInstall={(entry) => void installLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />{productGuide}</>;
+    return <><CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onOpenHelp={() => openProductGuide("learn")} onBack={returnToLearningHome} onStart={(entry) => void startLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />{productGuide}</>;
   }
   if (learningView === "drafts") {
     return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />{productGuide}</>;

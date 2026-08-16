@@ -23,6 +23,7 @@ import { displayText, type CoursePack } from "@/lib/course";
 import { IndexedDbEffectQueue } from "@/lib/device-repository";
 import { resolveExerciseCapabilities, type LanguagePack } from "@/lib/language-pack";
 import { dateLocale, uiText, type AppLocale } from "@/lib/i18n";
+import { buildLearnerStages, type LearnerStageId } from "@/lib/learning-presentation";
 import type { EvaluationSource } from "@learn-language/protocol";
 import {
   createExerciseResponse,
@@ -60,6 +61,18 @@ const phaseNames: Record<string, [string, string]> = {
   "independent-task": ["独立任务", "Independent task"],
   "feedback-retry": ["反馈重试", "Feedback retry"],
   "delayed-transfer": ["延迟迁移", "Delayed transfer"],
+};
+
+const learnerStageNames: Record<LearnerStageId, [string, string]> = {
+  learn: ["理解", "Learn"],
+  practice: ["练习", "Practice"],
+  use: ["运用", "Use"],
+};
+
+const learnerStageDescriptions: Record<LearnerStageId, [string, string]> = {
+  learn: ["认识新内容并理解场景", "Meet new content and understand it in context"],
+  practice: ["提取信息并重组表达", "Retrieve meaning and rebuild the expression"],
+  use: ["独立完成任务并迁移运用", "Complete the task independently and transfer it"],
 };
 
 const masteryNames: Record<MasteryLevel, [string, string]> = {
@@ -117,7 +130,9 @@ export function LearningPlayer({
   const knowledge = currentStep?.knowledgeRefs.map((id) => course.knowledge.find((item) => item.id === id)).filter(Boolean) ?? [];
   const utterances = currentStep?.utteranceRefs.map((id) => course.utterances.find((item) => item.id === id)).filter(Boolean) ?? [];
   const percent = learningPercent(course, progress);
-  const stepIndex = currentStep ? (lesson?.steps.findIndex((item) => item.id === currentStep.id) ?? 0) : -1;
+  const learnerStages = lesson ? buildLearnerStages(lesson, currentStep?.id ?? "", progress.completedStepIds) : [];
+  const activeStageIndex = Math.max(0, learnerStages.findIndex((stage) => stage.status === "active"));
+  const activeStage = learnerStages[activeStageIndex];
   const targetForms = knowledge.map((item) => item?.form.trim()).filter(Boolean) as string[];
   const activeResponse = exercise ? response ?? createExerciseResponse(exercise) : undefined;
   const capabilityResolution = exercise
@@ -302,14 +317,14 @@ export function LearningPlayer({
     return (
       <main className="learner-shell completion-shell">
         <header className="learner-topbar">
-          <button className="learner-back" onClick={onExit}><ArrowLeft size={17} />{c("返回课程工作台", "Back to learning home")}</button>
+          <button className="learner-back" onClick={onExit}><ArrowLeft size={17} />{c("返回学习首页", "Back to learning home")}</button>
           <span className="device-pill">{preview ? c("预览进度不会保存", "Preview progress is not saved") : c("进度已保存到当前设备", "Progress saved on this device")}</span>
         </header>
         <section className="completion-card">
           <div className="completion-mark"><CheckCircle2 size={38} /></div>
           <span className="kicker">LESSON COMPLETE</span>
           <h1>{c("本课学习完成", "Lesson complete")}</h1>
-          <p>{displayText(lesson?.title, teachingLocale)} · {c(`共完成 ${progress.completedStepIds.length} 个学习步骤`, `${progress.completedStepIds.length} learning steps completed`)}</p>
+          <p>{displayText(lesson?.title, teachingLocale)} · {c("本课学习路径已完成", "Lesson path completed")}</p>
           <div className="completion-stats">
             <div><strong>{mastered.length}</strong><span>{c("已记录知识点", "Knowledge items")}</span></div>
             <div><strong>{progress.events.filter((item) => item.type === "attempt.recorded").length}</strong><span>{c("学习尝试", "Learning attempts")}</span></div>
@@ -347,21 +362,21 @@ export function LearningPlayer({
         <span className="device-pill">{preview ? c("Studio 预览 · 不写入学习档案", "Studio preview · does not change your profile") : c("设备本地进度", "Device-local progress")}</span>
       </header>
       <div className="learning-progress-wrap">
-        <div className="learning-progress-meta"><span>{c(`步骤 ${stepIndex + 1} / ${lesson.steps.length}`, `Step ${stepIndex + 1} / ${lesson.steps.length}`)}</span><strong>{percent}%</strong></div>
+        <div className="learning-progress-meta"><span>{c(`阶段 ${activeStageIndex + 1} / ${learnerStages.length} · 本阶段 ${activeStage?.completedSteps ?? 0} / ${activeStage?.stepIds.length ?? 0}`, `Stage ${activeStageIndex + 1} / ${learnerStages.length} · ${activeStage?.completedSteps ?? 0} / ${activeStage?.stepIds.length ?? 0} in this stage`)}</span><strong>{percent}%</strong></div>
         <div className="learning-progress-track"><span style={{ width: `${percent}%` }} /></div>
       </div>
 
       <section className="lesson-stage">
         <aside className="lesson-rail">
-          {lesson.steps.map((step, index) => {
-            const done = progress.completedStepIds.includes(step.id);
-            const active = step.id === currentStep.id;
-            return <div className={`rail-step ${done ? "done" : ""} ${active ? "active" : ""}`} key={step.id}><span>{done ? <Check size={13} /> : index + 1}</span><div><strong>{displayText(step.title, teachingLocale)}</strong><small>{phaseNames[step.phase] ? c(...phaseNames[step.phase]) : step.phase}</small></div></div>;
+          {learnerStages.map((stage, index) => {
+            const done = stage.status === "completed";
+            const active = stage.status === "active";
+            return <div className={`rail-step learner-stage-step ${done ? "done" : ""} ${active ? "active" : ""}`} key={stage.id}><span>{done ? <Check size={13} /> : index + 1}</span><div><strong>{c(...learnerStageNames[stage.id])}</strong><small>{c(...learnerStageDescriptions[stage.id])}</small><em>{c(`${stage.completedSteps} / ${stage.stepIds.length} 个环节`, `${stage.completedSteps} / ${stage.stepIds.length} activities`)}</em></div></div>;
           })}
         </aside>
 
         <article className="learning-card">
-          <div className="learning-heading"><span className="phase-badge">{phaseNames[currentStep.phase] ? c(...phaseNames[currentStep.phase]) : currentStep.phase}</span><h1>{displayText(currentStep.title, teachingLocale)}</h1><p>{exercise ? displayText(exercise.prompt, teachingLocale) : c("阅读并理解下面的课程内容，然后继续。", "Read and understand the lesson content, then continue.")}</p></div>
+          <div className="learning-heading"><span className="phase-badge">{c(...learnerStageNames[learnerStages[activeStageIndex]?.id ?? "learn"])} · {phaseNames[currentStep.phase] ? c(...phaseNames[currentStep.phase]) : currentStep.phase}</span><h1>{displayText(currentStep.title, teachingLocale)}</h1><p>{exercise ? displayText(exercise.prompt, teachingLocale) : c("阅读并理解下面的课程内容，然后继续。", "Read and understand the lesson content, then continue.")}</p></div>
 
           {(knowledge.length > 0 || utterances.length > 0) && (
             <div className="learning-content">
