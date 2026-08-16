@@ -53,10 +53,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    defaults:
-      run:
-        working-directory: apps/web
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
@@ -71,10 +67,9 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: apps/web/pnpm-lock.yaml
 
-      - name: Install Web dependencies
+      - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build and test Web app
-        run: pnpm test
+        run: pnpm --dir apps/web test

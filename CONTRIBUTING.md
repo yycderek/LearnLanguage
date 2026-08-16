@@ -16,11 +16,16 @@
 ```bash
 pnpm install --frozen-lockfile
 pnpm check
-pnpm --dir apps/web install --frozen-lockfile
 pnpm --dir apps/web test
 ```
 
 协议变更还必须更新 JSON Schema、固定迁移样例、类型、测试和对应 ADR。界面变更需要保持 Learn 与 Studio 的产品边界。
+
+## CI 状态
+
+- 推送或 PR 只有在 Core Node 22、Core Node 24 和 Web build and test 全部通过后才算完成。
+- 推送后应检查 GitHub Actions 运行结果；失败会阻止候选版本或公开版本发布，必须先查看失败步骤日志。
+- 不要用本机已有的 `node_modules` 代替冻结锁文件验证；依赖变更必须先运行 `pnpm install --frozen-lockfile`。
 
 ## Pull Request
 

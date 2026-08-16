@@ -5,7 +5,7 @@ LearnLanguage 的 Web 学习和课程设计功能默认保存在设备本地，�
 ## Web 应用
 
 ```bash
-pnpm --dir apps/web install --frozen-lockfile
+pnpm install --frozen-lockfile
 pnpm --dir apps/web build
 pnpm --dir apps/web start
 ```

@@ -35,9 +35,6 @@ jobs:
       - name: Verify core, protocol, fixtures, and release metadata
         run: pnpm check
 
-      - name: Install Web dependencies
-        run: pnpm --dir apps/web install --frozen-lockfile
-
       - name: Verify production Web build
         run: pnpm --dir apps/web test
 

@@ -1,5 +1,7 @@
 # LearnLanguage
 
+[![CI](https://github.com/yycderek/LearnLanguage/actions/workflows/ci.yml/badge.svg)](https://github.com/yycderek/LearnLanguage/actions/workflows/ci.yml)
+
 LearnLanguage 是一个可切换语种的通用语言学习工具。产品通过统一的学习引擎运行不同语言包，并允许用户导入语料、创建私人课程。
 
 ## 在线使用
@@ -65,7 +67,6 @@ R1–R5 技术基线和 R6 首条垂直链路已经完成：项目具备无头 T
 ```bash
 pnpm install
 pnpm check
-pnpm --dir apps/web install
 pnpm --dir apps/web test
 ```
 

@@ -15,11 +15,11 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {
-    "@learn-language/application": "link:../../packages/application",
-    "@learn-language/engine": "link:../../packages/engine",
-    "@learn-language/language-runtime": "link:../../packages/language-runtime",
-    "@learn-language/protocol": "link:../../packages/protocol",
-    "@learn-language/sync": "link:../../packages/sync",
+    "@learn-language/application": "workspace:*",
+    "@learn-language/engine": "workspace:*",
+    "@learn-language/language-runtime": "workspace:*",
+    "@learn-language/protocol": "workspace:*",
+    "@learn-language/sync": "workspace:*",
     "next": "16.2.6",
     "react": "19.2.6",
     "react-dom": "19.2.6",
