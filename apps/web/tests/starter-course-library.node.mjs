@@ -34,12 +34,12 @@ test("the bundled library contains progressive Japanese and Cantonese zero-begin
   for (const course of courses) {
     assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
     assert.equal(course.schemaVersion, 2);
-    assert.equal(course.manifest.version, "0.5.0");
+    assert.equal(course.manifest.version, "0.6.0");
     assert.equal(course.lessons.length, 12);
     assert.equal(course.goals.length, 12);
     assert.ok(course.knowledge.length >= 52);
     assert.ok(course.utterances.length >= 28);
-    assert.ok(course.exercises.length >= 40);
+    assert.equal(course.exercises.length, 43);
     assert.ok(course.goals.every((goal) => goal.framework?.name === "CEFR Can-do" && goal.framework.level === "A1"));
 
     assertBilingual(course.manifest.title, "manifest.title");
@@ -66,9 +66,10 @@ test("the bundled library contains progressive Japanese and Cantonese zero-begin
       assertBilingual(lesson.title, `lesson.${lesson.id}.title`);
       const diagnostic = lesson.steps.find((step) => step.diagnostic);
       const readingStep = lesson.steps.find((step) => step.id === "reading-comprehension");
-      assert.equal(lesson.steps.length, 9 + (diagnostic ? 1 : 0) + (readingStep ? 1 : 0));
+      const capstoneStep = lesson.steps.find((step) => step.id === "integrated-capstone");
+      assert.equal(lesson.steps.length, 9 + (diagnostic ? 1 : 0) + (readingStep ? 1 : 0) + (capstoneStep ? 1 : 0));
       assert.equal(reachableStepIds(lesson).size, lesson.steps.length, `${lesson.id} has unreachable steps`);
-      assert.equal(lesson.steps.filter((step) => step.next.length === 0).length, diagnostic ? 2 : 1, `${lesson.id} has the wrong terminal count`);
+      assert.equal(lesson.steps.filter((step) => step.next.length === 0).length, diagnostic && !capstoneStep ? 2 : 1, `${lesson.id} has the wrong terminal count`);
       if (diagnostic) {
         assert.equal(diagnostic.phase, "diagnostic");
         assert.equal(diagnostic.exerciseRefs.length, 1);
@@ -88,6 +89,31 @@ test("the bundled library contains progressive Japanese and Cantonese zero-begin
     for (const kind of ["single-choice", "multiple-choice", "ordering", "role-play"]) {
       assert.ok(kinds.has(kind), `${course.manifest.languageId} needs a ${kind} exercise`);
     }
+  }
+});
+
+test("each course has cross-lesson checkpoints after lessons 4, 8, and 12", () => {
+  for (const course of bundledStarterCourses()) {
+    const capstones = course.lessons.flatMap((lesson, index) => {
+      const step = lesson.steps.find((candidate) => candidate.id === "integrated-capstone");
+      return step ? [{ lesson, index, step }] : [];
+    });
+
+    assert.deepEqual(capstones.map(({ index }) => index + 1), [4, 8, 12]);
+    assert.equal(capstones.length, 3);
+
+    for (const { lesson, step } of capstones) {
+      const lessonKnowledge = new Set(lesson.steps.find((candidate) => candidate.id === "preteach")?.knowledgeRefs ?? []);
+      assert.ok(step.knowledgeRefs.some((id) => !lessonKnowledge.has(id)), `${lesson.id} checkpoint must integrate earlier lessons`);
+      assert.equal(step.exerciseRefs.length, 1);
+      const exercise = course.exercises.find((candidate) => candidate.id === step.exerciseRefs[0]);
+      assert.ok(exercise, `${lesson.id} checkpoint exercise must exist`);
+      assert.ok(exercise.kind === "short-input" || exercise.rubricRef, `${lesson.id} checkpoint needs deterministic answers or a rubric`);
+    }
+
+    const finalExercise = course.exercises.find((exercise) => exercise.id === capstones[2].step.exerciseRefs[0]);
+    assert.match(finalExercise.prompt["zh-CN"], /结业/);
+    assert.match(finalExercise.prompt.en, /capstone/i);
   }
 });
 
