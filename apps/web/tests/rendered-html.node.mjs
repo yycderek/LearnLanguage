@@ -5,12 +5,13 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, readme, studio, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, readme, studio, studioStart, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
     readFile(new URL("../../README.md", root), "utf8"),
     readFile(new URL("app/course-studio.tsx", root), "utf8"),
+    readFile(new URL("app/studio-start.tsx", root), "utf8"),
     readFile(new URL("app/product-guide.tsx", root), "utf8"),
     readFile(new URL("app/draft-manager.tsx", root), "utf8"),
     readFile(new URL("app/language-pack-manager.tsx", root), "utf8"),
@@ -115,6 +116,13 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /changeAppLocale/);
   assert.match(studio, /Language selector/);
   assert.match(studio, /英文名称/);
+  assert.match(studio, /sampleCourse\("und", "Target language"\)/);
+  assert.match(studio, /studioStarted/);
+  assert.match(studioStart, /先选择课程的目标语言/);
+  assert.match(studioStart, /Studio 不预设日语或粤语/);
+  assert.match(studioStart, /这些只是现成示例，不代表平台只支持这些语言/);
+  assert.match(studioStart, /创建或导入目标语言/);
+  assert.match(studioStart, /导入课程草稿/);
   assert.match(languagePack, /validateLanguagePack/);
   assert.match(languagePack, /resolveExerciseCapabilities/);
   assert.match(languagePack, /resolveLanguageRuntime/);
@@ -161,7 +169,9 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(dashboard, /uiText\(locale/);
   assert.doesNotMatch(dashboard, /onTeachingLocaleChange|onUiLocaleChange/);
   assert.match(dashboard, /displayText\(course\.manifest\.title, teachingLocale\)/);
-  assert.match(courseLibraryPage, /选择想学的课程/);
+  assert.match(courseLibraryPage, /从一门课程开始/);
+  assert.match(courseLibraryPage, /平台的学习流程不绑定日语或粤语/);
+  assert.match(courseLibraryPage, /设计自己的课程/);
   assert.match(courseLibraryPage, /一键开始学习/);
   assert.match(courseLibraryPage, /完成课程后，你将能够/);
   assert.match(courseLibraryPage, /预计用时/);
@@ -170,7 +180,6 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(courseLibraryPage, /返回学习首页/);
   assert.match(courseLibraryPage, /使用帮助/);
   assert.match(courseLibraryPage, /更新并保留进度/);
-  assert.match(courseLibraryPage, /无需账户或课程文件/);
   assert.match(courseLibraryPage, /导入他人分享的课程/);
   assert.match(courseLibraryPage, /只有收到课程文件时才需要使用/);
   assert.match(courseLibraryPage, /导出备份/);
@@ -178,6 +187,7 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(courseLibraryPage, /恢复学习档案/);
   assert.match(courseLibraryPage, /可选设备同步/);
   assert.match(courseLibraryPage, /官方可信来源/);
+  assert.doesNotMatch(courseLibraryPage, /manifest\.languageId === "ja"/);
   assert.match(courseTemplates, /scenario-course/);
   assert.match(publishReadiness, /assessPublishReadiness/);
   assert.match(deviceSync, /class DeviceSyncClientStore/);
@@ -254,5 +264,7 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(css, /language-library-shell/);
   assert.match(css, /review-player-shell/);
   assert.match(css, /product-guide-dialog/);
+  assert.match(css, /studio-start-page/);
+  assert.match(css, /course-entry-paths/);
   assert.doesNotMatch(`${page}${studio}`, /Your site is taking shape|SkeletonPreview/);
 });

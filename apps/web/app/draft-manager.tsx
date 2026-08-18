@@ -46,7 +46,7 @@ export function DraftManager({
       <header className="course-library-topbar">
         <button onClick={onBack}><ArrowLeft size={17} />{c("返回课程编辑器", "Back to Course Studio")}</button>
         <div><span>LOCAL DRAFT LIBRARY</span><strong>{c("草稿管理", "Draft manager")}</strong></div>
-        <label><Languages size={15} /><span>{c("语言", "Language")}</span><select value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label>
+        <label><Languages size={15} /><span>{c("界面与讲解", "Interface & instruction")}</span><select value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label>
       </header>
 
       <section className="draft-library-hero">
