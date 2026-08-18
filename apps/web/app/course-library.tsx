@@ -25,6 +25,7 @@ import {
 import { displayText } from "@/lib/course";
 import type { CourseLibraryEntry, CourseUpdateIssue } from "@/lib/course-library";
 import { uiText, type AppLocale } from "@/lib/i18n";
+import { languageName, type LanguagePack } from "@/lib/language-pack";
 import type { DeviceSyncSettings } from "@/lib/sync";
 
 const issueLabels: Record<CourseUpdateIssue, [string, string]> = {
@@ -56,6 +57,7 @@ function estimatedStudyTime(lessonCount: number, locale: AppLocale) {
 
 export function CourseLibrary({
   entries,
+  languagePacks,
   locale,
   notice,
   onLocaleChange,
@@ -66,6 +68,7 @@ export function CourseLibrary({
   onUninstall,
   onOpen,
   onImportFile,
+  onCreateCourse,
   onExport,
   recordCount,
   onExportProfile,
@@ -79,6 +82,7 @@ export function CourseLibrary({
   onResolveSync,
 }: {
   entries: CourseLibraryEntry[];
+  languagePacks: LanguagePack[];
   locale: AppLocale;
   notice?: string;
   onLocaleChange: (locale: AppLocale) => void;
@@ -89,6 +93,7 @@ export function CourseLibrary({
   onUninstall: (entry: CourseLibraryEntry) => void;
   onOpen: (entry: CourseLibraryEntry) => void;
   onImportFile: (file: File) => void;
+  onCreateCourse: () => void;
   onExport: (entry: CourseLibraryEntry) => void;
   recordCount: number;
   onExportProfile: () => void;
@@ -104,20 +109,27 @@ export function CourseLibrary({
   const [filter, setFilter] = useState<"all" | "installed">("all");
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
   const installedCount = entries.filter((entry) => entry.status !== "available").length;
+  const readyCourseCount = entries.filter((entry) => entry.source === "bundled").length;
   const visibleEntries = filter === "installed" ? entries.filter((entry) => entry.status !== "available") : entries;
 
   return (
     <main className="course-library-shell">
       <header className="course-library-topbar">
         {installedCount > 0 ? <button onClick={onBack}><ArrowLeft size={17} />{c("返回学习首页", "Back to learning home")}</button> : <span className="course-library-back-placeholder" aria-hidden="true" />}
-        <div className="course-library-title"><span>LOCAL COURSE LIBRARY</span><strong>{c("课程库", "Course library")}</strong></div>
-        <div className="course-library-tools"><button onClick={onOpenHelp}><CircleHelp size={15} />{c("使用帮助", "Guide")}</button><label><span>{c("语言", "Language")}</span><select value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
+        <div className="course-library-title"><span>LANGUAGE LEARNING LIBRARY</span><strong>{c("学习课程库", "Learning library")}</strong></div>
+        <div className="course-library-tools"><button onClick={onOpenHelp}><CircleHelp size={15} />{c("使用帮助", "Guide")}</button><label><span>{c("界面与讲解", "Interface & instruction")}</span><select value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
       </header>
 
       <section className="course-library-hero">
         <div className="library-hero-icon"><Library size={26} /></div>
-        <div><span className="kicker">LEARN OFFLINE · NO ACCOUNT REQUIRED</span><h1>{c("选择想学的课程", "Choose what you want to learn")}</h1><p>{c("无需账户或课程文件。点击“一键开始学习”，进度会自动保存在当前设备。", "No account or course file needed. Select Start learning and your progress is saved on this device.")}</p></div>
+        <div><span className="kicker">ANY LANGUAGE · NO ACCOUNT REQUIRED</span><h1>{c("从一门课程开始", "Start with a course")}</h1><p>{c("直接学习现成课程，或导入任意语种的 Course Pack。平台的学习流程不绑定日语或粤语，进度会保存在当前设备。", "Learn a ready-made course or import a Course Pack for any language. The learning flow is not tied to Japanese or Cantonese, and progress stays on this device.")}</p></div>
         <div className="library-summary"><strong>{installedCount}</strong><span>{c("已安装课程", "installed courses")}</span></div>
+      </section>
+
+      <section className="course-entry-paths" aria-label={c("选择学习方式", "Choose how to begin")}>
+        <article><span><BookOpen size={20} /></span><div><small>{c("现成内容", "Ready-made content")}</small><h2>{c("学习现成课程", "Learn a ready-made course")}</h2><p>{c(`当前提供 ${readyCourseCount} 门可直接开始的课程。`, `${readyCourseCount} courses are ready to start.`)}</p></div><button onClick={() => setFilter("all")}>{c("查看课程", "View courses")}<ArrowRight size={14} /></button></article>
+        <article><span><Upload size={20} /></span><div><small>{c("任意语种", "Any language")}</small><h2>{c("导入课程", "Import a course")}</h2><p>{c("安装别人分享的已发布 Course Pack。", "Install a published Course Pack shared by someone else.")}</p></div><label><Upload size={14} />{c("选择文件", "Choose file")}<input type="file" accept=".json,.course.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportFile(file); event.target.value = ""; }} /></label></article>
+        <article><span><GraduationCap size={20} /></span><div><small>STUDIO</small><h2>{c("设计自己的课程", "Design your own course")}</h2><p>{c("无需代码，为新的目标语言创建课程。", "Create a course for a new target language without coding.")}</p></div><button onClick={onCreateCourse}>{c("进入 Studio", "Open Studio")}<ArrowRight size={14} /></button></article>
       </section>
 
       <section className="course-library-toolbar">
@@ -131,6 +143,7 @@ export function CourseLibrary({
         <section className="course-library-grid">
           {visibleEntries.map((entry) => {
             const course = entry.course;
+            const languagePack = languagePacks.find((pack) => pack.id === course.manifest.languageId);
             const installed = entry.installedCourse;
             const updateIssue = entry.update?.issues.find((issue) => issue !== "not-newer");
             const level = course.goals.find((goal) => goal.framework?.level)?.framework?.level ?? c("入门", "Beginner");
@@ -138,7 +151,7 @@ export function CourseLibrary({
             const studyTime = estimatedStudyTime(course.lessons.length, locale);
             return (
               <article className="library-course-card" key={entry.id}>
-                <div className="library-card-cover"><span>{course.manifest.languageId === "ja" ? "日" : course.manifest.languageId === "yue-Hant-HK" ? "粵" : course.manifest.languageId.slice(0, 2).toUpperCase()}</span><small>{course.manifest.languageId}</small></div>
+                <div className="library-card-cover"><span>{languagePack?.accent ?? course.manifest.languageId.slice(0, 2).toUpperCase()}</span><strong>{languagePack ? languageName(languagePack, locale) : course.manifest.languageId}</strong><small>{course.manifest.languageId}</small></div>
                 <div className="library-card-content">
                   <div className="library-card-badges"><span className={entry.source}>{entry.source === "bundled" ? <><Languages size={11} />{c("内置课程", "Built-in")}</> : <><UserRound size={11} />{c("用户课程", "User course")}</>}</span><em className={entry.status}>{entry.status === "available" ? c("可安装", "Available") : entry.status === "installed" ? c("已安装", "Installed") : entry.status === "update-available" ? c("可更新", "Update available") : c("更新需处理", "Update blocked")}</em></div>
                   <div className={`course-trust-badge ${entry.trust.level}`}><ShieldCheck size={12} /><span>{entry.trust.level === "official" ? c("官方可信来源", "Official trusted source") : entry.trust.level === "community" ? c("社区课程 · 安装前确认", "Community course · confirm before install") : entry.trust.level === "local" ? c("本地作者课程", "Local author course") : c("来源校验未通过", "Provenance check failed")}</span></div>

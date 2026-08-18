@@ -48,6 +48,7 @@ import { DraftManager } from "@/app/draft-manager";
 import { LanguagePackManager } from "@/app/language-pack-manager";
 import { ReviewPlayer } from "@/app/review-player";
 import { ProductGuide, type ProductGuideAudience } from "@/app/product-guide";
+import { StudioStart } from "@/app/studio-start";
 import { testAiConnection, type AiProvider, type AiSettings } from "@/lib/ai";
 import {
   getAllDeviceValues,
@@ -275,10 +276,11 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [appLocale, setAppLocale] = useState<AppLocale>("zh-CN");
   const teachingLocale = appLocale;
   const uiLocale = appLocale;
-  const [language, setLanguage] = useState("ja");
+  const [studioStarted, setStudioStarted] = useState(space === "learn");
+  const [language, setLanguage] = useState("");
   const [languagePacks, setLanguagePacks] = useState<LanguagePack[]>(builtInLanguagePacks);
-  const [source, setSource] = useState(() => JSON.stringify(sampleCourse("ja"), null, 2));
-  const [course, setCourse] = useState<CoursePack>(() => sampleCourse("ja"));
+  const [source, setSource] = useState(() => JSON.stringify(sampleCourse("und", "Target language"), null, 2));
+  const [course, setCourse] = useState<CoursePack>(() => sampleCourse("und", "Target language"));
   const [issues, setIssues] = useState<ImportIssue[]>([]);
   const [history, setHistory] = useState<DraftRevision[]>([]);
   const [draftId, setDraftId] = useState<string>();
@@ -286,7 +288,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState(() => space === "learn"
     ? "选择一门课程，点击“一键开始学习”即可直接进入第一课"
-    : "示例课程已载入，可以直接编辑");
+    : "选择、创建或导入目标语言后开始设计课程");
   const [editorMode, setEditorMode] = useState<"visual" | "json">("visual");
   const [editorSection, setEditorSection] = useState<EditorSection>("overview");
   const [selectedStudioLessonId, setSelectedStudioLessonId] = useState("cafe-request");
@@ -442,6 +444,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   function loadLanguage(pack: LanguagePack) {
     const next = sampleCourse(pack.id, languageName(pack, teachingLocale));
     setLanguage(pack.id);
+    setStudioStarted(true);
     setEditorSection("overview");
     setDraftId(undefined);
     commitCourse(next, t(`${languageName(pack, "zh-CN")}示例已载入`, `${languageName(pack, "en")} sample loaded`));
@@ -836,6 +839,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     setSource(item.payload);
     setCourse(parsed.course);
     setLanguage(parsed.course.manifest.languageId);
+    setStudioStarted(true);
     setDraftId(item.draftId);
     setIssues([]);
     setNotice(t(`已恢复修订 ${item.revision}`, `Restored revision ${item.revision}`));
@@ -1331,7 +1335,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const productGuide = <ProductGuide key={`${guideAudience}:${guideOpen ? "open" : "closed"}`} open={guideOpen} audience={guideAudience} locale={appLocale} onClose={closeProductGuide} />;
 
   if (learningView === "library") {
-    return <><CourseLibrary entries={courseLibrary} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onOpenHelp={() => openProductGuide("learn")} onBack={returnToLearningHome} onStart={(entry) => void startLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />{productGuide}</>;
+    return <><CourseLibrary entries={courseLibrary} languagePacks={languagePacks} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onOpenHelp={() => openProductGuide("learn")} onBack={returnToLearningHome} onStart={(entry) => void startLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onCreateCourse={() => window.location.assign("/studio")} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />{productGuide}</>;
   }
   if (learningView === "drafts") {
     return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />{productGuide}</>;
@@ -1350,7 +1354,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   return (
-    <main className="studio-shell">
+    <main className={`studio-shell ${!studioStarted ? "studio-start-mode" : ""}`}>
+      {!studioStarted ? (
+        <StudioStart packs={languagePacks} locale={appLocale} draftCount={history.length} onLocaleChange={changeAppLocale} onCreateLanguage={() => setLanguageOpen(true)} onImportDraft={(file) => void importDraftFile(file)} onUseLanguage={loadLanguage} onOpenDrafts={() => setLearningView("drafts")} />
+      ) : <>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark"><Languages size={20} /></div>
@@ -1389,7 +1396,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
             <h1>{displayText(course.manifest.title, teachingLocale)}</h1>
           </div>
           <div className="top-actions">
-            <div className="locale-selectors studio-locale-selectors"><label className="teaching-language-select"><Languages size={16} /><span>{t("语言", "Language")}</span><select value={appLocale} onChange={(event) => changeAppLocale(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
+            <div className="locale-selectors studio-locale-selectors"><label className="teaching-language-select"><Languages size={16} /><span>{t("界面与讲解", "Interface & instruction")}</span><select value={appLocale} onChange={(event) => changeAppLocale(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
             <button className="outline-button help-button" onClick={() => openProductGuide("studio")}><CircleHelp size={17} />{t("使用帮助", "Guide")}</button>
             <button className="ai-button" onClick={() => setAiOpen(true)}><Bot size={17} />{t("AI 设置", "AI settings")}<span className={`ai-state ${aiConfigured ? "configured" : ""}`} /></button>
             {course.manifest.status === "published" ? <><button className="outline-button" onClick={installCurrentCourse}><GraduationCap size={17} />{t("安装到学习空间", "Install in Learn")}</button><button className="save-button" onClick={forkCurrentCourse}><RotateCcw size={17} />{t("创建派生草稿", "Create derived draft")}</button></> : <><button className="outline-button" onClick={publishCurrentCourse} disabled={publishing}>{publishing ? t("正在发布…", "Publishing…") : t("校验并发布", "Validate and publish")}</button><button className="save-button" onClick={saveDraft} disabled={saving}><Save size={17} />{saving ? t("正在保存…", "Saving…") : t("保存草稿", "Save draft")}</button></>}
@@ -1598,6 +1605,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
           </aside>
         </div>
       </section>
+      </>}
 
       {languageOpen && (
         <div className="modal-backdrop" role="presentation">
