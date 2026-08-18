@@ -162,7 +162,15 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /按上方行顺序/);
   assert.match(dashboard, /今日复习/);
   assert.match(dashboard, /课程目录/);
-  assert.match(dashboard, /Course outline/);
+  assert.match(dashboard, /Full course outline/);
+  assert.match(dashboard, /learning-product-shell/);
+  assert.match(dashboard, /product-mode-switch/);
+  assert.match(dashboard, /learning-task-path/);
+  assert.match(dashboard, /buildLearnerStages/);
+  assert.match(dashboard, /理解/);
+  assert.match(dashboard, /练习/);
+  assert.match(dashboard, /运用/);
+  assert.doesNotMatch(dashboard, /XP|排行榜/);
   assert.match(dashboard, /onLocaleChange/);
   assert.match(dashboard, /onOpenLibrary/);
   assert.match(dashboard, /onOpenHelp/);
@@ -266,5 +274,9 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(css, /product-guide-dialog/);
   assert.match(css, /studio-start-page/);
   assert.match(css, /course-entry-paths/);
+  assert.match(css, /learning-product-shell/);
+  assert.match(css, /learning-task-path/);
+  assert.match(css, /studio-mode-switch/);
+  assert.match(css, /--primary: #5a48d6/);
   assert.doesNotMatch(`${page}${studio}`, /Your site is taking shape|SkeletonPreview/);
 });

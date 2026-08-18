@@ -1344,7 +1344,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     return <><LanguagePackManager packs={languagePacks} builtInIds={BUILT_IN_LANGUAGE_IDS} locale={appLocale} notice={notice} usageFor={usageForLanguagePack} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onCreate={() => { setLearningView("studio"); setLanguageOpen(true); }} onImport={(file) => void importLanguagePackFile(file)} onExport={exportLanguagePack} onDelete={(pack) => void deleteLanguagePack(pack)} />{productGuide}</>;
   }
   if (learningView === "dashboard") {
-    return <><LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} record={currentRecord} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onOpenHelp={() => openProductGuide(learningContext === "preview" ? "studio" : "learn")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />{productGuide}</>;
+    return <><LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} languagePack={currentLanguage} record={currentRecord} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onOpenHelp={() => openProductGuide(learningContext === "preview" ? "studio" : "learn")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />{productGuide}</>;
   }
   if (learningView === "lesson" && selectedProgress) {
     return <><LearningPlayer course={course} languagePack={currentLanguage} locale={appLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />{productGuide}</>;
@@ -1361,11 +1361,14 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark"><Languages size={20} /></div>
-          <div><strong>LearnLanguage</strong><span>{t("课程工作台", "Course Studio")}</span></div>
+          <div><strong>LearnLanguage</strong><span>COURSE STUDIO</span></div>
+        </div>
+        <div className="product-mode-switch studio-mode-switch" aria-label={t("切换产品空间", "Switch product space")}>
+          <button type="button" onClick={enterLearningSpace}><GraduationCap size={16} /><span>{t("学习", "Learn")}</span></button>
+          <button className="active" type="button"><BookOpen size={16} /><span>Studio</span></button>
         </div>
         <nav className="side-nav" aria-label={t("工作台导航", "Studio navigation")}>
           <a className="nav-item active" href="/studio"><BookOpen size={18} /><span>{t("课程编辑器", "Course editor")}</span></a>
-          <button className="nav-item" onClick={enterLearningSpace}><GraduationCap size={18} /><span>{t("学习空间", "Learn")}</span>{dueReviewCount > 0 && <em>{dueReviewCount}</em>}</button>
           <button className="nav-item" onClick={() => setLearningView("drafts")}><Clock3 size={18} /><span>{t("本地草稿", "Local drafts")}</span><em>{history.length}</em></button>
           <button className="nav-item" onClick={() => setLearningView("languages")}><Languages size={18} /><span>{t("语言包管理", "Language Packs")}</span><em>{languagePacks.length}</em></button>
         </nav>
