@@ -278,5 +278,12 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(css, /learning-task-path/);
   assert.match(css, /studio-mode-switch/);
   assert.match(css, /--primary: #5a48d6/);
+  assert.match(css, /--green: var\(--primary\)/);
+  assert.match(css, /--success: #278d69/);
+  assert.match(css, /Unified product scale/);
+  assert.match(css, /\.learner-shell, \.review-player-shell/);
+  assert.match(css, /\.studio-start-hero h1[^{]*\{[^}]*font-family: inherit/);
+  assert.match(css, /\.learning-focus-goal \{[^}]*font-size: 14px/);
+  assert.match(css, /\.draft-library-toolbar > label[^}]*background: var\(--primary\)/);
   assert.doesNotMatch(`${page}${studio}`, /Your site is taking shape|SkeletonPreview/);
 });
