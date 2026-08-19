@@ -18,6 +18,8 @@ test("production server exposes every asset referenced by Learn and Studio", asy
     const pageUrl = `http://127.0.0.1:${port}${route}`;
     const pageResponse = await fetch(pageUrl);
     assert.equal(pageResponse.status, 200);
+    assert.equal(pageResponse.headers.get("cache-control"), "no-store, max-age=0");
+    assert.equal(pageResponse.headers.get("cdn-cache-control"), "no-store");
     const html = await pageResponse.text();
     const assetPaths = [...html.matchAll(/(?:href|src)="(\/assets\/[^"]+)"/g)]
       .map((match) => match[1])

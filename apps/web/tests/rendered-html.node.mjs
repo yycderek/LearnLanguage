@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, readme, studio, studioStart, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, readme, studio, studioStart, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
@@ -39,6 +39,8 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("../../packages/language-runtime/src/index.ts", root), "utf8"),
     readFile(new URL("lib/ai.ts", root), "utf8"),
     readFile(new URL("app/api/ai/route.ts", root), "utf8"),
+    readFile(new URL("worker/index.ts", root), "utf8"),
+    readFile(new URL("next.config.ts", root), "utf8"),
     access(new URL("dist/server/index.js", root)),
   ]);
   assert.match(page, /redirect\("\/learn"\)/);
@@ -259,6 +261,12 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(languageRuntime, /exercise-capability-missing/);
   assert.match(ai, /requestAiFeedback/);
   assert.match(aiRoute, /api\.openai\.com\/v1\/responses/);
+  assert.match(worker, /withFreshDocumentHeaders/);
+  assert.match(worker, /Cache-Control", "no-store, max-age=0/);
+  assert.match(worker, /CDN-Cache-Control", "no-store/);
+  assert.match(nextConfig, /freshDocumentHeaders/);
+  assert.match(nextConfig, /"\/learn", "\/studio"/);
+  assert.match(nextConfig, /Cache-Control", value: "no-store, max-age=0/);
   assert.match(productGuide, /学习和课程设计是两个独立空间/);
   assert.match(productGuide, /一键开始学习/);
   assert.match(productGuide, /基础检查决定是否跳过/);
