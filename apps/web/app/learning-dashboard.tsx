@@ -8,6 +8,7 @@ import {
   Check,
   CircleHelp,
   Clock3,
+  Flag,
   Flame,
   GraduationCap,
   House,
@@ -134,16 +135,26 @@ export function LearningDashboard({
               <div className="learning-focus-status"><Clock3 size={15} /><span>{c(`${focusLesson.steps.length} 个学习步骤`, `${focusLesson.steps.length} learning steps`)}</span></div>
             </header>
             <p className="learning-focus-goal">{focusGoal ? displayText(focusGoal.description, teachingLocale) : c("完成理解、练习和运用三个阶段，逐步掌握本课能力。", "Complete Understand, Practice, and Use to build this lesson's ability.")}</p>
+            <div className="learning-map-heading">
+              <div><span><Route size={19} /></span><div><strong>{c("本课学习地图", "Lesson learning map")}</strong><small>{c("沿路线完成三个真实学习阶段", "Follow the route through three real learning stages")}</small></div></div>
+              <em>{c(`${focusStages.filter((stage) => stage.status === "completed").length}/${focusStages.length} 个阶段完成`, `${focusStages.filter((stage) => stage.status === "completed").length}/${focusStages.length} stages complete`)}</em>
+            </div>
             <div className="learning-task-path" aria-label={c("本课任务路径", "Lesson task path")}>
               {focusStages.map((stage, index) => {
                 const copy = stageCopy[stage.id];
+                const stagePercent = Math.round((stage.completedSteps / Math.max(1, stage.stepIds.length)) * 100);
                 return (
                   <div className="learning-task-wrap" key={stage.id}>
                     {index > 0 && <div className={`learning-task-link ${focusStages[index - 1].status === "completed" ? "done" : ""}`} />}
-                    <article className={`learning-task ${stage.status}`}>
-                      <span>{stage.status === "completed" ? <Check size={17} /> : stage.status === "active" ? <GraduationCap size={18} /> : <LockKeyhole size={16} />}</span>
-                      <div><small>{c(...copy.label)} · {c(`${stage.completedSteps}/${stage.stepIds.length} 步`, `${stage.completedSteps}/${stage.stepIds.length} steps`)}</small><strong>{c(...copy.label)}</strong><p>{c(...copy.detail)}</p></div>
-                      {stage.status === "active" ? <button onClick={() => onStartLesson(focusLesson.id, focusCompleted)}>{focusProgress ? c("继续任务", "Continue task") : c("开始任务", "Start task")}<ArrowRight size={14} /></button> : <em>{stage.status === "completed" ? c("已掌握", "Complete") : c("待解锁", "Locked")}</em>}
+                    <article className={`learning-task ${stage.status}`} aria-current={stage.status === "active" ? "step" : undefined}>
+                      <span className="learning-task-node"><b>{String(index + 1).padStart(2, "0")}</b>{stage.status === "completed" ? <Check size={22} /> : stage.status === "upcoming" ? <LockKeyhole size={20} /> : stage.id === "use" ? <Flag size={21} /> : stage.id === "practice" ? <Target size={21} /> : <GraduationCap size={22} />}</span>
+                      <div className="learning-task-copy">
+                        <div className="learning-task-meta"><small>{c(`阶段 ${index + 1}`, `STAGE ${index + 1}`)}</small><em>{stage.status === "completed" ? c("已完成", "Complete") : stage.status === "active" ? c("当前任务", "Current") : c("尚未解锁", "Locked")}</em></div>
+                        <strong>{c(...copy.label)}</strong><p>{c(...copy.detail)}</p>
+                        <div className="learning-stage-progress" aria-label={c(`${stage.completedSteps}/${stage.stepIds.length} 个步骤完成`, `${stage.completedSteps}/${stage.stepIds.length} steps complete`)}><span style={{ width: `${stagePercent}%` }} /></div>
+                        <small className="learning-stage-count">{c(`${stage.completedSteps}/${stage.stepIds.length} 个步骤`, `${stage.completedSteps}/${stage.stepIds.length} steps`)}</small>
+                      </div>
+                      {stage.status === "active" ? <button onClick={() => onStartLesson(focusLesson.id, focusCompleted)}>{focusProgress ? c("继续任务", "Continue task") : c("开始任务", "Start task")}<ArrowRight size={15} /></button> : <span className="learning-task-state">{stage.status === "completed" ? <><Check size={14} />{c("已掌握", "Mastered")}</> : <><LockKeyhole size={13} />{c("完成上一阶段后解锁", "Unlock after the previous stage")}</>}</span>}
                     </article>
                   </div>
                 );

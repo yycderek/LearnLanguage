@@ -165,6 +165,10 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(dashboard, /Full course outline/);
   assert.match(dashboard, /learning-product-shell/);
   assert.match(dashboard, /product-mode-switch/);
+  assert.match(dashboard, /本课学习地图/);
+  assert.match(dashboard, /learning-task-node/);
+  assert.match(dashboard, /learning-stage-progress/);
+  assert.match(dashboard, /aria-current/);
   assert.match(dashboard, /learning-task-path/);
   assert.match(dashboard, /buildLearnerStages/);
   assert.match(dashboard, /理解/);
@@ -276,6 +280,11 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(css, /course-entry-paths/);
   assert.match(css, /learning-product-shell/);
   assert.match(css, /learning-task-path/);
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\) 44px minmax\(0, 1fr\) 44px minmax\(0, 1fr\)/);
+  assert.match(css, /\.learning-task\.active::after/);
+  assert.match(css, /\.learning-task\.completed \.learning-stage-progress span/);
+  assert.match(css, /@keyframes learning-complete-pop/);
+  assert.match(css, /prefers-reduced-motion: reduce[^}]*animation: none !important/);
   assert.match(css, /studio-mode-switch/);
   assert.match(css, /--primary: #5a48d6/);
   assert.match(css, /--green: var\(--primary\)/);
