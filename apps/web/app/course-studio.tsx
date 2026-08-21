@@ -1393,6 +1393,12 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       </aside>
 
       <section className="workspace">
+        <nav className="mobile-workspace-nav studio-mobile-nav" aria-label={t("工作台导航", "Studio navigation")}>
+          <a className="active" href="/studio"><BookOpen size={15} />{t("课程编辑器", "Course editor")}</a>
+          <button type="button" onClick={() => setLearningView("drafts")}><Clock3 size={15} />{t("本地草稿", "Local drafts")}</button>
+          <button type="button" onClick={() => setLearningView("languages")}><Languages size={15} />{t("语言包", "Language Packs")}</button>
+        </nav>
+
         <header className="topbar">
           <div>
             <div className="eyebrow"><span className="status-dot" />{t("无需登录 · 设备本地", "No sign-in · device local")}</div>
