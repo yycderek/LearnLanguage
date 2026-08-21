@@ -7,3 +7,6 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   workerd: true
+# Remove after https://github.com/cloudflare/vinext/issues/2696 is fixed upstream.
+patchedDependencies:
+  vinext@0.0.50: patches/vinext@0.0.50.patch

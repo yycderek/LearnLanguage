@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, readme, studio, studioStart, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute] = await Promise.all([
+  const [page, learnPage, studioPage, readme, studio, studioStart, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
@@ -39,6 +39,8 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("../../packages/language-runtime/src/index.ts", root), "utf8"),
     readFile(new URL("lib/ai.ts", root), "utf8"),
     readFile(new URL("app/api/ai/route.ts", root), "utf8"),
+    readFile(new URL("worker/index.ts", root), "utf8"),
+    readFile(new URL("next.config.ts", root), "utf8"),
     access(new URL("dist/server/index.js", root)),
   ]);
   assert.match(page, /redirect\("\/learn"\)/);
@@ -162,7 +164,19 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /按上方行顺序/);
   assert.match(dashboard, /今日复习/);
   assert.match(dashboard, /课程目录/);
-  assert.match(dashboard, /Course outline/);
+  assert.match(dashboard, /Full course outline/);
+  assert.match(dashboard, /learning-product-shell/);
+  assert.match(dashboard, /product-mode-switch/);
+  assert.match(dashboard, /本课学习地图/);
+  assert.match(dashboard, /learning-task-node/);
+  assert.match(dashboard, /learning-stage-progress/);
+  assert.match(dashboard, /aria-current/);
+  assert.match(dashboard, /learning-task-path/);
+  assert.match(dashboard, /buildLearnerStages/);
+  assert.match(dashboard, /理解/);
+  assert.match(dashboard, /练习/);
+  assert.match(dashboard, /运用/);
+  assert.doesNotMatch(dashboard, /XP|排行榜/);
   assert.match(dashboard, /onLocaleChange/);
   assert.match(dashboard, /onOpenLibrary/);
   assert.match(dashboard, /onOpenHelp/);
@@ -247,6 +261,12 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(languageRuntime, /exercise-capability-missing/);
   assert.match(ai, /requestAiFeedback/);
   assert.match(aiRoute, /api\.openai\.com\/v1\/responses/);
+  assert.match(worker, /withFreshDocumentHeaders/);
+  assert.match(worker, /Cache-Control", "no-store, max-age=0/);
+  assert.match(worker, /CDN-Cache-Control", "no-store/);
+  assert.match(nextConfig, /freshDocumentHeaders/);
+  assert.match(nextConfig, /"\/learn", "\/studio"/);
+  assert.match(nextConfig, /Cache-Control", value: "no-store, max-age=0/);
   assert.match(productGuide, /学习和课程设计是两个独立空间/);
   assert.match(productGuide, /一键开始学习/);
   assert.match(productGuide, /基础检查决定是否跳过/);
@@ -266,5 +286,21 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(css, /product-guide-dialog/);
   assert.match(css, /studio-start-page/);
   assert.match(css, /course-entry-paths/);
+  assert.match(css, /learning-product-shell/);
+  assert.match(css, /learning-task-path/);
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\) 44px minmax\(0, 1fr\) 44px minmax\(0, 1fr\)/);
+  assert.match(css, /\.learning-task\.active::after/);
+  assert.match(css, /\.learning-task\.completed \.learning-stage-progress span/);
+  assert.match(css, /@keyframes learning-complete-pop/);
+  assert.match(css, /prefers-reduced-motion: reduce[^}]*animation: none !important/);
+  assert.match(css, /studio-mode-switch/);
+  assert.match(css, /--primary: #5a48d6/);
+  assert.match(css, /--green: var\(--primary\)/);
+  assert.match(css, /--success: #278d69/);
+  assert.match(css, /Unified product scale/);
+  assert.match(css, /\.learner-shell, \.review-player-shell/);
+  assert.match(css, /\.studio-start-hero h1[^{]*\{[^}]*font-family: inherit/);
+  assert.match(css, /\.learning-focus-goal \{[^}]*font-size: 14px/);
+  assert.match(css, /\.draft-library-toolbar > label[^}]*background: var\(--primary\)/);
   assert.doesNotMatch(`${page}${studio}`, /Your site is taking shape|SkeletonPreview/);
 });
