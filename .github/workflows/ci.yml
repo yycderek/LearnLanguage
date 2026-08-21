@@ -71,5 +71,11 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install Playwright Chromium
+        run: pnpm --filter learn-language-web exec playwright install --with-deps chromium
+
       - name: Build and test Web app
         run: pnpm --dir apps/web test
+
+      - name: Run browser product journeys
+        run: pnpm --dir apps/web test:e2e

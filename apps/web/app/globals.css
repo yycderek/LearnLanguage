@@ -1298,3 +1298,39 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .studio-locale-selectors { grid-column: 1 / -1; }
   .course-card { grid-template-columns: 96px 1fr; }
 }
+
+.mobile-workspace-nav { display: none; }
+
+@media (max-width: 720px) {
+  .mobile-workspace-nav {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 6px;
+    overflow-x: auto;
+    border: 1px solid #dfe5ea;
+    background: rgba(255,255,255,.9);
+    border-radius: 11px;
+  }
+  .mobile-workspace-nav > * {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 9px;
+    flex: 0 0 auto;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 750;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .mobile-workspace-nav > *.active { background: var(--primary-soft); color: var(--primary); }
+  .learning-mobile-nav { margin: 0 12px 12px; }
+  .studio-mobile-nav { margin: 0 0 12px; }
+  .learning-product-shell.preview .learning-home-meta em { display: block; }
+}

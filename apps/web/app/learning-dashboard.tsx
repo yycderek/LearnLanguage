@@ -122,6 +122,15 @@ export function LearningDashboard({
           <div className="learning-home-meta"><div className="locale-selectors"><label className="teaching-language-select compact"><span>{c("界面与讲解", "Interface & instruction")}</span><select value={locale} onChange={(event) => onLocaleChange?.(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label>{!preview && <button className="open-library-button" onClick={onOpenLibrary}><Library size={13} />{c("课程库", "Library")}</button>}<button className="open-library-button" onClick={onOpenHelp}><CircleHelp size={13} />{c("帮助", "Guide")}</button></div><em>{preview ? c("临时预览档案 · 不保存", "Temporary preview profile · not saved") : c("无需账户 · 本地优先", "No account · local first")}</em></div>
         </header>
 
+        {!preview && (
+          <nav className="mobile-workspace-nav learning-mobile-nav" aria-label={c("学习导航", "Learning navigation")}>
+            <button className="active" type="button"><House size={15} />{c("今日学习", "Today")}</button>
+            <button type="button" onClick={onOpenLibrary}><Library size={15} />{c("课程库", "Library")}</button>
+            <button type="button" onClick={() => onStartReview(due.length > 0 ? due : upcoming)} disabled={due.length === 0 && upcoming.length === 0}><RotateCcw size={15} />{c("复习", "Review")}</button>
+            <button type="button" onClick={() => document.getElementById("course-outline")?.scrollIntoView({ behavior: "smooth", block: "start" })}><BarChart3 size={15} />{c("学习进度", "Progress")}</button>
+          </nav>
+        )}
+
         <section className="learning-summary-grid">
           <article><span><Route size={19} /></span><div><small>{c("课程进度", "Course progress")}</small><strong>{completedLessons.length} / {course.lessons.length} {c("课", "lessons")}</strong></div><em>{percent}%</em></article>
           <article><span><Check size={19} /></span><div><small>{c("已完成课节", "Completed lessons")}</small><strong>{c(`${completedLessons.length} 个里程碑`, `${completedLessons.length} milestones`)}</strong></div><em>{c("稳定前进", "Steady progress")}</em></article>
