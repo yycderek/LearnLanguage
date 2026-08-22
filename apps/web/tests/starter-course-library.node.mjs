@@ -30,16 +30,23 @@ test("the bundled library contains progressive English, Japanese, and Cantonese 
   assert.deepEqual(bundledStarterLanguageIds, ["en", "ja", "yue-Hant-HK"]);
   const courses = bundledStarterCourses();
   assert.equal(courses.length, 3);
+  const expected = {
+    en: { version: "0.7.0", lessons: 16, exercises: 60 },
+    ja: { version: "0.6.0", lessons: 12, exercises: 43 },
+    "yue-Hant-HK": { version: "0.6.0", lessons: 12, exercises: 43 },
+  };
 
   for (const course of courses) {
+    const courseExpected = expected[course.manifest.languageId];
+    assert.ok(courseExpected);
     assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
     assert.equal(course.schemaVersion, 2);
-    assert.equal(course.manifest.version, "0.6.0");
-    assert.equal(course.lessons.length, 12);
-    assert.equal(course.goals.length, 12);
+    assert.equal(course.manifest.version, courseExpected.version);
+    assert.equal(course.lessons.length, courseExpected.lessons);
+    assert.equal(course.goals.length, courseExpected.lessons);
     assert.ok(course.knowledge.length >= 52);
     assert.ok(course.utterances.length >= 28);
-    assert.equal(course.exercises.length, 43);
+    assert.equal(course.exercises.length, courseExpected.exercises);
     assert.ok(course.goals.every((goal) => goal.framework?.name === "CEFR Can-do" && goal.framework.level === "A1"));
 
     assertBilingual(course.manifest.title, "manifest.title");
@@ -92,15 +99,15 @@ test("the bundled library contains progressive English, Japanese, and Cantonese 
   }
 });
 
-test("each course has cross-lesson checkpoints after lessons 4, 8, and 12", () => {
+test("each course has cross-lesson checkpoints after every four-lesson stage", () => {
   for (const course of bundledStarterCourses()) {
     const capstones = course.lessons.flatMap((lesson, index) => {
       const step = lesson.steps.find((candidate) => candidate.id === "integrated-capstone");
       return step ? [{ lesson, index, step }] : [];
     });
 
-    assert.deepEqual(capstones.map(({ index }) => index + 1), [4, 8, 12]);
-    assert.equal(capstones.length, 3);
+    const expectedCheckpoints = Array.from({ length: course.lessons.length / 4 }, (_, index) => (index + 1) * 4);
+    assert.deepEqual(capstones.map(({ index }) => index + 1), expectedCheckpoints);
 
     for (const { lesson, step } of capstones) {
       const lessonKnowledge = new Set(lesson.steps.find((candidate) => candidate.id === "preteach")?.knowledgeRefs ?? []);
@@ -111,7 +118,7 @@ test("each course has cross-lesson checkpoints after lessons 4, 8, and 12", () =
       assert.ok(exercise.kind === "short-input" || exercise.rubricRef, `${lesson.id} checkpoint needs deterministic answers or a rubric`);
     }
 
-    const finalExercise = course.exercises.find((exercise) => exercise.id === capstones[2].step.exerciseRefs[0]);
+    const finalExercise = course.exercises.find((exercise) => exercise.id === capstones.at(-1).step.exerciseRefs[0]);
     assert.match(finalExercise.prompt["zh-CN"], /结业/);
     assert.match(finalExercise.prompt.en, /capstone/i);
   }
@@ -124,8 +131,9 @@ test("A1 courses include denser vocabulary and short-text information extraction
     const readingExercises = course.exercises.filter((item) => item.id.includes("-read-"));
 
     assert.ok(readingKnowledge.length >= 15, `${course.manifest.languageId} needs denser reading vocabulary`);
-    assert.equal(readingTexts.length, 4, `${course.manifest.languageId} needs four short reading texts`);
-    assert.equal(readingExercises.length, 4, `${course.manifest.languageId} needs four information-extraction exercises`);
+    const expectedReadingCount = course.manifest.languageId === "en" ? 8 : 4;
+    assert.equal(readingTexts.length, expectedReadingCount, `${course.manifest.languageId} has the wrong short-reading count`);
+    assert.equal(readingExercises.length, expectedReadingCount, `${course.manifest.languageId} has the wrong information-extraction count`);
 
     const readingTextIds = new Set(readingTexts.map((item) => item.id));
     for (const exercise of readingExercises) {
@@ -199,6 +207,21 @@ test("foundation lessons cover each language's writing or romanization system be
   assert.ok(cantonese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("ngo5")));
   assert.ok(cantonese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("si6")));
   assert.ok(japanese.knowledge.some((item) => item.tags?.includes("jlpt-n5-relevant")));
+});
+
+test("English 0.7 adds four compatible A1 domains after the stable twelve-lesson core", () => {
+  const english = bundledStarterCourses().find((course) => course.manifest.languageId === "en");
+  assert.ok(english);
+  assert.equal(english.manifest.version, "0.7.0");
+  assert.deepEqual(english.lessons.slice(12).map((lesson) => lesson.id), [
+    "daily-routines",
+    "family-and-possessions",
+    "days-and-arrangements",
+    "health-and-essential-needs",
+  ]);
+  assert.ok(english.knowledge.some((item) => item.id === "en-present-routine"));
+  assert.ok(english.knowledge.some((item) => item.id === "en-feel-sick"));
+  assert.ok(english.exercises.some((item) => item.id === "en-capstone-expanded-a1"));
 });
 
 test("sampleCourse selects bundled content while custom languages receive an editable scaffold", () => {

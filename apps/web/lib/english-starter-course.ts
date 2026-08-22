@@ -1,4 +1,5 @@
 import type { CoursePack, CourseStep, Exercise, KnowledgeItem, LocalizedText, Utterance } from "@learn-language/protocol";
+import { englishA1Extension } from "./english-a1-extension.ts";
 
 const l = (zh: string, en: string): LocalizedText => ({ "zh-CN": zh, en });
 const target = (value: string): LocalizedText => ({ "zh-CN": value, en: value, native: value });
@@ -239,7 +240,7 @@ export function englishStarterCourse(): CoursePack {
     single("en-recognize-here-go", "店员给了哪两个选择？", "Which two choices did the server offer?", [l("堂食或外带", "For here or to go"), l("热的或冰的", "Hot or iced"), l("小杯或大杯", "Small or large")], 0, "For here or to go询问堂食或外带。", "For here or to go asks where the order will be consumed.", ["en-here-go"], ["en-here-or-go"]),
     ordering("en-order-to-go", "排成“外带，谢谢”。", "Build 'To go, please.'", ["please.", "To go,"], [1, 0], "先说To go，再加please。", "Say To go, then add please.", ["en-to-go", "en-please"], ["en-choose-go"]),
     role("en-role-finish", "选择外带，并告诉店员点单完成后表示感谢。", "Choose takeaway, say the order is complete, and thank the server.", "使用To go, please和That's all, thank you。", "Use To go, please and That's all, thank you.", ["en-to-go", "en-thats-all", "en-thank-you"], ["en-choose-go", "en-finish-order"]),
-    role("en-capstone-course", "结业综合：先问去机场的路线，听不懂时请求慢一点重复；到咖啡店后点两杯大杯冰咖啡、不加糖并选择外带。", "Course capstone: ask how to get to the airport and request a slower repetition if needed; then order two large iced coffees without sugar and choose takeaway.", "完成标准：依次包含机场路线、澄清请求、数量/尺寸/冷热、without sugar和to go。意思清楚即可，不要求逐字复现。", "Include the airport route, a clarification request, quantity/size/temperature, without sugar, and to go. Clear meaning is enough; exact wording is not required.", ["en-airport", "en-how-get", "en-repeat", "en-slowly", "en-two-cups", "en-small-large", "en-hot-iced", "en-with-without", "en-sugar-milk", "en-to-go"], ["en-ask-route", "en-repeat-slowly", "en-two-iced", "en-no-sugar", "en-choose-go"]),
+    role("en-capstone-course", "服务场景阶段综合：先问去机场的路线，听不懂时请求慢一点重复；到咖啡店后点两杯大杯冰咖啡、不加糖并选择外带。", "Service-stage checkpoint: ask how to get to the airport and request a slower repetition if needed; then order two large iced coffees without sugar and choose takeaway.", "完成标准：依次包含机场路线、澄清请求、数量/尺寸/冷热、without sugar和to go。意思清楚即可，不要求逐字复现。", "Include the airport route, a clarification request, quantity/size/temperature, without sugar, and to go. Clear meaning is enough; exact wording is not required.", ["en-airport", "en-how-get", "en-repeat", "en-slowly", "en-two-cups", "en-small-large", "en-hot-iced", "en-with-without", "en-sugar-milk", "en-to-go"], ["en-ask-route", "en-repeat-slowly", "en-two-iced", "en-no-sugar", "en-choose-go"]),
   ];
 
   const plans: Plan[] = [
@@ -254,17 +255,23 @@ export function englishStarterCourse(): CoursePack {
     { id: "help-and-clarification", title: l("第九课：求助、否定和澄清", "Lesson 9: Help, negation, and clarification"), goalRef: "request-help-in-english", goal: l("能够请求帮助、说明不理解，并请对方慢一点重复。", "Can ask for help, say something was not understood, and request a slower repetition."), knowledgeRefs: ["en-help", "en-not-understand", "en-repeat", "en-slowly", "en-can-you", "en-dont", "en-excuse-me"], utteranceRefs: ["en-request-help", "en-dont-understand", "en-repeat-slowly"], recognition: "en-recognize-help", guided: "en-order-understand", task: "en-role-clarify" },
     { id: "basic-order", title: l("第十课：礼貌点一杯饮料", "Lesson 10: Order a drink politely"), goalRef: "order-drink-in-english", goal: l("能够查看菜单并礼貌地点一杯饮料。", "Can view a menu and politely order one drink."), knowledgeRefs: ["en-would-like", "en-please", "en-coffee-tea", "en-cup", "en-menu"], utteranceRefs: ["en-order-coffee", "en-order-tea", "en-ask-menu"], recognition: "en-recognize-order", guided: "en-order-coffee-request", task: "en-role-order" },
     { id: "drink-details", title: l("第十一课：数量、尺寸和饮料偏好", "Lesson 11: Quantity, size, and drink preferences"), goalRef: "specify-drink-in-english", goal: l("能够说明饮料数量、尺寸、冷热和配料偏好。", "Can specify drink quantity, size, temperature, and ingredient preferences."), knowledgeRefs: ["en-hot-iced", "en-two-cups", "en-with-without", "en-or", "en-small-large", "en-sugar-milk", "en-coffee-tea"], utteranceRefs: ["en-ask-temperature", "en-two-iced", "en-no-sugar"], recognition: "en-recognize-details", guided: "en-order-no-sugar", task: "en-role-details" },
-    { id: "dine-or-takeaway", title: l("第十二课：选择堂食或外带并结束点单", "Lesson 12: Choose dine-in or takeaway and finish an order"), goalRef: "finish-order-in-english", goal: l("能够选择堂食或外带、结束点单并表示感谢。", "Can choose dine-in or takeaway, finish an order, and give thanks."), knowledgeRefs: ["en-here-go", "en-to-go", "en-thats-all", "en-thank-you", "en-or", "en-please"], utteranceRefs: ["en-here-or-go", "en-choose-go", "en-finish-order"], recognition: "en-recognize-here-go", guided: "en-order-to-go", task: "en-role-finish", capstone: { title: l("课程结业综合任务", "Course completion capstone"), exerciseRef: "en-capstone-course", knowledgeRefs: ["en-airport", "en-how-get", "en-repeat", "en-slowly", "en-two-cups", "en-small-large", "en-hot-iced", "en-with-without", "en-sugar-milk", "en-to-go"], utteranceRefs: ["en-ask-route", "en-repeat-slowly", "en-two-iced", "en-no-sugar", "en-choose-go"] } },
+    { id: "dine-or-takeaway", title: l("第十二课：选择堂食或外带并结束点单", "Lesson 12: Choose dine-in or takeaway and finish an order"), goalRef: "finish-order-in-english", goal: l("能够选择堂食或外带、结束点单并表示感谢。", "Can choose dine-in or takeaway, finish an order, and give thanks."), knowledgeRefs: ["en-here-go", "en-to-go", "en-thats-all", "en-thank-you", "en-or", "en-please"], utteranceRefs: ["en-here-or-go", "en-choose-go", "en-finish-order"], recognition: "en-recognize-here-go", guided: "en-order-to-go", task: "en-role-finish", capstone: { title: l("服务场景阶段综合任务", "Service-stage checkpoint"), exerciseRef: "en-capstone-course", knowledgeRefs: ["en-airport", "en-how-get", "en-repeat", "en-slowly", "en-two-cups", "en-small-large", "en-hot-iced", "en-with-without", "en-sugar-milk", "en-to-go"], utteranceRefs: ["en-ask-route", "en-repeat-slowly", "en-two-iced", "en-no-sugar", "en-choose-go"] } },
   ];
+
+  const extension = englishA1Extension();
+  knowledge.push(...extension.knowledge);
+  utterances.push(...extension.utterances);
+  exercises.push(...extension.exercises);
+  plans.push(...extension.plans);
 
   return {
     schemaVersion: 2,
     manifest: {
       id: "private.en.cafe-request",
-      version: "0.6.0",
+      version: "0.7.0",
       languageId: "en",
       title: l("英语零基础入门", "English Zero Beginner"),
-      description: l("从字母、大小写和基础句序开始，学习问候、时间、位置、购物、交通、求助与服务场景中的英语 A1 核心表达。课程仅使用文字练习，不包含发音评分。", "Start with letters, capitalization, and basic word order, then build English A1 core expressions for greetings, time, places, shopping, transport, help, and service encounters. The course uses text activities only and does not score pronunciation."),
+      description: l("从字母、大小写和基础句序开始，学习问候、时间、位置、购物、交通、服务、日常作息、家庭、见面安排和基础医疗求助中的英语 A1 核心表达。课程仅使用文字练习，不包含发音评分。", "Start with letters, capitalization, and basic word order, then build English A1 core expressions for greetings, time, places, shopping, transport, service, routines, family, meeting arrangements, and basic health help. The course uses text activities only and does not score pronunciation."),
       author: { id: "learn-language", displayName: "LearnLanguage" },
       visibility: "private",
       status: "draft",

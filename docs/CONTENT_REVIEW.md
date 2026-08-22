@@ -58,6 +58,30 @@
 - 覆盖版本／提交：0.6.0／待发布提交
 - 结论与修改记录：待填写
 
+
+## 2026-08-22 英语 0.7.0 扩充批次
+
+范围：在原 12 课稳定核心后追加日常作息、家庭与所属、星期安排、基础医疗求助 4 课；扩充后共 16 课、60 个练习和 8 篇短阅读。
+
+| 检查项 | 状态 | 记录 |
+| --- | --- | --- |
+| Course Pack 结构、引用与学习路径 | 自动校验通过 | 新课节使用标准知识点、语料、练习和步骤；原 12 课 ID 保留。 |
+| CEFR A1 能力边界 | 来源核对完成 | 依据 Council of Europe A1 描述中的个人与日常生活简单表达，以及时间、地点和可预测信息处理；不宣称覆盖完整 A1 考试。 |
+| 第 16 课结业综合任务 | 自动校验通过 | 整合作息、家庭、星期安排和健康求助，使用现有可观察评分维度。 |
+| 逐条自然度与地区语域 | **母语者签署待完成** | 重点检查家庭称谓、约见表达、基础医疗求助和英美地区差异。 |
+
+参考资料：
+
+- [Council of Europe: CEFR Descriptors](https://www.coe.int/en/web/common-european-framework-reference-languages/cefr-descriptors)
+- [CEFR Companion Volume 2020](https://rm.coe.int/common-european-framework-of-reference-for-languages-learning-teaching/16809ea0d4)
+
+母语者签署：
+
+- 审校者：待填写
+- 审校日期：待填写
+- 覆盖版本／提交：0.7.0／待发布提交
+- 结论与修改记录：待填写
+
 ## 母语者审校清单
 
 - 逐条检查目标语言、标音、翻译和提示是否相互一致。
