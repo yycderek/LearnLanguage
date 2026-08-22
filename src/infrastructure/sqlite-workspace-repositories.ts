@@ -7,6 +7,7 @@ import type {
   LanguagePackRepository,
   ProfileProjection,
 } from "@learn-language/application/workspace";
+import type { LearningPlan, LearningPlanRepository } from "@learn-language/application";
 import type { CoursePack, LanguageDefinition } from "@learn-language/protocol";
 
 interface JsonRow { payload: string }
@@ -35,6 +36,11 @@ function openWorkspaceDatabase(filename: string): DatabaseSync {
     );
     CREATE INDEX IF NOT EXISTS idx_workspace_learning_profiles_updated_at
     ON workspace_learning_profiles(updated_at);
+    CREATE TABLE IF NOT EXISTS workspace_learning_plans (
+      course_id TEXT PRIMARY KEY,
+      updated_at TEXT NOT NULL,
+      payload TEXT NOT NULL
+    );
   `);
   database.exec("PRAGMA optimize");
   return database;
@@ -128,5 +134,24 @@ export class SqliteLearningProfileRepository<TRecord extends ProfileProjection>
       this.database.exec("ROLLBACK");
       throw error;
     }
+  }
+}
+
+export class SqliteLearningPlanRepository extends SqliteWorkspaceRepository implements LearningPlanRepository {
+  async list(): Promise<readonly LearningPlan[]> {
+    const rows = this.database.prepare("SELECT payload FROM workspace_learning_plans ORDER BY course_id").all() as unknown as JsonRow[];
+    return rows.map((row) => JSON.parse(row.payload) as LearningPlan);
+  }
+
+  async get(courseId: string): Promise<LearningPlan | undefined> {
+    const row = this.database.prepare("SELECT payload FROM workspace_learning_plans WHERE course_id = ?").get(courseId) as unknown as JsonRow | undefined;
+    return row ? JSON.parse(row.payload) as LearningPlan : undefined;
+  }
+
+  async put(plan: LearningPlan): Promise<void> {
+    this.database.prepare(`
+      INSERT INTO workspace_learning_plans (course_id, updated_at, payload) VALUES (?, ?, ?)
+      ON CONFLICT(course_id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload
+    `).run(plan.courseId, plan.updatedAt, JSON.stringify(plan));
   }
 }

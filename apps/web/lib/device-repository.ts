@@ -10,13 +10,14 @@ import type {
   LearningProfileRepository,
   LanguagePackRepository,
 } from "@learn-language/application/workspace";
+import type { LearningPlan, LearningPlanRepository } from "@learn-language/application";
 import type { LearningEffect, SessionEvent } from "@learn-language/engine";
 import type { LanguageDefinition } from "@learn-language/protocol";
 import type { CoursePack } from "./course";
 import type { CourseLearningRecord, LearningProgress } from "./learning";
 
 const DATABASE_NAME = "learn-language-device-v1";
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 export type DeviceStoreName =
   | "preferences"
@@ -24,6 +25,7 @@ export type DeviceStoreName =
   | "languagePacks"
   | "installedCourses"
   | "courseRecords"
+  | "learningPlans"
   | "sessionEvents"
   | "effects";
 
@@ -33,6 +35,7 @@ const stores: readonly DeviceStoreName[] = [
   "languagePacks",
   "installedCourses",
   "courseRecords",
+  "learningPlans",
   "sessionEvents",
   "effects",
 ];
@@ -148,6 +151,20 @@ export class IndexedDbLearningProfileRepository implements LearningProfileReposi
 
   async putMany(records: readonly CourseLearningRecord[]): Promise<void> {
     await putCourseRecords([...records]);
+  }
+}
+
+export class IndexedDbLearningPlanRepository implements LearningPlanRepository {
+  async list(): Promise<readonly LearningPlan[]> {
+    return getAllDeviceValues<LearningPlan>("learningPlans");
+  }
+
+  async get(courseId: string): Promise<LearningPlan | undefined> {
+    return getDeviceValue<LearningPlan>("learningPlans", courseId);
+  }
+
+  async put(plan: LearningPlan): Promise<void> {
+    await putDeviceValue("learningPlans", plan.courseId, plan);
   }
 }
 

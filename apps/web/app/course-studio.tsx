@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { LearningPlanApplicationService, type CreateLearningPlanCommand, type LearningPlan } from "@learn-language/application";
 import {
   BuiltInLanguagePackMutationError,
   CourseLibraryApplicationService,
@@ -45,6 +46,7 @@ import {
 } from "lucide-react";
 import { LearningPlayer } from "@/app/learning-player";
 import { LearningDashboard } from "@/app/learning-dashboard";
+import { LearningPlanSetup } from "@/app/learning-plan-setup";
 import { CourseLibrary } from "@/app/course-library";
 import { DraftManager } from "@/app/draft-manager";
 import { LanguagePackManager } from "@/app/language-pack-manager";
@@ -59,6 +61,7 @@ import {
   IndexedDbInstalledCourseRepository,
   IndexedDbLearningProfileRepository,
   IndexedDbLanguagePackRepository,
+  IndexedDbLearningPlanRepository,
   persistLearningState,
   putCourseRecord,
   putDeviceValue,
@@ -181,6 +184,7 @@ const AUTOSAVE_DELAY_MS = 900;
 const languagePackApplication = new LanguagePackApplicationService(new IndexedDbLanguagePackRepository(), BUILT_IN_LANGUAGE_IDS);
 const installedCourseRepository = new IndexedDbInstalledCourseRepository();
 const profileBackupApplication = new ProfileBackupApplicationService<CourseLearningRecord>(new IndexedDbLearningProfileRepository());
+const learningPlanApplication = new LearningPlanApplicationService(new IndexedDbLearningPlanRepository());
 
 const defaultAiSettings: AiSettings = { provider: "openai", model: "", endpoint: "", apiKey: "" };
 const defaultLanguageForm: LanguageForm = {
@@ -360,9 +364,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [languageError, setLanguageError] = useState("");
   const [recordsByCourse, setRecordsByCourse] = useState<Record<string, CourseLearningRecord>>({});
   const [installedCourses, setInstalledCourses] = useState<CoursePack[]>([]);
+  const [plansByCourse, setPlansByCourse] = useState<Record<string, LearningPlan>>({});
   const [previewRecordsByCourse, setPreviewRecordsByCourse] = useState<Record<string, CourseLearningRecord>>({});
   const [learningContext, setLearningContext] = useState<"learn" | "preview">(space === "learn" ? "learn" : "preview");
-  const [learningView, setLearningView] = useState<"studio" | "drafts" | "languages" | "library" | "dashboard" | "lesson" | "review">(space === "learn" ? "library" : "studio");
+  const [learningView, setLearningView] = useState<"studio" | "drafts" | "languages" | "library" | "plan" | "dashboard" | "lesson" | "review">(space === "learn" ? "library" : "studio");
   const [selectedLessonId, setSelectedLessonId] = useState<string>();
   const [reviewTasks, setReviewTasks] = useState<ReviewTask[]>([]);
   const [syncSettings, setSyncSettings] = useState<DeviceSyncSettings>({ endpoint: "", profileId: "local-profile", deviceId: "" });
@@ -398,7 +403,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   useEffect(() => {
     let active = true;
     async function hydrate() {
-      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedAppLocale, storedTeachingLocale, storedUiLocale, storedSync, guideSeen, workingCopy] = await Promise.all([
+      const [storedHistory, storedAi, customPacks, storedRecords, storedInstalledCourses, storedAppLocale, storedTeachingLocale, storedUiLocale, storedSync, guideSeen, storedPlans, workingCopy] = await Promise.all([
         draftApplication.list(),
         getDeviceValue<AiSettings>("preferences", "ai"),
         languagePackApplication.list(),
@@ -409,6 +414,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         getDeviceValue<unknown>("preferences", UI_LOCALE_PREFERENCE_KEY),
         getDeviceValue<Partial<DeviceSyncSettings>>("preferences", "sync-settings"),
         getDeviceValue<boolean>("preferences", PRODUCT_GUIDE_SEEN_KEY),
+        learningPlanApplication.list(),
         space === "studio" ? loadStudioWorkingCopy() : Promise.resolve(undefined),
       ]);
       if (!active) return;
@@ -432,6 +438,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       setLanguagePacks(availableLanguagePacks);
       setRecordsByCourse(normalizedRecords);
       setInstalledCourses([...storedInstalledCourses]);
+      setPlansByCourse(Object.fromEntries(storedPlans.map((plan) => [plan.courseId, plan])));
       const nextLocale = resolveStoredAppLocale(storedAppLocale, storedUiLocale, storedTeachingLocale);
       setAppLocale(nextLocale);
       if (!guideSeen) {
@@ -716,9 +723,20 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     setLanguage(selected.manifest.languageId);
     setLearningContext("learn");
 
-    const record = recordsByCourse[selected.manifest.id] ?? createCourseLearningRecord(selected);
+    const existingRecord = recordsByCourse[selected.manifest.id];
+    const existingPlan = plansByCourse[selected.manifest.id];
+    if (!existingRecord && !existingPlan) {
+      setSelectedLessonId(undefined);
+      setLearningView("plan");
+      return;
+    }
+
+    const record = existingRecord ?? createCourseLearningRecord(selected);
     const activeLesson = selected.lessons.find((lesson) => record.lessonProgress[lesson.id]?.status === "active");
-    const nextLesson = activeLesson ?? selected.lessons.find((lesson, index) =>
+    const plannedLesson = existingPlan && record.completedLessonIds.length === 0
+      ? selected.lessons.find((lesson) => lesson.id === existingPlan.startingLessonId)
+      : undefined;
+    const nextLesson = activeLesson ?? plannedLesson ?? selected.lessons.find((lesson, index) =>
       !record.completedLessonIds.includes(lesson.id)
       && (index === 0 || record.completedLessonIds.includes(selected.lessons[index - 1]!.id)));
     if (!nextLesson) {
@@ -1108,6 +1126,13 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     }
     setRecordsByCourse((current) => ({ ...current, [next.courseId]: next }));
     void putCourseRecord(next).catch(() => setNotice(t("学习记录保存失败", "Learning record could not be saved")));
+  }
+
+  async function saveLearningPlan(command: CreateLearningPlanCommand) {
+    const plan = await learningPlanApplication.create(course, command);
+    setPlansByCourse((current) => ({ ...current, [plan.courseId]: plan }));
+    setNotice(t("个人学习计划已保存到当前设备", "Your learning plan was saved on this device"));
+    return plan;
   }
 
   function storeLessonProgress(progress: LearningProgress) {
@@ -1530,8 +1555,11 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   if (learningView === "languages") {
     return <><LanguagePackManager packs={languagePacks} builtInIds={BUILT_IN_LANGUAGE_IDS} locale={appLocale} notice={notice} usageFor={usageForLanguagePack} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onCreate={() => { setLearningView("studio"); setLanguageOpen(true); }} onImport={(file) => void importLanguagePackFile(file)} onExport={exportLanguagePack} onDelete={(pack) => void deleteLanguagePack(pack)} />{productGuide}</>;
   }
+  if (learningView === "plan") {
+    return <><LearningPlanSetup course={course} locale={appLocale} existingPlan={plansByCourse[course.manifest.id]} onSave={saveLearningPlan} onStart={openLesson} onCancel={() => setLearningView(recordsByCourse[course.manifest.id] ? "dashboard" : "library")} />{productGuide}</>;
+  }
   if (learningView === "dashboard") {
-    return <><LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} languagePack={currentLanguage} record={currentRecord} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onOpenHelp={() => openProductGuide(learningContext === "preview" ? "studio" : "learn")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />{productGuide}</>;
+    return <><LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} languagePack={currentLanguage} record={currentRecord} learningPlan={learningContext === "learn" ? plansByCourse[course.manifest.id] : undefined} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onOpenPlan={learningContext === "learn" ? () => setLearningView("plan") : undefined} onOpenHelp={() => openProductGuide(learningContext === "preview" ? "studio" : "learn")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />{productGuide}</>;
   }
   if (learningView === "lesson" && selectedProgress) {
     return <><LearningPlayer course={course} languagePack={currentLanguage} locale={appLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />{productGuide}</>;

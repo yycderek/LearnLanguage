@@ -190,6 +190,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(dashboard, /onLocaleChange/);
   assert.match(dashboard, /onOpenLibrary/);
   assert.match(dashboard, /onOpenHelp/);
+  assert.match(dashboard, /learning-plan-summary-card/);
+  assert.match(dashboard, /个人学习计划/);
   assert.match(dashboard, /uiText\(locale/);
   assert.doesNotMatch(dashboard, /onTeachingLocaleChange|onUiLocaleChange/);
   assert.match(dashboard, /displayText\(course\.manifest\.title, teachingLocale\)/);
@@ -278,8 +280,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(nextConfig, /"\/learn", "\/studio"/);
   assert.match(nextConfig, /Cache-Control", value: "no-store, max-age=0/);
   assert.match(productGuide, /学习和课程设计是两个独立空间/);
-  assert.match(productGuide, /一键开始学习/);
-  assert.match(productGuide, /基础检查决定是否跳过/);
+  assert.match(productGuide, /可选设置学习目标与节奏/);
+  assert.match(productGuide, /入学评估只推荐起点/);
   assert.match(productGuide, /AI 可以不设置/);
   assert.match(productGuide, /保存、预览、发布、安装是四个不同动作/);
   assert.match(productGuide, /aria-modal="true"/);
@@ -289,6 +291,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(css, /learner-shell/);
   assert.match(css, /learning-home-shell/);
   assert.match(css, /course-library-shell/);
+  assert.match(css, /learning-plan-shell/);
+  assert.match(css, /learning-plan-summary-card/);
   assert.match(css, /learner-backup-bar/);
   assert.match(css, /draft-library-shell/);
   assert.match(css, /language-library-shell/);

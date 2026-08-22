@@ -14,6 +14,7 @@ export * from "./exercise-response.js";
 export * from "./authoring.js";
 export * from "./trust.js";
 export * from "./workspace.js";
+export * from "./learning-plan.js";
 
 export interface CourseRepository {
   get(courseId: string): Promise<CoursePack | undefined>;

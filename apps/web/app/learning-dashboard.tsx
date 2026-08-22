@@ -22,6 +22,7 @@ import {
   Target,
   UserRound,
 } from "lucide-react";
+import type { LearningPlan } from "@learn-language/application";
 import { displayText, type CoursePack } from "@/lib/course";
 import { dateLocale, uiText, type AppLocale } from "@/lib/i18n";
 import type { LanguagePack } from "@/lib/language-pack";
@@ -44,11 +45,13 @@ export function LearningDashboard({
   courses = [course],
   languagePack,
   record,
+  learningPlan,
   locale = "zh-CN",
   onLocaleChange,
   preview = false,
   onSelectCourse,
   onOpenLibrary,
+  onOpenPlan,
   onOpenHelp,
   onBack,
   onStartLesson,
@@ -58,11 +61,13 @@ export function LearningDashboard({
   courses?: CoursePack[];
   languagePack?: LanguagePack;
   record?: CourseLearningRecord;
+  learningPlan?: LearningPlan;
   locale?: AppLocale;
   onLocaleChange?: (locale: AppLocale) => void;
   preview?: boolean;
   onSelectCourse?: (courseId: string) => void;
   onOpenLibrary?: () => void;
+  onOpenPlan?: () => void;
   onOpenHelp?: () => void;
   onBack: () => void;
   onStartLesson: (lessonId: string, restart?: boolean) => void;
@@ -90,6 +95,13 @@ export function LearningDashboard({
   const focusGoal = focusLesson?.canDoGoalRefs
     .map((goalId) => course.goals.find((goal) => goal.id === goalId))
     .find(Boolean);
+  const planStartingLesson = learningPlan ? course.lessons.find((lesson) => lesson.id === learningPlan.startingLessonId) : undefined;
+  const planMotivation = learningPlan ? ({
+    travel: c("旅行交流", "Travel"),
+    "daily-life": c("日常生活", "Daily life"),
+    "work-study": c("工作或学习", "Work or study"),
+    "culture-media": c("文化与内容", "Culture and media"),
+  } as const)[learningPlan.motivation] : undefined;
   const stageCopy: Record<LearnerStageId, { label: [string, string]; detail: [string, string] }> = {
     learn: { label: ["理解", "Understand"], detail: ["认识本课表达与使用场景", "Meet the lesson forms and their context"] },
     practice: { label: ["练习", "Practice"], detail: ["通过互动练习建立稳定理解", "Build reliable understanding through interaction"] },
@@ -107,6 +119,7 @@ export function LearningDashboard({
           </div>
           <nav className="learning-side-nav" aria-label={c("学习导航", "Learning navigation")}>
             <button className="active" type="button"><House size={17} /><span>{c("今日学习", "Today")}</span></button>
+            {onOpenPlan && <button type="button" onClick={onOpenPlan}><Target size={17} /><span>{c("学习计划", "Plan")}</span></button>}
             <button type="button" onClick={onOpenLibrary}><Library size={17} /><span>{c("课程库", "Library")}</span></button>
             <button type="button" onClick={() => onStartReview(due.length > 0 ? due : upcoming)} disabled={due.length === 0 && upcoming.length === 0}><RotateCcw size={17} /><span>{c("复习", "Review")}</span>{due.length > 0 && <em>{due.length}</em>}</button>
             <button type="button" onClick={() => document.getElementById("course-outline")?.scrollIntoView({ behavior: "smooth", block: "start" })}><BarChart3 size={17} /><span>{c("学习进度", "Progress")}</span></button>
@@ -125,10 +138,24 @@ export function LearningDashboard({
         {!preview && (
           <nav className="mobile-workspace-nav learning-mobile-nav" aria-label={c("学习导航", "Learning navigation")}>
             <button className="active" type="button"><House size={15} />{c("今日学习", "Today")}</button>
+            {onOpenPlan && <button type="button" onClick={onOpenPlan}><Target size={15} />{c("计划", "Plan")}</button>}
             <button type="button" onClick={onOpenLibrary}><Library size={15} />{c("课程库", "Library")}</button>
             <button type="button" onClick={() => onStartReview(due.length > 0 ? due : upcoming)} disabled={due.length === 0 && upcoming.length === 0}><RotateCcw size={15} />{c("复习", "Review")}</button>
             <button type="button" onClick={() => document.getElementById("course-outline")?.scrollIntoView({ behavior: "smooth", block: "start" })}><BarChart3 size={15} />{c("学习进度", "Progress")}</button>
           </nav>
+        )}
+
+        {!preview && onOpenPlan && (
+          <section className={`learning-plan-summary-card ${learningPlan ? "" : "empty"}`}>
+            <div className="learning-plan-summary-icon"><Target size={20} /></div>
+            {learningPlan ? <>
+              <div><small>{c("个人学习计划", "PERSONAL LEARNING PLAN")}</small><strong>{c(`每周 ${learningPlan.weeklyTargetMinutes} 分钟 · ${planMotivation}`, `${learningPlan.weeklyTargetMinutes} min/week · ${planMotivation}`)}</strong><span>{c(`建议每周完成 ${learningPlan.lessonTargetCount} 个课节，从「${displayText(planStartingLesson?.title, teachingLocale)}」开始`, `Aim for ${learningPlan.lessonTargetCount} lessons a week, starting with “${displayText(planStartingLesson?.title, teachingLocale)}”`)}</span></div>
+              <button type="button" onClick={onOpenPlan}>{c("查看与调整", "View & adjust")}<ArrowRight size={14} /></button>
+            </> : <>
+              <div><small>{c("可选设置", "OPTIONAL SETUP")}</small><strong>{c("还没有个人学习计划", "No personal learning plan yet")}</strong><span>{c("选择目标与节奏，也可以做一次不计成绩的基础检查。", "Choose a goal and pace, with an optional ungraded foundation check.")}</span></div>
+              <button type="button" onClick={onOpenPlan}>{c("设置计划", "Set a plan")}<ArrowRight size={14} /></button>
+            </>}
+          </section>
         )}
 
         <section className="learning-summary-grid">

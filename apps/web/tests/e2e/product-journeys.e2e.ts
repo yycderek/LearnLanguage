@@ -88,20 +88,26 @@ test("first visit redirects to a styled, language-neutral Learn entry", async ({
   expect(problems).toEqual([]);
 });
 
-test("one-click course start persists the active lesson and returns to the learning map", async ({ page }) => {
+test("first course start saves an optional personal plan before entering the learning map", async ({ page }) => {
   const problems = observeBrowserProblems(page);
   await page.goto(`${origin}/learn`);
   await dismissFirstUseGuide(page);
 
   await page.getByRole("button", { name: "一键开始学习" }).first().click();
+  await expect(page.getByRole("heading", { name: "你为什么学习这门语言？" })).toBeVisible();
+  await page.getByRole("button", { name: "跳过评估，从第一课开始" }).click();
+  await expect(page.getByRole("heading", { name: "你的第一周路线已经准备好" })).toBeVisible();
+  await page.getByRole("button", { name: "保存计划并开始" }).click();
   await expect(page.getByRole("button", { name: "保存并退出" })).toBeVisible();
   await expect(page.locator(".learner-shell")).toBeVisible();
   await page.getByRole("button", { name: "保存并退出" }).click();
 
   await expect(page.getByText("本课学习地图")).toBeVisible();
+  await expect(page.getByText("个人学习计划")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "学习导航" })).toBeVisible();
   await page.reload();
   await expect(page.getByText("本课学习地图")).toBeVisible();
+  await expect(page.getByText("个人学习计划")).toBeVisible();
   await expectResponsiveDocument(page);
   expect(problems).toEqual([]);
 });

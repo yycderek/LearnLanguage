@@ -47,24 +47,24 @@ const learnSteps: GuideStep[] = [
     description: ["Learn 用于正式学习并保存进度；Studio 用于创建、预览和发布课程。Studio 预览不会写入真实学习档案。", "Learn saves real progress. Studio creates, previews, and publishes courses; Studio previews never change your real learning profile."],
     icon: GraduationCap,
     items: [
-      { icon: GraduationCap, title: ["Learn 学习空间", "Learn space"], body: ["选择课程并一键开始，完成课节、查看掌握度并按计划复习。", "Choose a course and start in one click, complete lessons, track mastery, and review on schedule."] },
+      { icon: GraduationCap, title: ["Learn 学习空间", "Learn space"], body: ["选择课程，可选设置学习目标与节奏，然后完成课节、查看掌握度并按计划复习。", "Choose a course, optionally set a goal and pace, then complete lessons, track mastery, and review on schedule."] },
       { icon: PencilRuler, title: ["Studio 创作空间", "Studio space"], body: ["使用模板编辑课程内容，预览后发布，再安装到 Learn。", "Edit with templates, preview, publish, then install the course in Learn."] },
     ],
   },
   {
     eyebrow: ["开始学习", "START LEARNING"],
-    title: ["选择一门课程，一次点击开始学习", "Choose a course and start in one click"],
-    description: ["内置英语、日语和粤语课程可以直接开始。系统会自动安装并进入当前应学课节；课程和进度保存在当前浏览器。", "The built-in English, Japanese, and Cantonese courses can start immediately. The app installs the course and opens the right lesson; course data and progress stay in this browser."],
+    title: ["选择课程，再决定是否设置个人计划", "Choose a course, then optionally set a personal plan"],
+    description: ["首次开始一门课程时，可以设置学习目标与每周节奏，并选择是否参加基础检查；已有学习记录会直接继续。课程、计划和进度都保存在当前浏览器。", "When starting a course for the first time, you can set a goal and weekly pace and choose whether to take a foundation check. Existing learners resume directly. Course data, plans, and progress stay in this browser."],
     icon: Library,
     items: [
-      { icon: Library, title: ["1. 选择并开始", "1. Choose and start"], body: ["在课程库点击“一键开始学习”，系统会自动安装并进入当前应学课节。", "Choose Start learning in the course library to install the course and enter the right lesson automatically."] },
+      { icon: Library, title: ["1. 选择课程", "1. Choose a course"], body: ["在课程库点击“一键开始学习”；首次使用可先设置目标、节奏和课程起点，也可以直接跳过。", "Choose Start learning in the library. On first use, set a goal, pace, and starting lesson—or skip setup."] },
       { icon: BookOpen, title: ["2. 按顺序学习", "2. Follow the path"], body: ["完成一课会解锁下一课；已完成课程可以随时重新学习。", "Completing a lesson unlocks the next one, and completed lessons can be revisited anytime."] },
     ],
   },
   {
     eyebrow: ["学习循环", "LEARNING LOOP"],
-    title: ["基础检查决定是否跳过，掌握证据决定何时复习", "Diagnostics decide whether to skip; mastery evidence schedules review"],
-    description: ["基础检查通过后可以直接完成该基础课；未通过会进入正常教学，不会因检查失败降低掌握度。", "Passing a foundation diagnostic lets you complete that lesson immediately. Otherwise teaching begins normally, without treating the diagnostic miss as negative mastery."],
+    title: ["入学评估只推荐起点，掌握证据决定何时复习", "Placement only recommends a start; mastery evidence schedules review"],
+    description: ["基础检查复用课程中可自动判定的诊断题，只用于建议开始课节；它不会把跳过的课标记为已掌握，也不会因答错降低掌握度。", "The foundation check reuses deterministic course diagnostics only to recommend a starting lesson. It never marks skipped lessons as mastered or lowers mastery after a miss."],
     icon: Repeat2,
     items: [
       { icon: Check, title: ["诊断不是考试成绩", "A diagnostic is not an exam score"], body: ["它只帮助选择学习路径，不代表 CEFR 或 JLPT 认证结果。", "It only selects a learning path and is not a CEFR or JLPT certification result."] },
