@@ -11,7 +11,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "pnpm build && node --experimental-strip-types --test tests/rendered-html.node.mjs tests/production-assets.node.mjs tests/learning.node.mjs tests/learning-presentation.node.mjs tests/ai.node.mjs tests/course.node.mjs tests/course-authoring.node.mjs tests/course-file.node.mjs tests/course-library.node.mjs tests/draft-library.node.mjs tests/i18n.node.mjs tests/language-capabilities.node.mjs tests/language-pack-file.node.mjs tests/learner-backup.node.mjs tests/publish-readiness.node.mjs tests/starter-course-library.node.mjs",
+    "test": "pnpm build && node --experimental-strip-types --test tests/rendered-html.node.mjs tests/production-assets.node.mjs tests/learning.node.mjs tests/learning-presentation.node.mjs tests/ai.node.mjs tests/article-course.node.mjs tests/material-course.node.mjs tests/course.node.mjs tests/course-authoring.node.mjs tests/course-file.node.mjs tests/course-library.node.mjs tests/draft-library.node.mjs tests/i18n.node.mjs tests/language-capabilities.node.mjs tests/language-pack-file.node.mjs tests/learner-backup.node.mjs tests/publish-readiness.node.mjs tests/starter-course-library.node.mjs",
     "test:e2e": "playwright test",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
@@ -22,9 +22,11 @@
     "@learn-language/protocol": "workspace:*",
     "@learn-language/sync": "workspace:*",
     "lucide-react": "0.468.0",
+    "mammoth": "^1.12.1",
     "next": "16.2.6",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "unpdf": "^1.8.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",

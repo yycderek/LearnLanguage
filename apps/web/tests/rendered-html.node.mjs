@@ -60,6 +60,16 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /selectedStudioLessonId/);
   assert.match(studio, /课程课节顺序/);
   assert.match(studio, /moveLessonStep/);
+  assert.match(studio, /课程单元与课节/);
+  assert.match(studio, /ReferencePicker/);
+  assert.match(studio, /素材生成课程/);
+  assert.doesNotMatch(studio, /课节 ID/);
+  assert.doesNotMatch(studio, /关联知识点（逗号分隔）/);
+  assert.match(studioStart, /导入素材生成草稿/);
+  assert.match(studio, /PDF 或 DOCX/);
+  assert.match(studio, /我确认有权将这些素材用于自己的课程/);
+  assert.match(css, /unit-manager/);
+  assert.match(css, /reference-picker/);
   assert.doesNotMatch(studio, /next\.lessons\[0\]\.steps/);
   assert.match(studio, /课程流程预览/);
   assert.match(studio, /创建或导入 Language Pack/);

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, FileUp, GraduationCap, Languages, Plus, Sparkles } from "lucide-react";
+import { BookOpen, FileText, FileUp, GraduationCap, Languages, Plus, Sparkles } from "lucide-react";
 import { uiText, type AppLocale } from "@/lib/i18n";
 import { languageName, type LanguagePack } from "@/lib/language-pack";
 
@@ -11,6 +11,7 @@ export function StudioStart({
   onLocaleChange,
   onCreateLanguage,
   onImportDraft,
+  onImportArticle,
   onUseLanguage,
   onOpenDrafts,
 }: {
@@ -20,6 +21,7 @@ export function StudioStart({
   onLocaleChange: (locale: AppLocale) => void;
   onCreateLanguage: () => void;
   onImportDraft: (file: File) => void;
+  onImportArticle: () => void;
   onUseLanguage: (pack: LanguagePack) => void;
   onOpenDrafts: () => void;
 }) {
@@ -56,7 +58,13 @@ export function StudioStart({
             <label><FileUp size={16} />{c("选择草稿文件", "Choose draft file")}<input type="file" accept=".json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportDraft(file); event.target.value = ""; }} /></label>
             {draftCount > 0 && <button className="secondary" onClick={onOpenDrafts}><BookOpen size={15} />{c(`查看 ${draftCount} 份本地修订`, `View ${draftCount} local revisions`)}</button>}
           </article>
-        </section>
+          <article>
+            <span className="studio-start-path-icon"><FileText size={22} /></span>
+            <small>{c("把素材变成课程", "Turn content into a course")}</small>
+            <h2>{c("导入素材生成草稿", "Create from materials")}</h2>
+            <p>{c("粘贴文本、导入网页，或上传文章、对话、歌词、字幕、PDF 和 Word；系统会生成可编辑单元、知识点和练习。", "Paste text, import a web page, or upload articles, dialogues, lyrics, subtitles, PDF, and Word files to generate editable units, knowledge, and exercises.")}</p>
+            <button onClick={onImportArticle}><FileText size={16} />{c("导入素材", "Import materials")}</button>
+          </article>        </section>
 
         <section className="studio-ready-languages">
           <div><span><Sparkles size={17} /></span><div><strong>{c("从现有语言示例开始", "Start from an available language example")}</strong><p>{c("这些只是现成示例，不代表平台只支持这些语言。", "These are ready-made examples, not the limit of languages the platform supports.")}</p></div></div>

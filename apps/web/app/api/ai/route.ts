@@ -1,7 +1,7 @@
 type AiProvider = "openai" | "anthropic" | "gemini";
 
 type AiGatewayRequest = {
-  action?: "test" | "feedback";
+  action?: "test" | "feedback" | "authoring";
   provider?: AiProvider;
   model?: string;
   apiKey?: string;
@@ -27,8 +27,8 @@ function extractText(provider: AiProvider, data: unknown) {
   return value.candidates?.[0]?.content?.parts?.map((item) => item.text ?? "").join("") ?? "";
 }
 
-async function providerRequest(provider: AiProvider, model: string, apiKey: string, prompt: string, action: "test" | "feedback") {
-  const maxTokens = action === "test" ? 32 : 700;
+async function providerRequest(provider: AiProvider, model: string, apiKey: string, prompt: string, action: "test" | "feedback" | "authoring") {
+  const maxTokens = action === "test" ? 32 : action === "authoring" ? 4000 : 700;
   if (provider === "openai") {
     return fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -62,13 +62,13 @@ export async function POST(request: Request) {
   } catch {
     return json({ error: "请求格式无效。" }, 400);
   }
-  const action = body.action === "test" ? "test" : body.action === "feedback" ? "feedback" : undefined;
+  const action = body.action === "test" ? "test" : body.action === "feedback" ? "feedback" : body.action === "authoring" ? "authoring" : undefined;
   const provider = (["openai", "anthropic", "gemini"] as const).find((item) => item === body.provider);
   const model = body.model?.trim() ?? "";
   const apiKey = body.apiKey?.trim() ?? "";
   const prompt = body.prompt?.trim() ?? "";
   if (!action || !provider || !model || !apiKey || !prompt) return json({ error: "AI 请求缺少必要配置。" }, 400);
-  if (model.length > 200 || apiKey.length > 600 || prompt.length > 12_000) return json({ error: "AI 请求内容过长。" }, 400);
+  if (model.length > 200 || apiKey.length > 600 || prompt.length > (action === "authoring" ? 45_000 : 12_000)) return json({ error: "AI 请求内容过长。" }, 400);
 
   try {
     const response = await providerRequest(provider, model, apiKey, prompt, action);

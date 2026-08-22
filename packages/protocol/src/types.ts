@@ -196,6 +196,14 @@ export interface LessonFlow {
   steps: LessonStep[];
 }
 
+export interface CourseUnit {
+  id: string;
+  title: LocalizedText;
+  description?: LocalizedText;
+  canDoGoalRefs: string[];
+  lessonRefs: string[];
+}
+
 export interface CoursePack {
   schemaVersion: typeof COURSE_PACK_SCHEMA_VERSION;
   manifest: CourseManifest;
@@ -204,6 +212,8 @@ export interface CoursePack {
   utterances: Utterance[];
   exercises: Exercise[];
   rubrics: FeedbackRubric[];
+  /** Optional in Course Pack v2 so existing published packs remain compatible. */
+  units?: CourseUnit[];
   lessons: LessonFlow[];
 }
 

@@ -183,6 +183,7 @@ export function validateCoursePack(course: CoursePack): ValidationResult {
     ...duplicateIds(course.utterances, "utterances"),
     ...duplicateIds(course.exercises, "exercises"),
     ...duplicateIds(course.rubrics, "rubrics"),
+    ...duplicateIds(course.units ?? [], "units"),
     ...duplicateIds(course.lessons, "lessons"),
   );
 
@@ -191,6 +192,28 @@ export function validateCoursePack(course: CoursePack): ValidationResult {
   const utteranceIds = new Set(course.utterances.map((item) => item.id));
   const exerciseIds = new Set(course.exercises.map((item) => item.id));
   const rubricIds = new Set(course.rubrics.map((item) => item.id));
+  const lessonIds = new Set(course.lessons.map((item) => item.id));
+
+  if (course.units) {
+    const assignedLessonIds = new Set<string>();
+    for (const unit of course.units) {
+      issues.push(
+        ...missingReferences(unit.canDoGoalRefs, goalIds, `units.${unit.id}.canDoGoalRefs`),
+        ...missingReferences(unit.lessonRefs, lessonIds, `units.${unit.id}.lessonRefs`),
+      );
+      for (const lessonId of unit.lessonRefs) {
+        if (assignedLessonIds.has(lessonId)) {
+          issues.push({ code: "duplicate-unit-lesson", path: `units.${unit.id}.lessonRefs`, message: `Lesson belongs to more than one unit: ${lessonId}` });
+        }
+        assignedLessonIds.add(lessonId);
+      }
+    }
+    for (const lessonId of lessonIds) {
+      if (!assignedLessonIds.has(lessonId)) {
+        issues.push({ code: "unassigned-unit-lesson", path: "units", message: `Lesson is not assigned to a unit: ${lessonId}` });
+      }
+    }
+  }
 
   for (const utterance of course.utterances) {
     issues.push(

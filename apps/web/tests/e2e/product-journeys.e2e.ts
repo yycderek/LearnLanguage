@@ -43,6 +43,18 @@ async function dismissFirstUseGuide(page: Page) {
   await expect(close).toBeHidden();
 }
 
+async function readStudioWorkingCopy(page: Page) {
+  return page.evaluate(() => new Promise<unknown>((resolve, reject) => {
+    const request = indexedDB.open("learn-language-device-v1");
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const transaction = request.result.transaction("drafts", "readonly");
+      const value = transaction.objectStore("drafts").get("studio-working-copy-v1");
+      value.onerror = () => reject(value.error);
+      value.onsuccess = () => resolve(value.result);
+    };
+  }));
+}
 async function expectResponsiveDocument(page: Page) {
   const documentState = await page.evaluate(() => ({
     primary: getComputedStyle(document.documentElement).getPropertyValue("--primary").trim(),
@@ -137,6 +149,43 @@ test("a non-technical author can create a new language, save a draft, and previe
   await page.getByRole("button", { name: "预览学习流程" }).click();
   await expect(page.getByText("STUDIO PREVIEW", { exact: true })).toBeVisible();
   await expect(page.getByText("临时预览档案 · 不保存")).toBeVisible();
+  await expectResponsiveDocument(page);
+  expect(problems).toEqual([]);
+});
+
+test("an author can turn material into a recoverable private visual draft", async ({ page }) => {
+  const problems = observeBrowserProblems(page);
+  await page.goto(origin + "/studio");
+  await dismissFirstUseGuide(page);
+
+  await page.getByRole("button", { name: "导入素材" }).click();
+  const dialog = page.getByRole("dialog", { name: "导入素材生成课程草稿" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("目标语言").selectOption("ja");
+  await dialog.getByLabel("课程标题").fill("城市散步");
+  await dialog.getByLabel("素材正文").fill("I walk through the old town. The market is busy today. I stop for coffee and write a postcard.");
+  await dialog.getByRole("button", { name: "加入素材列表" }).click();
+  await expect(dialog.getByText(/暂估 [A-C][1-2]/)).toBeVisible();
+  await dialog.getByLabel(/我确认有权将这些素材用于自己的课程/).check();
+  await dialog.getByRole("button", { name: "生成可编辑草稿" }).click();
+
+  await expect(page.getByText(/已生成 1 个单元、.*4 个练习/)).toBeVisible();
+  await page.getByRole("button", { name: "例句" }).click();
+  await expect(page.getByText("I walk through the old town.")).toBeVisible();
+  await page.getByRole("button", { name: "课节流程" }).click();
+  await expect(page.getByRole("heading", { name: "课程单元与课节" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "课程单元" })).toBeVisible();
+  await expect(page.getByText("课节 ID")).toHaveCount(0);
+
+  await expect(page.locator(".autosave-state.saved")).toContainText("修改已自动保存", { timeout: 5000 });
+  const savedBeforeReload = await readStudioWorkingCopy(page) as { course?: { manifest?: { title?: Record<string, string> } } };
+  expect(savedBeforeReload.course?.manifest?.title?.["zh-CN"]).toBe("城市散步");
+  await page.reload();
+  const savedAfterReload = await readStudioWorkingCopy(page) as { course?: { manifest?: { title?: Record<string, string> } } };
+  expect(savedAfterReload.course?.manifest?.title?.["zh-CN"]).toBe("城市散步");
+  await expect(page.getByRole("heading", { name: "城市散步", level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "课节流程" }).click();
+  await expect(page.getByRole("heading", { name: "课程单元与课节" })).toBeVisible();
   await expectResponsiveDocument(page);
   expect(problems).toEqual([]);
 });

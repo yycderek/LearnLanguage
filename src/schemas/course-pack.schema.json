@@ -37,6 +37,11 @@
       "type": "array",
       "items": { "$ref": "#/$defs/rubric" }
     },
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/unit" }
+    },
     "lessons": {
       "type": "array",
       "minItems": 1,
@@ -365,6 +370,22 @@
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/step" }
+        }
+      }
+    },
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "canDoGoalRefs", "lessonRefs"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "$ref": "#/$defs/localizedText" },
+        "description": { "$ref": "#/$defs/localizedText" },
+        "canDoGoalRefs": { "$ref": "#/$defs/references" },
+        "lessonRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
         }
       }
     }

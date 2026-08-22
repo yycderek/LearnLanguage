@@ -58,7 +58,7 @@ export function validateCourse(input: string): { course?: CoursePack; issues: Im
   const goalIds = ids(course.goals);
   const rubricIds = ids(course.rubrics);
   const seen = new Set<string>();
-  for (const collection of [course.goals, course.knowledge, course.utterances, course.exercises, course.rubrics, course.lessons]) {
+  for (const collection of [course.goals, course.knowledge, course.utterances, course.exercises, course.rubrics, course.units ?? [], course.lessons]) {
     for (const item of collection) {
       const key = `${collection === course.lessons ? "lesson" : "item"}:${item.id}`;
       if (!item.id) issues.push({ stage: "domain", path: "/", message: "内容 ID 不能为空" });
@@ -105,7 +105,21 @@ export function validateCourse(input: string): { course?: CoursePack; issues: Im
       checkRefs(step.next ?? [], stepIds, `/lessons/${i}/steps/${j}/next`);
     });
   });
-  return issues.length ? { issues } : { course, issues: [] };
+  if (course.units) {
+    const lessonIds = ids(course.lessons);
+    const assigned = new Set<string>();
+    course.units.forEach((unit, index) => {
+      checkRefs(unit.canDoGoalRefs ?? [], goalIds, `/units/${index}/canDoGoalRefs`);
+      checkRefs(unit.lessonRefs ?? [], lessonIds, `/units/${index}/lessonRefs`);
+      unit.lessonRefs.forEach((lessonId) => {
+        if (assigned.has(lessonId)) issues.push({ stage: "domain", path: `/units/${index}/lessonRefs`, message: `课节被重复分配：${lessonId}` });
+        assigned.add(lessonId);
+      });
+    });
+    course.lessons.forEach((lesson) => {
+      if (!assigned.has(lesson.id)) issues.push({ stage: "domain", path: "/units", message: `课节尚未分配单元：${lesson.id}` });
+    });
+  }  return issues.length ? { issues } : { course, issues: [] };
 }
 
 const stepBlueprints: Array<[string, LessonPhase, string, string, SupportLevel]> = [

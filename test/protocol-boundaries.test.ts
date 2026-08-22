@@ -144,4 +144,33 @@ describe("protocol boundaries", () => {
       expect(result.issues.filter((issue) => issue.code === "additionalProperties")).toHaveLength(2);
     }
   });
+  it("accepts course units that assign every lesson exactly once", () => {
+    const course = structuredClone(japaneseCafeCourse);
+    course.units = [{
+      id: "unit-1",
+      title: { en: "Foundations" },
+      canDoGoalRefs: course.goals.map((goal) => goal.id),
+      lessonRefs: course.lessons.map((lesson) => lesson.id),
+    }];
+
+    expect(safeImportCoursePack(course)).toEqual(expect.objectContaining({ success: true }));
+  });
+
+  it("rejects duplicate or missing lesson assignments across units", () => {
+    const duplicate = structuredClone(japaneseCafeCourse);
+    const lessonId = duplicate.lessons[0]!.id;
+    duplicate.units = [
+      { id: "unit-1", title: { en: "One" }, canDoGoalRefs: [], lessonRefs: [lessonId] },
+      { id: "unit-2", title: { en: "Two" }, canDoGoalRefs: [], lessonRefs: [lessonId] },
+    ];
+    const duplicateResult = safeImportCoursePack(duplicate);
+    expect(duplicateResult.success).toBe(false);
+    if (!duplicateResult.success) expect(duplicateResult.issues).toContainEqual(expect.objectContaining({ code: "duplicate-unit-lesson" }));
+
+    const unassigned = structuredClone(japaneseCafeCourse);
+    unassigned.units = [{ id: "unit-1", title: { en: "Empty" }, canDoGoalRefs: [], lessonRefs: [] }];
+    const unassignedResult = safeImportCoursePack(unassigned);
+    expect(unassignedResult.success).toBe(false);
+    if (!unassignedResult.success) expect(unassignedResult.issues).toContainEqual(expect.objectContaining({ code: "unassigned-unit-lesson" }));
+  });
 });

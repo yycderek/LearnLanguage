@@ -78,12 +78,13 @@ const studioSteps: GuideStep[] = [
   learnSteps[0]!,
   {
     eyebrow: ["创建课程", "CREATE A COURSE"],
-    title: ["从模板开始，不需要编写 JSON", "Start from a template—no JSON required"],
-    description: ["选择目标语言和课程模板，再依次维护知识点、例句、练习、课节与学习步骤。JSON 模式只面向需要精细控制的高级作者。", "Choose a target language and template, then maintain knowledge, utterances, exercises, lessons, and steps. JSON mode is only for advanced authors who need precise control."],
+    title: ["从模板或素材开始，不需要编写 JSON", "Start from a template or materials—no JSON required"],
+    description: ["选择目标语言，从模板开始，或导入文本、网页、歌词、字幕、PDF 和 Word 生成私有草稿，再用可视化编辑器完善。", "Choose a target language, start from a template, or import text, web pages, lyrics, subtitles, PDF, and Word into a private draft, then refine it visually."],
     icon: PencilRuler,
     items: [
       { icon: Sparkles, title: ["先定义 Can-do 目标", "Begin with a Can-do goal"], body: ["描述学习者完成本课后能在什么场景做什么，再添加所需内容和练习。", "Describe what learners can do in a real situation, then add the content and exercises they need."] },
-      { icon: BookOpen, title: ["中文与英文分别维护", "Maintain Chinese and English"], body: ["右上角语言同时切换界面和当前编辑的教学文本。", "The language selector changes both the interface and the teaching text being edited."] },
+      { icon: BookOpen, title: ["用单元组织课节", "Organize lessons into units"], body: ["把课节分配到单元，再点选每个步骤使用的知识点、例句和练习，不需要手动维护 ID。", "Assign lessons to units, then pick the knowledge, utterances, and exercises used by each step without maintaining IDs."] },
+      { icon: ShieldCheck, title: ["私有草稿与自动保存", "Private drafts and auto-save"], body: ["素材生成结果先成为私有草稿；确定性答案不依赖 AI，工作副本会在刷新后恢复。", "Materials first become private drafts; deterministic answers do not require AI, and the working copy returns after refresh."] },
     ],
   },
   {

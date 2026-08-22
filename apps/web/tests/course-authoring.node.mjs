@@ -3,11 +3,17 @@ import test from "node:test";
 import {
   appendLesson,
   appendLessonStep,
+  appendUnit,
+  assignLessonToUnit,
   duplicateLesson,
+  ensureCourseUnits,
   moveLesson,
+  moveUnit,
   moveLessonStep,
   removeLesson,
   removeLessonStep,
+  removeUnit,
+  renameUnit,
 } from "../lib/course-authoring.ts";
 import { sampleCourse, validateCourse } from "../lib/course.ts";
 
@@ -82,4 +88,35 @@ test("the only step in a lesson cannot be removed", () => {
   lesson.steps[0].next = [];
   assert.equal(removeLessonStep(lesson, 0), false);
   assert.equal(lesson.steps.length, 1);
+});
+
+test("legacy courses gain one visual unit without changing lesson identities", () => {
+  const course = sampleCourse("ja");
+  assert.equal(course.units, undefined);
+  const lessonIds = course.lessons.map((lesson) => lesson.id);
+  const units = ensureCourseUnits(course, "en");
+  assert.equal(units.length, 1);
+  assert.deepEqual(units[0].lessonRefs, lessonIds);
+  assert.equal(units[0].title.en, "Course foundations");
+  assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
+});
+
+test("a no-code author can organize lessons into units and remove a unit safely", () => {
+  const course = sampleCourse("ja");
+  const units = ensureCourseUnits(course, "en");
+  const secondUnitId = appendUnit(course, "en", "Everyday errands");
+  const movedLessonId = course.lessons[1].id;
+
+  assert.equal(assignLessonToUnit(course, movedLessonId, secondUnitId), true);
+  assert.deepEqual(units[1].lessonRefs, [movedLessonId]);
+  assert.equal(units[0].lessonRefs.includes(movedLessonId), false);
+  assert.equal(renameUnit(course, secondUnitId, "en", "Around town"), true);
+  assert.equal(moveUnit(course, secondUnitId, -1), true);
+  assert.equal(course.units[0].title.en, "Around town");
+  assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
+
+  assert.equal(removeUnit(course, secondUnitId), true);
+  assert.equal(course.units.length, 1);
+  assert.ok(course.units[0].lessonRefs.includes(movedLessonId));
+  assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
 });
