@@ -11,6 +11,7 @@ import {
   ProfileBackupApplicationService,
 } from "@learn-language/application/workspace";
 import { assessCourseTrust, type CourseTrustReport } from "@learn-language/application/trust";
+import { courseAdaptiveAgenda } from "@/lib/adaptive-agenda";
 import type { SyncConflict } from "@learn-language/protocol";
 import { assessCourseLanguageCompatibility, languageAdapterPin, type LanguageCompatibilityReport } from "@learn-language/language-runtime";
 import {
@@ -1545,6 +1546,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const goalOptions = course.goals.map((item, index) => ({ id: item.id, label: displayText(item.description, teachingLocale) || t("Goal " + (index + 1), "Can-do goal " + (index + 1)) }));
   const activeRecords = learningContext === "preview" ? previewRecordsByCourse : recordsByCourse;
   const currentRecord = activeRecords[course.manifest.id];
+  const currentPlan = learningContext === "learn" ? plansByCourse[course.manifest.id] : undefined;
+  const currentAgenda = hydrated && currentPlan ? courseAdaptiveAgenda(course, currentRecord, currentPlan) : undefined;
   const currentPercent = courseLearningPercent(course, currentRecord);
   const dueReviewCount = currentRecord ? reviewsDue(currentRecord).length : 0;
   const ongoingLesson = course.lessons.find((lesson) => currentRecord?.lessonProgress[lesson.id]?.status === "active");
@@ -1564,7 +1567,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     return <><LearningPlanSetup course={course} locale={appLocale} existingPlan={plansByCourse[course.manifest.id]} onSave={saveLearningPlan} onStart={openLesson} onCancel={() => setLearningView(recordsByCourse[course.manifest.id] ? "dashboard" : "library")} />{productGuide}</>;
   }
   if (learningView === "dashboard") {
-    return <><LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} languagePack={currentLanguage} record={currentRecord} learningPlan={learningContext === "learn" ? plansByCourse[course.manifest.id] : undefined} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onOpenPlan={learningContext === "learn" ? () => setLearningView("plan") : undefined} onOpenHelp={() => openProductGuide(learningContext === "preview" ? "studio" : "learn")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />{productGuide}</>;
+    return <><LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} languagePack={currentLanguage} record={currentRecord} learningPlan={currentPlan} agenda={currentAgenda} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onOpenPlan={learningContext === "learn" ? () => setLearningView("plan") : undefined} onOpenHelp={() => openProductGuide(learningContext === "preview" ? "studio" : "learn")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />{productGuide}</>;
   }
   if (learningView === "lesson" && selectedProgress) {
     return <><LearningPlayer course={course} languagePack={currentLanguage} locale={appLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />{productGuide}</>;

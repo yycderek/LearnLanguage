@@ -192,6 +192,10 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(dashboard, /onOpenHelp/);
   assert.match(dashboard, /learning-plan-summary-card/);
   assert.match(dashboard, /个人学习计划/);
+  assert.match(dashboard, /今天学什么/);
+  assert.match(dashboard, /本周实际进度/);
+  assert.match(dashboard, /adaptive-agenda-card/);
+  assert.match(studio, /courseAdaptiveAgenda/);
   assert.match(dashboard, /uiText\(locale/);
   assert.doesNotMatch(dashboard, /onTeachingLocaleChange|onUiLocaleChange/);
   assert.match(dashboard, /displayText\(course\.manifest\.title, teachingLocale\)/);

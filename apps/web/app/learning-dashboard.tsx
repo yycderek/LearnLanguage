@@ -5,6 +5,7 @@ import {
   ArrowRight,
   BarChart3,
   BookOpen,
+  CalendarCheck2,
   Check,
   CircleHelp,
   Clock3,
@@ -23,6 +24,7 @@ import {
   UserRound,
 } from "lucide-react";
 import type { LearningPlan } from "@learn-language/application";
+import type { AdaptiveLearningAgenda } from "@learn-language/application/adaptive-agenda";
 import { displayText, type CoursePack } from "@/lib/course";
 import { dateLocale, uiText, type AppLocale } from "@/lib/i18n";
 import type { LanguagePack } from "@/lib/language-pack";
@@ -46,6 +48,7 @@ export function LearningDashboard({
   languagePack,
   record,
   learningPlan,
+  agenda,
   locale = "zh-CN",
   onLocaleChange,
   preview = false,
@@ -62,6 +65,7 @@ export function LearningDashboard({
   languagePack?: LanguagePack;
   record?: CourseLearningRecord;
   learningPlan?: LearningPlan;
+  agenda?: AdaptiveLearningAgenda;
   locale?: AppLocale;
   onLocaleChange?: (locale: AppLocale) => void;
   preview?: boolean;
@@ -76,12 +80,16 @@ export function LearningDashboard({
   const teachingLocale = locale;
   const uiLocale = locale;
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
-  const due = record ? reviewsDue(record) : [];
+  const due = record ? reviewsDue(record).sort((left, right) => Date.parse(left.dueAt) - Date.parse(right.dueAt)) : [];
   const dueIds = new Set(due.map((task) => task.id));
   const completedLessons = course.lessons.filter((lesson) => record?.completedLessonIds.includes(lesson.id));
   const ongoing = course.lessons.find((lesson) => record?.lessonProgress[lesson.id]?.status === "active");
+  const agendaLessonItem = agenda?.items.find((item) => item.kind !== "review");
+  const agendaLesson = agendaLessonItem && "lessonId" in agendaLessonItem
+    ? course.lessons.find((lesson) => lesson.id === agendaLessonItem.lessonId)
+    : undefined;
   const firstIncompleteIndex = course.lessons.findIndex((lesson, index) => lessonIsUnlocked(course, record, index) && !record?.completedLessonIds.includes(lesson.id));
-  const focusLesson = ongoing ?? course.lessons[firstIncompleteIndex >= 0 ? firstIncompleteIndex : Math.max(0, course.lessons.length - 1)];
+  const focusLesson = ongoing ?? agendaLesson ?? course.lessons[firstIncompleteIndex >= 0 ? firstIncompleteIndex : Math.max(0, course.lessons.length - 1)];
   const focusProgress = focusLesson ? record?.lessonProgress[focusLesson.id] : undefined;
   const focusCompleted = focusLesson ? record?.completedLessonIds.includes(focusLesson.id) === true : false;
   const focusStages = focusLesson ? buildLearnerStages(
@@ -155,6 +163,46 @@ export function LearningDashboard({
               <div><small>{c("可选设置", "OPTIONAL SETUP")}</small><strong>{c("还没有个人学习计划", "No personal learning plan yet")}</strong><span>{c("选择目标与节奏，也可以做一次不计成绩的基础检查。", "Choose a goal and pace, with an optional ungraded foundation check.")}</span></div>
               <button type="button" onClick={onOpenPlan}>{c("设置计划", "Set a plan")}<ArrowRight size={14} /></button>
             </>}
+          </section>
+        )}
+
+        {!preview && agenda && (
+          <section className={`adaptive-agenda-card ${agenda.status}`} aria-labelledby="today-agenda-title">
+            <header>
+              <div className="adaptive-agenda-heading">
+                <span><CalendarCheck2 size={21} /></span>
+                <div><small>{c("今日自适应安排", "TODAY'S ADAPTIVE PLAN")}</small><h2 id="today-agenda-title">{c("今天学什么", "What to learn today")}</h2></div>
+              </div>
+              <em>{agenda.status === "course-complete" ? c("课程已完成", "Course complete") : agenda.status === "target-met" ? c("本周目标已完成", "Weekly target met") : c(`今日 ${agenda.today.completedMinutes}/${agenda.today.targetMinutes} 分钟`, `${agenda.today.completedMinutes}/${agenda.today.targetMinutes} min today`)}</em>
+            </header>
+            <div className="adaptive-week-progress">
+              <div><span>{c("本周实际进度", "Actual progress this week")}</span><strong>{c(`${agenda.week.completedMinutes}/${agenda.week.targetMinutes} 分钟 · ${agenda.week.completedLessonCount}/${agenda.week.targetLessonCount} 课节`, `${agenda.week.completedMinutes}/${agenda.week.targetMinutes} min · ${agenda.week.completedLessonCount}/${agenda.week.targetLessonCount} lessons`)}</strong></div>
+              <div className="adaptive-progress-track" role="progressbar" aria-label={c("本周计划完成度", "Weekly plan progress")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={agenda.week.percent}><span style={{ width: `${agenda.week.percent}%` }} /></div>
+            </div>
+            <div className="adaptive-agenda-items">
+              {agenda.items.map((item) => {
+                if (item.kind === "review") return (
+                  <article key="review">
+                    <span><RotateCcw size={18} /></span>
+                    <div><small>{c("优先任务", "PRIORITY")}</small><strong>{c(`复习 ${item.taskCount} 个知识点`, `Review ${item.taskCount} knowledge items`)}</strong><p>{c(`根据到期时间安排 · 约 ${item.estimatedMinutes} 分钟`, `Scheduled by due time · about ${item.estimatedMinutes} min`)}</p></div>
+                    <button type="button" onClick={() => onStartReview(due.slice(0, item.taskCount))}>{c("开始复习", "Start review")}<ArrowRight size={14} /></button>
+                  </article>
+                );
+                const lesson = course.lessons.find((candidate) => candidate.id === item.lessonId);
+                if (!lesson) return null;
+                return (
+                  <article key={item.lessonId}>
+                    <span><BookOpen size={18} /></span>
+                    <div><small>{item.kind === "continue-lesson" ? c("继续上次进度", "RESUME") : c("下一课", "NEXT LESSON")}</small><strong>{displayText(lesson.title, teachingLocale)}</strong><p>{c(`建议安排约 ${item.estimatedMinutes} 分钟`, `Plan about ${item.estimatedMinutes} min`)}</p></div>
+                    <button type="button" onClick={() => onStartLesson(item.lessonId)}>{item.kind === "continue-lesson" ? c("继续课节", "Continue") : c("开始课节", "Start")}<ArrowRight size={14} /></button>
+                  </article>
+                );
+              })}
+              {agenda.items.length === 0 && (
+                <div className="adaptive-agenda-complete"><Sparkles size={20} /><div><strong>{agenda.status === "course-complete" ? c("这门课程已完成", "You completed this course") : c("本周目标已完成", "Weekly target complete")}</strong><p>{c("可以自由复习或继续学习；错过某一天不会扣减进度。", "Review or keep learning freely; missing a day never reduces progress.")}</p></div></div>
+              )}
+            </div>
+            <footer>{c("安排由课节用时、完成记录和到期复习自动调整。", "The plan adapts from lesson time, completions, and due reviews.")}</footer>
           </section>
         )}
 

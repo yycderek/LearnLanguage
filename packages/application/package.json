@@ -24,6 +24,10 @@
     "./learning-plan": {
       "types": "./src/learning-plan.ts",
       "default": "./src/learning-plan.ts"
+    },
+    "./adaptive-agenda": {
+      "types": "./src/adaptive-agenda.ts",
+      "default": "./src/adaptive-agenda.ts"
     }
   },
   "dependencies": {

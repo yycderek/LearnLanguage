@@ -147,10 +147,14 @@ test("first course start saves an optional personal plan before entering the lea
 
   await expect(page.getByText("本课学习地图")).toBeVisible();
   await expect(page.getByText("个人学习计划")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天学什么" })).toBeVisible();
+  await expect(page.locator(".adaptive-agenda-card")).toContainText("本周实际进度");
   await expect(page.getByRole("navigation", { name: "学习导航" })).toBeVisible();
   await page.reload();
   await expect(page.getByText("本课学习地图")).toBeVisible();
   await expect(page.getByText("个人学习计划")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天学什么" })).toBeVisible();
+  await expect(page.locator(".adaptive-agenda-card")).toContainText("本周实际进度");
   await expectResponsiveDocument(page);
   expect(problems).toEqual([]);
 });
