@@ -6,6 +6,7 @@ import type {
   LocalizedText,
   Utterance,
 } from "@learn-language/protocol";
+import { englishStarterCourse } from "./english-starter-course.ts";
 
 const l = (chinese: string, english: string): LocalizedText => ({ "zh-CN": chinese, en: english });
 const target = (value: string): LocalizedText => ({ "zh-CN": value, en: value, native: value });
@@ -446,9 +447,10 @@ function cantoneseCourse(): CoursePack {
   return baseCourse({ languageId: "yue-Hant-HK", adapterId: "core.cantonese", targetName: "粤语", englishTargetName: "Cantonese", knowledge, utterances, exercises, lessons });
 }
 
-export const bundledStarterLanguageIds = ["ja", "yue-Hant-HK"] as const;
+export const bundledStarterLanguageIds = ["en", "ja", "yue-Hant-HK"] as const;
 
 export function bundledStarterCourse(languageId: string): CoursePack | undefined {
+  if (languageId === "en") return englishStarterCourse();
   if (languageId === "ja") return japaneseCourse();
   if (languageId === "yue-Hant-HK") return cantoneseCourse();
   return undefined;

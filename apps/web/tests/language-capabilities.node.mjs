@@ -56,7 +56,8 @@ test("every bundled course passes the language runtime installation gate", () =>
 });
 
 test("missing packs and adapter version mismatches block a published course", () => {
-  const course = bundledCatalogCourses()[0];
+  const course = bundledCatalogCourses().find((item) => item.manifest.languageId === "ja");
+  assert.ok(course);
   assert.equal(assessCourseLanguageCompatibility(course, undefined).status, "blocked");
 
   const pack = structuredClone(builtInLanguagePacks.find((item) => item.id === course.manifest.languageId));

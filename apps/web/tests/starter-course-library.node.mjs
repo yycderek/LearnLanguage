@@ -26,10 +26,10 @@ function reachableStepIds(lesson) {
   return visited;
 }
 
-test("the bundled library contains progressive Japanese and Cantonese zero-beginner courses", () => {
-  assert.deepEqual(bundledStarterLanguageIds, ["ja", "yue-Hant-HK"]);
+test("the bundled library contains progressive English, Japanese, and Cantonese zero-beginner courses", () => {
+  assert.deepEqual(bundledStarterLanguageIds, ["en", "ja", "yue-Hant-HK"]);
   const courses = bundledStarterCourses();
-  assert.equal(courses.length, 2);
+  assert.equal(courses.length, 3);
 
   for (const course of courses) {
     assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
@@ -137,8 +137,18 @@ test("A1 courses include denser vocabulary and short-text information extraction
 });
 
 test("foundation lessons cover each language's writing or romanization system before scenarios", () => {
-  const [japanese, cantonese] = bundledStarterCourses();
+  const courses = bundledStarterCourses();
+  const english = courses.find((course) => course.manifest.languageId === "en");
+  const japanese = courses.find((course) => course.manifest.languageId === "ja");
+  const cantonese = courses.find((course) => course.manifest.languageId === "yue-Hant-HK");
+  assert.ok(english && japanese && cantonese);
 
+  assert.deepEqual(english.lessons.slice(0, 4).map((lesson) => lesson.id), [
+    "alphabet-and-case",
+    "pronouns-and-be",
+    "basic-word-order",
+    "greeting-and-identity",
+  ]);
   assert.deepEqual(japanese.lessons.slice(0, 4).map((lesson) => lesson.id), [
     "writing-and-vowels",
     "hiragana-core",
@@ -150,6 +160,13 @@ test("foundation lessons cover each language's writing or romanization system be
     "jyutping-finals",
     "jyutping-tones",
     "greeting-and-identity",
+  ]);
+  assert.deepEqual(english.lessons.slice(4, 9).map((lesson) => lesson.id), [
+    "numbers-and-time",
+    "places-and-questions",
+    "shopping-and-prices",
+    "transport-and-directions",
+    "help-and-clarification",
   ]);
   assert.deepEqual(japanese.lessons.slice(4, 9).map((lesson) => lesson.id), [
     "greeting-and-identity",
@@ -165,14 +182,19 @@ test("foundation lessons cover each language's writing or romanization system be
     "transport-and-directions",
     "help-and-negation",
   ]);
+  assert.equal(english.lessons[9].id, "basic-order");
   assert.equal(japanese.lessons[9].id, "basic-order");
   assert.equal(cantonese.lessons[9].id, "basic-order");
+  assert.equal(english.manifest.languageAdapter.id, "core.generic");
 
+  const englishTags = new Set(english.knowledge.flatMap((item) => item.tags ?? []));
   const japaneseTags = new Set(japanese.knowledge.flatMap((item) => item.tags ?? []));
   const cantoneseTags = new Set(cantonese.knowledge.flatMap((item) => item.tags ?? []));
+  for (const tag of ["foundation", "writing-system", "alphabet", "capitalization", "grammar"]) assert.ok(englishTags.has(tag), `English needs ${tag}`);
   for (const tag of ["foundation", "writing-system", "hiragana", "kana-pattern", "katakana"]) assert.ok(japaneseTags.has(tag), `Japanese needs ${tag}`);
   for (const tag of ["foundation", "writing-system", "jyutping", "tone", "grammar"]) assert.ok(cantoneseTags.has(tag), `Cantonese needs ${tag}`);
 
+  assert.ok(english.exercises.some((exercise) => exercise.acceptedAnswers?.includes("How do you spell your name?")));
   assert.ok(japanese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("がっこう")));
   assert.ok(cantonese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("ngo5")));
   assert.ok(cantonese.exercises.some((exercise) => exercise.acceptedAnswers?.includes("si6")));
@@ -180,6 +202,7 @@ test("foundation lessons cover each language's writing or romanization system be
 });
 
 test("sampleCourse selects bundled content while custom languages receive an editable scaffold", () => {
+  assert.equal(sampleCourse("en").lessons[0].id, "alphabet-and-case");
   assert.equal(sampleCourse("ja").lessons[0].id, "writing-and-vowels");
   assert.equal(sampleCourse("yue-Hant-HK").lessons[2].id, "jyutping-tones");
 

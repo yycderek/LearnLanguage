@@ -9,7 +9,8 @@ import {
 } from "../lib/course-file.ts";
 
 test("a published course file survives an export and import round trip", async () => {
-  const course = bundledCatalogCourses()[0];
+  const course = bundledCatalogCourses().find((item) => item.manifest.languageId === "ja");
+  assert.ok(course);
   const serialized = serializeCourseFile(course);
   assert.ok(serialized.endsWith("\n"));
   const result = await parseCourseFile(serialized);
@@ -20,7 +21,8 @@ test("a published course file survives an export and import round trip", async (
 });
 
 test("draft, malformed, and tampered course files are rejected", async () => {
-  const course = bundledCatalogCourses()[0];
+  const course = bundledCatalogCourses().find((item) => item.manifest.languageId === "ja");
+  assert.ok(course);
   const draft = structuredClone(course);
   draft.manifest.status = "draft";
   delete draft.manifest.contentHash;
@@ -36,7 +38,8 @@ test("draft, malformed, and tampered course files are rejected", async () => {
 });
 
 test("export filenames remove unsafe path characters", () => {
-  const course = bundledCatalogCourses()[0];
+  const course = bundledCatalogCourses().find((item) => item.manifest.languageId === "ja");
+  assert.ok(course);
   course.manifest.id = "../../unsafe course";
   course.manifest.version = "1.0.0 / preview";
   assert.equal(courseFileName(course), "unsafe-course-1.0.0-preview.course.json");

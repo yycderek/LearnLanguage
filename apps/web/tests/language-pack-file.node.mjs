@@ -10,7 +10,8 @@ import {
 } from "../lib/language-pack-file.ts";
 
 test("a Language Pack survives an export and import round trip", () => {
-  const pack = builtInLanguagePacks[0];
+  const pack = builtInLanguagePacks.find((item) => item.id === "ja");
+  assert.ok(pack);
   const serialized = serializeLanguagePackFile(pack);
   const parsed = parseLanguagePackFile(serialized);
   assert.equal(parsed.error, undefined);
@@ -20,22 +21,24 @@ test("a Language Pack survives an export and import round trip", () => {
 });
 
 test("Language Pack files reject ambiguous scripts and invalid adapters", () => {
-  const duplicateScript = structuredClone(builtInLanguagePacks[0]);
+  const japanese = builtInLanguagePacks.find((item) => item.id === "ja");
+  assert.ok(japanese);
+  const duplicateScript = structuredClone(japanese);
   duplicateScript.id = "duplicate-script";
   duplicateScript.scripts.push(structuredClone(duplicateScript.scripts[0]));
   assert.match(parseLanguagePackFile(JSON.stringify(duplicateScript)).error, /code 重复/u);
 
-  const twoPrimary = structuredClone(builtInLanguagePacks[0]);
+  const twoPrimary = structuredClone(japanese);
   twoPrimary.id = "two-primary";
   twoPrimary.scripts.push({ code: "Latn", name: { en: "Latin" }, direction: "ltr", primary: true });
   assert.match(parseLanguagePackFile(JSON.stringify(twoPrimary)).error, /只能有一种主要书写系统/u);
 
-  const missingAdapter = structuredClone(builtInLanguagePacks[0]);
+  const missingAdapter = structuredClone(japanese);
   missingAdapter.id = "missing-adapter";
   delete missingAdapter.adapter;
   assert.match(parseLanguagePackFile(JSON.stringify(missingAdapter)).error, /需要 adapter 定义/u);
 
-  const unknownCapability = structuredClone(builtInLanguagePacks[0]);
+  const unknownCapability = structuredClone(japanese);
   unknownCapability.id = "unknown-capability";
   unknownCapability.adapter.capabilities.push("speech-scoring");
   assert.match(parseLanguagePackFile(JSON.stringify(unknownCapability)).error, /不受支持的能力/u);

@@ -54,7 +54,7 @@ const learnSteps: GuideStep[] = [
   {
     eyebrow: ["开始学习", "START LEARNING"],
     title: ["选择一门课程，一次点击开始学习", "Choose a course and start in one click"],
-    description: ["内置日语和粤语课程可以直接开始。系统会自动安装并进入当前应学课节；课程和进度保存在当前浏览器。", "The built-in Japanese and Cantonese courses can start immediately. The app installs the course and opens the right lesson; course data and progress stay in this browser."],
+    description: ["内置英语、日语和粤语课程可以直接开始。系统会自动安装并进入当前应学课节；课程和进度保存在当前浏览器。", "The built-in English, Japanese, and Cantonese courses can start immediately. The app installs the course and opens the right lesson; course data and progress stay in this browser."],
     icon: Library,
     items: [
       { icon: Library, title: ["1. 选择并开始", "1. Choose and start"], body: ["在课程库点击“一键开始学习”，系统会自动安装并进入当前应学课节。", "Choose Start learning in the course library to install the course and enter the right lesson automatically."] },

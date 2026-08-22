@@ -12,7 +12,8 @@ import { createCourseLearningRecord, startLearning, updateCourseLearningRecord }
 
 test("bundled catalog courses are immutable installable Course Packs", async () => {
   const catalog = bundledCatalogCourses();
-  assert.equal(catalog.length, 2);
+  assert.equal(catalog.length, 3);
+  assert.deepEqual(catalog.map((course) => course.manifest.languageId), ["en", "ja", "yue-Hant-HK"]);
   for (const course of catalog) {
     assert.equal(course.manifest.status, "published");
     assert.equal(course.manifest.visibility, "official");
