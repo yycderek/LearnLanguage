@@ -1472,3 +1472,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .learning-plan-summary-card { margin: 12px; grid-template-columns: auto 1fr; }
   .learning-plan-summary-card > button { grid-column: 1 / -1; width: 100%; }
 }
+
+
+/* Global accessibility and offline state */
+.skip-link { position: fixed; top: 10px; left: 10px; z-index: 10000; padding: 10px 14px; transform: translateY(-180%); border: 2px solid var(--primary); border-radius: 8px; color: var(--navy); background: #fff; font-size: 12px; font-weight: 800; }
+.skip-link:focus { transform: translateY(0); }
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 3px solid #785ff5; outline-offset: 3px; }
+.offline-status { position: fixed; right: 14px; bottom: 14px; z-index: 9999; padding: 9px 13px; border: 1px solid #d8d2ff; border-radius: 999px; color: #342b76; background: #f5f3ff; box-shadow: 0 8px 24px rgba(36,43,55,.14); font-size: 11px; font-weight: 800; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

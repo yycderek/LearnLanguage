@@ -71,6 +71,7 @@ export function CourseLibrary({
   onCreateCourse,
   onExport,
   recordCount,
+  planCount,
   onExportProfile,
   onImportProfile,
   syncSettings,
@@ -96,6 +97,7 @@ export function CourseLibrary({
   onCreateCourse: () => void;
   onExport: (entry: CourseLibraryEntry) => void;
   recordCount: number;
+  planCount: number;
   onExportProfile: () => void;
   onImportProfile: (file: File) => void;
   syncSettings: DeviceSyncSettings;
@@ -134,7 +136,7 @@ export function CourseLibrary({
 
       <section className="course-library-toolbar">
         <div><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>{c("全部课程", "All courses")}</button><button className={filter === "installed" ? "active" : ""} onClick={() => setFilter("installed")}>{c("我的课程", "My courses")}</button></div>
-        <p><ShieldCheck size={14} />{notice ?? c("选择课程即可开始；课程来源与内容完整性会自动校验", "Choose a course to begin; its source and content integrity are checked automatically")}</p>
+        <p role="status" aria-live="polite"><ShieldCheck size={14} />{notice ?? c("选择课程即可开始；课程来源与内容完整性会自动校验", "Choose a course to begin; its source and content integrity are checked automatically")}</p>
       </section>
 
       {visibleEntries.length === 0 ? (
@@ -186,7 +188,7 @@ export function CourseLibrary({
           </section>
 
           <section className="learner-backup-bar">
-            <div><span><DatabaseBackup size={18} /></span><p><strong>{c("学习档案备份", "Learning profile backup")}</strong><small>{c(`包含 ${recordCount} 门课程的已完成课节、掌握度和复习计划；不包含作答内容、进行中步骤、课程内容、草稿或 AI 设置。`, `Includes completed lessons, mastery, and reviews for ${recordCount} courses; excludes answers, in-progress steps, course content, drafts, and AI settings.`)}</small></p></div>
+            <div><span><DatabaseBackup size={18} /></span><p><strong>{c("学习档案备份", "Learning profile backup")}</strong><small>{c(`包含 ${recordCount} 门课程的已完成课节、掌握度、复习安排和 ${planCount} 个个人学习计划；不包含作答内容、进行中步骤、课程内容、草稿或 AI 设置。`, `Includes completed lessons, mastery, reviews for ${recordCount} courses, and ${planCount} personal plans; excludes answers, in-progress steps, course content, drafts, and AI settings.`)}</small></p></div>
             <aside><button onClick={onExportProfile}><FileDown size={14} />{c("导出学习档案", "Export profile")}</button><label><ArchiveRestore size={14} />{c("恢复学习档案", "Restore profile")}<input type="file" accept=".json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportProfile(file); event.target.value = ""; }} /></label></aside>
           </section>
 
@@ -198,7 +200,7 @@ export function CourseLibrary({
               <label><span>{c("访问令牌（可选）", "Access token (optional)")}</span><input type="password" value={syncToken} onChange={(event) => onSyncTokenChange(event.target.value)} autoComplete="off" placeholder={c("只保留到标签页关闭", "Cleared when this tab closes")} /></label>
               <button onClick={onSync} disabled={syncStatus.state === "syncing"}><RefreshCw size={14} />{c("立即同步", "Sync now")}</button>
             </div>
-            {syncStatus.message && <p className={`sync-message ${syncStatus.state}`}>{syncStatus.message}</p>}
+            {syncStatus.message && <p role="status" aria-live="polite" className={`sync-message ${syncStatus.state}`}>{syncStatus.message}</p>}
             {syncStatus.state === "conflict" && <div className="sync-conflict-actions"><button onClick={() => onResolveSync("keep-local")}>{c("保留本机修改", "Keep this device")}</button><button onClick={() => onResolveSync("use-remote")}>{c("使用服务端版本", "Use server version")}</button></div>}
           </section>
         </div>

@@ -897,11 +897,12 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
 
   function exportLearnerProfile() {
     const records = Object.values(recordsByCourse);
-    if (records.length === 0) {
+    const plans = Object.values(plansByCourse);
+    if (records.length === 0 && plans.length === 0) {
       setNotice(t("还没有可备份的学习记录", "There is no learning progress to back up yet"));
       return;
     }
-    const backup = createLearnerBackup(records);
+    const backup = createLearnerBackup(records, plans);
     const blob = new Blob([serializeLearnerBackup(backup)], { type: "application/json;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -911,7 +912,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     anchor.click();
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
-    setNotice(t(`已导出 ${records.length} 门课程的学习档案；未包含课程内容和 AI 设置`, `Exported learning records for ${records.length} courses without course content or AI settings`));
+    setNotice(t(`已导出 ${records.length} 门课程记录和 ${plans.length} 个个人计划；未包含课程内容和 AI 设置`, `Exported ${records.length} course records and ${plans.length} personal plans without course content or AI settings`));
   }
 
   async function importLearnerProfile(file: File) {
@@ -928,11 +929,15 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         setNotice(message);
         return;
       }
-      const merged = await profileBackupApplication.restore(parsed.records);
+      const [merged, restoredPlans] = await Promise.all([
+        profileBackupApplication.restore(parsed.records),
+        learningPlanApplication.restore(parsed.plans ?? []),
+      ]);
       setRecordsByCourse(merged.records);
+      setPlansByCourse(restoredPlans.plans);
       setNotice(t(
-        `学习档案已恢复：新增 ${merged.added}，更新 ${merged.replaced}，保留较新的本地记录 ${merged.skipped}。进行中的课节会从头开始。`,
-        `Learning profile restored: ${merged.added} added, ${merged.replaced} updated, ${merged.skipped} newer local records kept. In-progress lessons restart from the beginning.`,
+        `学习档案已恢复：课程记录新增 ${merged.added}、更新 ${merged.replaced}；个人计划新增 ${restoredPlans.added}、更新 ${restoredPlans.replaced}。进行中的课节会从头开始。`,
+        `Learning profile restored: ${merged.added} course records added, ${merged.replaced} updated; ${restoredPlans.added} personal plans added, ${restoredPlans.replaced} updated. In-progress lessons restart from the beginning.`,
       ));
     } catch {
       setNotice(t("无法读取学习档案", "The learning profile could not be read"));
@@ -1547,7 +1552,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const productGuide = <ProductGuide key={`${guideAudience}:${guideOpen ? "open" : "closed"}`} open={guideOpen} audience={guideAudience} locale={appLocale} onClose={closeProductGuide} />;
 
   if (learningView === "library") {
-    return <><CourseLibrary entries={courseLibrary} languagePacks={languagePacks} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onOpenHelp={() => openProductGuide("learn")} onBack={returnToLearningHome} onStart={(entry) => void startLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onCreateCourse={() => window.location.assign("/studio")} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />{productGuide}</>;
+    return <><CourseLibrary entries={courseLibrary} languagePacks={languagePacks} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onOpenHelp={() => openProductGuide("learn")} onBack={returnToLearningHome} onStart={(entry) => void startLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onCreateCourse={() => window.location.assign("/studio")} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} planCount={Object.keys(plansByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />{productGuide}</>;
   }
   if (learningView === "drafts") {
     return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />{productGuide}</>;

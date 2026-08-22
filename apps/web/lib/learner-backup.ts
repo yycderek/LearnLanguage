@@ -1,3 +1,4 @@
+import { normalizeLearningPlan, type LearningPlan } from "@learn-language/application/learning-plan";
 import type {
   CourseLearningRecord,
   KnowledgeProgress,
@@ -7,7 +8,7 @@ import type {
   ReviewTask,
 } from "./learning.ts";
 
-export const LEARNER_BACKUP_SCHEMA_VERSION = 1 as const;
+export const LEARNER_BACKUP_SCHEMA_VERSION = 2 as const;
 export const MAX_LEARNER_BACKUP_BYTES = 5 * 1024 * 1024;
 const BACKUP_KIND = "learn-language-learner-backup" as const;
 const masteryLevels: MasteryLevel[] = ["encountered", "comprehended", "prompted-output", "independent-output", "delayed-transfer"];
@@ -29,6 +30,7 @@ export interface LearnerBackup {
   schemaVersion: typeof LEARNER_BACKUP_SCHEMA_VERSION;
   exportedAt: string;
   records: BackupCourseRecord[];
+  plans: LearningPlan[];
 }
 
 export type LearnerBackupError = "invalid-json" | "invalid-backup" | "unsupported-version";
@@ -149,12 +151,19 @@ function restoredRecord(record: BackupCourseRecord): CourseLearningRecord {
   };
 }
 
-export function createLearnerBackup(records: CourseLearningRecord[], exportedAt = new Date().toISOString()): LearnerBackup {
+export function createLearnerBackup(
+  records: CourseLearningRecord[],
+  plansOrExportedAt: LearningPlan[] | string = [],
+  exportedAt = new Date().toISOString(),
+): LearnerBackup {
+  const plans = typeof plansOrExportedAt === "string" ? [] : plansOrExportedAt;
+  const backupDate = typeof plansOrExportedAt === "string" ? plansOrExportedAt : exportedAt;
   return {
     kind: BACKUP_KIND,
     schemaVersion: LEARNER_BACKUP_SCHEMA_VERSION,
-    exportedAt,
+    exportedAt: backupDate,
     records: records.map(recordForBackup).sort((left, right) => left.courseId.localeCompare(right.courseId)),
+    plans: plans.map((plan) => structuredClone(plan)).sort((left, right) => left.courseId.localeCompare(right.courseId)),
   };
 }
 
@@ -167,18 +176,24 @@ export function learnerBackupFileName(exportedAt: string) {
   return `learnlanguage-progress-${date}.json`;
 }
 
-export function parseLearnerBackup(text: string): { records?: CourseLearningRecord[]; exportedAt?: string; error?: LearnerBackupError } {
+export function parseLearnerBackup(text: string): { records?: CourseLearningRecord[]; plans?: LearningPlan[]; exportedAt?: string; error?: LearnerBackupError } {
   let value: unknown;
   try { value = JSON.parse(text); }
   catch { return { error: "invalid-json" }; }
   if (!objectValue(value) || value.kind !== BACKUP_KIND || !Array.isArray(value.records) || !validDate(value.exportedAt)) return { error: "invalid-backup" };
-  if (value.schemaVersion !== LEARNER_BACKUP_SCHEMA_VERSION) return { error: "unsupported-version" };
+  if (value.schemaVersion !== 1 && value.schemaVersion !== LEARNER_BACKUP_SCHEMA_VERSION) return { error: "unsupported-version" };
   if (value.records.length > 1_000) return { error: "invalid-backup" };
   const cleaned = value.records.map(cleanBackupRecord);
   if (cleaned.some((item) => !item)) return { error: "invalid-backup" };
   const records = (cleaned as BackupCourseRecord[]).map(restoredRecord);
   if (new Set(records.map((record) => record.courseId)).size !== records.length) return { error: "invalid-backup" };
-  return { records, exportedAt: value.exportedAt };
+  const planValues = value.schemaVersion === 1 ? [] : value.plans;
+  if (!Array.isArray(planValues) || planValues.length > 1_000) return { error: "invalid-backup" };
+  const plans = planValues.map(normalizeLearningPlan);
+  if (plans.some((plan) => !plan)) return { error: "invalid-backup" };
+  const validPlans = plans as LearningPlan[];
+  if (new Set(validPlans.map((plan) => plan.courseId)).size !== validPlans.length) return { error: "invalid-backup" };
+  return { records, plans: validPlans, exportedAt: value.exportedAt };
 }
 
 export function mergeLearnerRecords(

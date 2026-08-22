@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createLearningPlan } from "@learn-language/application/learning-plan";
 import { sampleCourse } from "../lib/course.ts";
 import {
   createLearnerBackup,
@@ -27,6 +28,16 @@ function learningRecord(courseIdSuffix = "", updatedAt = "2026-08-11T10:00:00.00
   record.reviewEvents.push({ id: "review-event", taskId: "review-task", knowledgeItemId: course.knowledge[0].id, result: "remembered", occurredAt: updatedAt });
   record.apiKey = "must-not-be-exported";
   return record;
+}
+
+function learningPlan(updatedAt = "2026-08-11T10:00:00.000Z") {
+  return createLearningPlan(sampleCourse("ja"), {
+    motivation: "daily-life",
+    minutesPerDay: 20,
+    daysPerWeek: 5,
+    placementMode: "skipped",
+    occurredAt: updatedAt,
+  });
 }
 
 test("learner backups include durable learning projections but exclude answers and settings", () => {
@@ -66,6 +77,20 @@ test("restore keeps newer local records and accepts newer or missing backup reco
   assert.equal(merged.records[added.courseId].updatedAt, added.updatedAt);
 });
 
+test("learner backups include personal plans and remain compatible with version 1", () => {
+  const plan = learningPlan();
+  const backup = createLearnerBackup([learningRecord()], [plan], "2026-08-11T11:00:00.000Z");
+  const parsed = parseLearnerBackup(serializeLearnerBackup(backup));
+  assert.deepEqual(parsed.plans, [plan]);
+
+  const legacy = structuredClone(backup);
+  legacy.schemaVersion = 1;
+  delete legacy.plans;
+  const parsedLegacy = parseLearnerBackup(JSON.stringify(legacy));
+  assert.equal(parsedLegacy.error, undefined);
+  assert.deepEqual(parsedLegacy.plans, []);
+});
+
 test("damaged, duplicate, and unsupported backup files are rejected", () => {
   assert.equal(parseLearnerBackup("not json").error, "invalid-json");
   assert.equal(parseLearnerBackup(JSON.stringify({ kind: "wrong", schemaVersion: 1, exportedAt: "2026-08-11T10:00:00.000Z", records: [] })).error, "invalid-backup");
@@ -83,4 +108,11 @@ test("damaged, duplicate, and unsupported backup files are rejected", () => {
   const duplicateKnowledge = createLearnerBackup([record]);
   duplicateKnowledge.records[0].mastery.push(structuredClone(duplicateKnowledge.records[0].mastery[0]));
   assert.equal(parseLearnerBackup(JSON.stringify(duplicateKnowledge)).error, "invalid-backup");
+
+  const duplicatePlan = createLearnerBackup([record], [learningPlan(), learningPlan()]);
+  assert.equal(parseLearnerBackup(JSON.stringify(duplicatePlan)).error, "invalid-backup");
+
+  const invalidPlan = createLearnerBackup([record], [learningPlan()]);
+  invalidPlan.plans[0].minutesPerDay = 0;
+  assert.equal(parseLearnerBackup(JSON.stringify(invalidPlan)).error, "invalid-backup");
 });

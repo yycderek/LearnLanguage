@@ -20,6 +20,10 @@
     "./trust": {
       "types": "./src/trust.ts",
       "default": "./src/trust.ts"
+    },
+    "./learning-plan": {
+      "types": "./src/learning-plan.ts",
+      "default": "./src/learning-plan.ts"
     }
   },
   "dependencies": {

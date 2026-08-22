@@ -318,3 +318,22 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(css, /\.draft-library-toolbar > label[^}]*background: var\(--primary\)/);
   assert.doesNotMatch(`${page}${studio}`, /Your site is taking shape|SkeletonPreview/);
 });
+
+
+test("build includes the offline shell and accessibility baseline", async () => {
+  const [layout, offlineReady, serviceWorker, manifest, css] = await Promise.all([
+    readFile(new URL("app/layout.tsx", root), "utf8"),
+    readFile(new URL("app/offline-ready.tsx", root), "utf8"),
+    readFile(new URL("public/sw.js", root), "utf8"),
+    readFile(new URL("public/manifest.webmanifest", root), "utf8"),
+    readFile(new URL("app/globals.css", root), "utf8"),
+  ]);
+  assert.match(layout, /manifest: "\/manifest\.webmanifest"/);
+  assert.match(layout, /className="skip-link"/);
+  assert.match(layout, /id="main-content"/);
+  assert.match(offlineReady, /serviceWorker\.register\("\/sw\.js"\)/);
+  assert.match(serviceWorker, /request\.mode === "navigate"/);
+  assert.equal(JSON.parse(manifest).start_url, "/learn");
+  assert.match(css, /:focus-visible/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+});

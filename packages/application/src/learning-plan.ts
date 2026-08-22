@@ -58,6 +58,13 @@ export interface LearningPlanRepository {
   put(plan: LearningPlan): Promise<void>;
 }
 
+export interface LearningPlanRestoreResult {
+  plans: Record<string, LearningPlan>;
+  added: number;
+  replaced: number;
+  skipped: number;
+}
+
 function isDeterministicPlacementExercise(exercise: Exercise | undefined) {
   if (!exercise) return false;
   if (exercise.kind === "single-choice") return Boolean(exercise.options?.length);
@@ -163,11 +170,21 @@ export function createLearningPlan(course: CoursePack, command: CreateLearningPl
 export function normalizeLearningPlan(value: unknown): LearningPlan | undefined {
   if (!value || typeof value !== "object") return undefined;
   const plan = value as Partial<LearningPlan>;
-  if (plan.schemaVersion !== 1 || !plan.courseId || !plan.courseVersion || !plan.languageId) return undefined;
+  if (plan.schemaVersion !== 1 || !plan.courseId || !plan.courseVersion || !plan.languageId || !plan.startingLessonId) return undefined;
   if (!["travel", "daily-life", "work-study", "culture-media"].includes(plan.motivation ?? "")) return undefined;
   if (!Number.isInteger(plan.minutesPerDay) || Number(plan.minutesPerDay) < 5 || Number(plan.minutesPerDay) > 120) return undefined;
   if (!Number.isInteger(plan.daysPerWeek) || Number(plan.daysPerWeek) < 1 || Number(plan.daysPerWeek) > 7) return undefined;
-  if (!plan.placement || !plan.placement.recommendedLessonId || !plan.startingLessonId || !Number.isFinite(Date.parse(plan.updatedAt ?? ""))) return undefined;
+  if (plan.weeklyTargetMinutes !== Number(plan.minutesPerDay) * Number(plan.daysPerWeek)
+    || !Number.isInteger(plan.lessonTargetCount) || Number(plan.lessonTargetCount) < 1
+    || !Number.isInteger(plan.reviewTargetMinutes) || Number(plan.reviewTargetMinutes) < 0) return undefined;
+  const placement = plan.placement;
+  if (!placement || !["skipped", "completed"].includes(placement.mode)
+    || !Array.isArray(placement.assessedLessonIds) || !placement.assessedLessonIds.every((id) => typeof id === "string")
+    || !Array.isArray(placement.placedOutLessonIds) || !placement.placedOutLessonIds.every((id) => typeof id === "string")
+    || !Number.isInteger(placement.correctCount) || placement.correctCount < 0
+    || !Number.isInteger(placement.total) || placement.total < placement.correctCount
+    || !placement.recommendedLessonId || !Number.isFinite(Date.parse(placement.assessedAt))) return undefined;
+  if (!Number.isFinite(Date.parse(plan.createdAt ?? "")) || !Number.isFinite(Date.parse(plan.updatedAt ?? ""))) return undefined;
   return structuredClone(plan as LearningPlan);
 }
 
@@ -187,6 +204,32 @@ export class LearningPlanApplicationService {
     const plan = createLearningPlan(course, { ...command, ...(existing ? { createdAt: existing.createdAt } : {}) });
     await this.plans.put(plan);
     return plan;
+  }
+
+  async restore(incoming: readonly LearningPlan[]): Promise<LearningPlanRestoreResult> {
+    const plans = Object.fromEntries((await this.list()).map((plan) => [plan.courseId, plan]));
+    const changed: LearningPlan[] = [];
+    let added = 0;
+    let replaced = 0;
+    let skipped = 0;
+    for (const raw of incoming) {
+      const plan = normalizeLearningPlan(raw);
+      if (!plan) continue;
+      const current = plans[plan.courseId];
+      if (!current) {
+        plans[plan.courseId] = plan;
+        changed.push(plan);
+        added += 1;
+      } else if (Date.parse(plan.updatedAt) > Date.parse(current.updatedAt)) {
+        plans[plan.courseId] = plan;
+        changed.push(plan);
+        replaced += 1;
+      } else {
+        skipped += 1;
+      }
+    }
+    await Promise.all(changed.map((plan) => this.plans.put(plan)));
+    return { plans, added, replaced, skipped };
   }
 }
 

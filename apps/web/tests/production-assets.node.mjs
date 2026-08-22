@@ -33,4 +33,12 @@ test("production server exposes every asset referenced by Learn and Studio", asy
       assert.equal(response.status, 200, `${route}: ${assetPath} should be served by vinext start`);
     }
   }
+
+  const manifest = await fetch(`http://127.0.0.1:${port}/manifest.webmanifest`);
+  assert.equal(manifest.status, 200);
+  assert.equal((await manifest.json()).start_url, "/learn");
+
+  const serviceWorker = await fetch(`http://127.0.0.1:${port}/sw.js`);
+  assert.equal(serviceWorker.status, 200);
+  assert.match(await serviceWorker.text(), /learnlanguage-shell-v1/);
 });

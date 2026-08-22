@@ -1,0 +1,18 @@
+{
+  "name": "LearnLanguage",
+  "short_name": "LearnLanguage",
+  "description": "A language-neutral learning and course-authoring studio.",
+  "start_url": "/learn",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#5a48d6",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

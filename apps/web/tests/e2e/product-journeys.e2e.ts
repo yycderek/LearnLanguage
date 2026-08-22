@@ -88,6 +88,49 @@ test("first visit redirects to a styled, language-neutral Learn entry", async ({
   expect(problems).toEqual([]);
 });
 
+test("the Learn entry supports keyboard navigation and announced interface changes", async ({ page }) => {
+  await page.goto(`${origin}/learn`);
+  await dismissFirstUseGuide(page);
+  await page.reload();
+
+  await page.keyboard.press("Tab");
+  const skipLink = page.getByRole("link", { name: /跳到主要内容|Skip to main content/ });
+  await expect(skipLink).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+
+  const unlabeledFields = await page.locator("input:visible, select:visible, textarea:visible").evaluateAll((fields) => fields.filter((field) => {
+    const element = field as HTMLInputElement;
+    return !element.labels?.length && !element.getAttribute("aria-label") && !element.getAttribute("aria-labelledby");
+  }).length);
+  expect(unlabeledFields).toBe(0);
+
+  await page.locator(".course-library-tools select").selectOption("en");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+});
+
+test("the installed shell reopens Learn while offline", async ({ page, context }) => {
+  await page.goto(`${origin}/learn`);
+  await dismissFirstUseGuide(page);
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) await new Promise<void>((resolve) => navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), { once: true }));
+  });
+  await page.reload();
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "onLine", { configurable: true, get: () => false });
+  });
+
+  try {
+    await context.setOffline(true);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "从一门课程开始" })).toBeVisible();
+    await expect(page.locator(".offline-status")).toContainText("离线模式");
+  } finally {
+    await context.setOffline(false);
+  }
+});
+
 test("first course start saves an optional personal plan before entering the learning map", async ({ page }) => {
   const problems = observeBrowserProblems(page);
   await page.goto(`${origin}/learn`);

@@ -118,4 +118,17 @@ describe("client-independent learning plans", () => {
     expect(updated.updatedAt).not.toBe(first.updatedAt);
     expect((await service.list())[0]?.motivation).toBe("work-study");
   });
+
+  it("restores only newer personal plans", async () => {
+    const repository = new MemoryLearningPlanRepository();
+    const service = new LearningPlanApplicationService(repository);
+    const current = await service.create(course(), {
+      motivation: "travel", minutesPerDay: 15, daysPerWeek: 5, placementMode: "skipped", occurredAt: "2026-08-22T08:00:00.000Z",
+    });
+    const older = { ...current, motivation: "culture-media" as const, updatedAt: "2026-08-21T08:00:00.000Z" };
+    const newer = { ...current, motivation: "work-study" as const, updatedAt: "2026-08-23T08:00:00.000Z" };
+    const result = await service.restore([older, newer]);
+    expect(result).toMatchObject({ added: 0, replaced: 1, skipped: 1 });
+    expect(result.plans[current.courseId]?.motivation).toBe("work-study");
+  });
 });
