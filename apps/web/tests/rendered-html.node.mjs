@@ -5,11 +5,12 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, readme, studio, studioStart, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, deviceBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
+  const [page, learnPage, studioPage, readme, userGuide, studio, studioStart, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, deviceBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
     readFile(new URL("../../README.md", root), "utf8"),
+    readFile(new URL("../../docs/USER_GUIDE.md", root), "utf8"),
     readFile(new URL("app/course-studio.tsx", root), "utf8"),
     readFile(new URL("app/studio-start.tsx", root), "utf8"),
     readFile(new URL("app/product-guide.tsx", root), "utf8"),
@@ -47,10 +48,13 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(page, /redirect\("\/learn"\)/);
   assert.match(learnPage, /CourseStudio space="learn"/);
   assert.match(studioPage, /CourseStudio space="studio"/);
-  assert.match(readme, /五分钟快速开始/);
+  assert.match(readme, /我想学习/);
+  assert.match(readme, /我想创建课程/);
   assert.match(readme, /learnlanguage-studio\.yycderek\.chatgpt\.site\/learn/);
-  assert.match(readme, /AI 是可选的/);
-  assert.match(readme, /安装、更新与完整备份/);
+  assert.match(readme, /完整使用手册/);
+  assert.match(userGuide, /安装、更新与离线使用/);
+  assert.match(userGuide, /完整设备备份/);
+  assert.match(userGuide, /AI 与隐私/);
   assert.match(studio, /课程编辑器/);
   assert.match(studio, /可视化/);
   assert.match(studio, /基本信息/);
