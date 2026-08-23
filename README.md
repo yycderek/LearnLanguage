@@ -55,6 +55,7 @@ pnpm --dir apps/web lint
 ## 项目文档
 
 - [完整使用手册](docs/USER_GUIDE.md)
+- [产品定位与竞品基线](docs/PRODUCT_POSITIONING.md)
 - [架构设计](docs/ARCHITECTURE.md)
 - [课程格式与内置课程](docs/COURSE_LIBRARY.md)
 - [自部署指南](docs/SELF_HOSTING.md)
