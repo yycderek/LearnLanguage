@@ -28,6 +28,10 @@
     "./adaptive-agenda": {
       "types": "./src/adaptive-agenda.ts",
       "default": "./src/adaptive-agenda.ts"
+    },
+    "./product-closure": {
+      "types": "./src/product-closure.ts",
+      "default": "./src/product-closure.ts"
     }
   },
   "dependencies": {

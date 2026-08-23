@@ -34,6 +34,31 @@ export type DeviceStoreName =
   | "learningPlans"
   | "sessionEvents"
   | "effects";
+export interface DeviceDataInventory {
+  readonly counts: Readonly<Record<DeviceStoreName, number>>;
+  readonly totalItems: number;
+}
+
+export interface CourseDeviceResetPreview {
+  readonly courseId: string;
+  readonly learningRecordCount: number;
+  readonly learningPlanCount: number;
+  readonly sessionCount: number;
+  readonly effectCount: number;
+  readonly totalItems: number;
+}
+
+export interface DeviceStorageDiagnostics {
+  readonly kind: "learn-language-storage-diagnostics";
+  readonly schemaVersion: 1;
+  readonly generatedAt: string;
+  readonly available: boolean;
+  readonly databaseVersion?: number;
+  readonly storeCount?: number;
+  readonly counts?: Readonly<Record<DeviceStoreName, number>>;
+  readonly error?: { readonly name: string; readonly message: string };
+}
+
 
 const stores: readonly DeviceStoreName[] = [
   "preferences",
@@ -72,10 +97,133 @@ export function openDeviceDatabase(factory: IDBFactory = indexedDB): Promise<IDB
         if (!request.result.objectStoreNames.contains(store)) request.result.createObjectStore(store);
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("无法打开设备数据库"));
+    request.onsuccess = () => {
+      const database = request.result;
+      database.onversionchange = () => {
+        database.close();
+        databasePromise = undefined;
+      };
+      resolve(database);
+    };
+    request.onerror = () => {
+      databasePromise = undefined;
+      reject(request.error ?? new Error("Could not open the device database"));
+    };
   });
   return databasePromise;
+}
+
+
+function valueCourseId(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const courseId = (value as { courseId?: unknown }).courseId;
+  return typeof courseId === "string" ? courseId : undefined;
+}
+
+function sessionCourseId(value: unknown): string | undefined {
+  if (!Array.isArray(value)) return undefined;
+  for (const event of value) {
+    const courseId = valueCourseId(event);
+    if (courseId) return courseId;
+  }
+  return undefined;
+}
+
+async function readStoreEntries(transaction: IDBTransaction, storeName: DeviceStoreName): Promise<Array<{ key: IDBValidKey; value: unknown }>> {
+  const store = transaction.objectStore(storeName);
+  const [keys, values] = await Promise.all([requestResult(store.getAllKeys()), requestResult(store.getAll())]);
+  return keys.map((key, index) => ({ key, value: values[index] }));
+}
+
+export async function inspectDeviceData(): Promise<DeviceDataInventory> {
+  const database = await openDeviceDatabase();
+  const transaction = database.transaction([...stores], "readonly");
+  const countValues = await Promise.all(stores.map((storeName) => requestResult(transaction.objectStore(storeName).count())));
+  const counts = Object.fromEntries(stores.map((storeName, index) => [storeName, countValues[index]])) as Record<DeviceStoreName, number>;
+  return { counts, totalItems: countValues.reduce((total, count) => total + count, 0) };
+}
+
+export async function previewCourseDeviceReset(courseId: string): Promise<CourseDeviceResetPreview> {
+  const database = await openDeviceDatabase();
+  const transaction = database.transaction(["courseRecords", "learningPlans", "sessionEvents", "effects"], "readonly");
+  const [record, plan, sessions, effects] = await Promise.all([
+    requestResult(transaction.objectStore("courseRecords").get(courseId)),
+    requestResult(transaction.objectStore("learningPlans").get(courseId)),
+    readStoreEntries(transaction, "sessionEvents"),
+    readStoreEntries(transaction, "effects"),
+  ]);
+  const preview = {
+    courseId,
+    learningRecordCount: record === undefined ? 0 : 1,
+    learningPlanCount: plan === undefined ? 0 : 1,
+    sessionCount: sessions.filter((entry) => sessionCourseId(entry.value) === courseId).length,
+    effectCount: effects.filter((entry) => valueCourseId(entry.value) === courseId).length,
+  };
+  return { ...preview, totalItems: preview.learningRecordCount + preview.learningPlanCount + preview.sessionCount + preview.effectCount };
+}
+
+export async function resetCourseDeviceData(courseId: string): Promise<CourseDeviceResetPreview> {
+  const database = await openDeviceDatabase();
+  const transaction = database.transaction(["courseRecords", "learningPlans", "sessionEvents", "effects"], "readwrite");
+  const [record, plan, sessions, effects] = await Promise.all([
+    requestResult(transaction.objectStore("courseRecords").get(courseId)),
+    requestResult(transaction.objectStore("learningPlans").get(courseId)),
+    readStoreEntries(transaction, "sessionEvents"),
+    readStoreEntries(transaction, "effects"),
+  ]);
+  transaction.objectStore("courseRecords").delete(courseId);
+  transaction.objectStore("learningPlans").delete(courseId);
+  const matchingSessions = sessions.filter((entry) => sessionCourseId(entry.value) === courseId);
+  const matchingEffects = effects.filter((entry) => valueCourseId(entry.value) === courseId);
+  for (const entry of matchingSessions) transaction.objectStore("sessionEvents").delete(entry.key);
+  for (const entry of matchingEffects) transaction.objectStore("effects").delete(entry.key);
+  await transactionDone(transaction);
+  const result = {
+    courseId,
+    learningRecordCount: record === undefined ? 0 : 1,
+    learningPlanCount: plan === undefined ? 0 : 1,
+    sessionCount: matchingSessions.length,
+    effectCount: matchingEffects.length,
+  };
+  return { ...result, totalItems: result.learningRecordCount + result.learningPlanCount + result.sessionCount + result.effectCount };
+}
+
+export async function clearAllDeviceData(): Promise<DeviceDataInventory> {
+  const inventory = await inspectDeviceData();
+  const database = await openDeviceDatabase();
+  const transaction = database.transaction([...stores], "readwrite");
+  for (const storeName of stores) transaction.objectStore(storeName).clear();
+  await transactionDone(transaction);
+  return inventory;
+}
+
+export async function diagnoseDeviceStorage(): Promise<DeviceStorageDiagnostics> {
+  try {
+    const database = await openDeviceDatabase();
+    const inventory = await inspectDeviceData();
+    return {
+      kind: "learn-language-storage-diagnostics", schemaVersion: 1, generatedAt: new Date().toISOString(),
+      available: true, databaseVersion: database.version, storeCount: database.objectStoreNames.length, counts: inventory.counts,
+    };
+  } catch (error) {
+    return {
+      kind: "learn-language-storage-diagnostics", schemaVersion: 1, generatedAt: new Date().toISOString(), available: false,
+      error: { name: error instanceof Error ? error.name : "StorageError", message: error instanceof Error ? error.message : "Unknown storage error" },
+    };
+  }
+}
+
+export async function rebuildDeviceDatabase(factory: IDBFactory = indexedDB): Promise<void> {
+  const current = await databasePromise?.catch(() => undefined);
+  current?.close();
+  databasePromise = undefined;
+  await new Promise<void>((resolve, reject) => {
+    const request = factory.deleteDatabase(DATABASE_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error("Could not rebuild the device database"));
+    request.onblocked = () => reject(new Error("Close other LearnLanguage tabs before rebuilding local storage"));
+  });
+  await openDeviceDatabase(factory);
 }
 
 export async function getDeviceValue<T>(storeName: DeviceStoreName, key: IDBValidKey): Promise<T | undefined> {

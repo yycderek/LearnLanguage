@@ -19,11 +19,12 @@ import {
   PanelTop,
   RotateCcw,
   Route,
+  Settings2,
   Sparkles,
   Target,
   UserRound,
 } from "lucide-react";
-import type { LearningPlan } from "@learn-language/application";
+import { summarizeCourseCompletion, type LearningPlan } from "@learn-language/application";
 import type { AdaptiveLearningAgenda } from "@learn-language/application/adaptive-agenda";
 import { displayText, type CoursePack } from "@/lib/course";
 import { dateLocale, uiText, type AppLocale } from "@/lib/i18n";
@@ -56,6 +57,7 @@ export function LearningDashboard({
   onOpenLibrary,
   onOpenPlan,
   onOpenHelp,
+  onOpenSettings,
   onBack,
   onStartLesson,
   onStartReview,
@@ -73,6 +75,7 @@ export function LearningDashboard({
   onOpenLibrary?: () => void;
   onOpenPlan?: () => void;
   onOpenHelp?: () => void;
+  onOpenSettings?: () => void;
   onBack: () => void;
   onStartLesson: (lessonId: string, restart?: boolean) => void;
   onStartReview: (tasks: ReviewTask[]) => void;
@@ -99,6 +102,9 @@ export function LearningDashboard({
   ).map((stage) => focusCompleted ? { ...stage, status: "completed" as const } : stage) : [];
   const percent = courseLearningPercent(course, record);
   const upcoming = record?.reviews.slice(0, 4) ?? [];
+  const completionSummary = summarizeCourseCompletion(course, record);
+  const weakTaskIds = new Set(completionSummary.weakKnowledge.flatMap((item) => item.reviewTaskIds));
+  const weakTasks = record?.reviews.filter((task) => weakTaskIds.has(task.id)) ?? [];
   const languageBadge = languagePack?.accent ?? course.manifest.languageId.slice(0, 2).toUpperCase();
   const focusGoal = focusLesson?.canDoGoalRefs
     .map((goalId) => course.goals.find((goal) => goal.id === goalId))
@@ -130,6 +136,7 @@ export function LearningDashboard({
             {onOpenPlan && <button type="button" onClick={onOpenPlan}><Target size={17} /><span>{c("学习计划", "Plan")}</span></button>}
             <button type="button" onClick={onOpenLibrary}><Library size={17} /><span>{c("课程库", "Library")}</span></button>
             <button type="button" onClick={() => onStartReview(due.length > 0 ? due : upcoming)} disabled={due.length === 0 && upcoming.length === 0}><RotateCcw size={17} /><span>{c("复习", "Review")}</span>{due.length > 0 && <em>{due.length}</em>}</button>
+            {onOpenSettings && <button type="button" onClick={onOpenSettings}><Settings2 size={17} /><span>{c("设置", "Settings")}</span></button>}
             <button type="button" onClick={() => document.getElementById("course-outline")?.scrollIntoView({ behavior: "smooth", block: "start" })}><BarChart3 size={17} /><span>{c("学习进度", "Progress")}</span></button>
           </nav>
           <div className="local-profile"><span><UserRound size={16} /></span><div><strong>{c("本地学习档案", "Local profile")}</strong><small>{c("数据保存在当前设备", "Data stays on this device")}</small></div></div>
@@ -149,6 +156,7 @@ export function LearningDashboard({
             {onOpenPlan && <button type="button" onClick={onOpenPlan}><Target size={15} />{c("计划", "Plan")}</button>}
             <button type="button" onClick={onOpenLibrary}><Library size={15} />{c("课程库", "Library")}</button>
             <button type="button" onClick={() => onStartReview(due.length > 0 ? due : upcoming)} disabled={due.length === 0 && upcoming.length === 0}><RotateCcw size={15} />{c("复习", "Review")}</button>
+            {onOpenSettings && <button type="button" onClick={onOpenSettings}><Settings2 size={15} />{c("设置", "Settings")}</button>}
             <button type="button" onClick={() => document.getElementById("course-outline")?.scrollIntoView({ behavior: "smooth", block: "start" })}><BarChart3 size={15} />{c("学习进度", "Progress")}</button>
           </nav>
         )}
@@ -163,6 +171,36 @@ export function LearningDashboard({
               <div><small>{c("可选设置", "OPTIONAL SETUP")}</small><strong>{c("还没有个人学习计划", "No personal learning plan yet")}</strong><span>{c("选择目标与节奏，也可以做一次不计成绩的基础检查。", "Choose a goal and pace, with an optional ungraded foundation check.")}</span></div>
               <button type="button" onClick={onOpenPlan}>{c("设置计划", "Set a plan")}<ArrowRight size={14} /></button>
             </>}
+          </section>
+        )}
+
+
+        {completionSummary.complete && (
+          <section className="course-completion-card" aria-labelledby="course-completion-title">
+            <div className="course-completion-icon"><GraduationCap size={28} /></div>
+            <div className="course-completion-copy">
+              <small>{c("课程完成总结", "COURSE COMPLETION SUMMARY")}</small>
+              <h2 id="course-completion-title">{c("你已完成这门课程", "You completed this course")}</h2>
+              <p>{c(`已完成 ${completionSummary.totalLessonCount} 个课节，并达成 ${completionSummary.achievedGoalIds.length} 个课程目标。`, `You completed ${completionSummary.totalLessonCount} lessons and achieved ${completionSummary.achievedGoalIds.length} course goals.`)}</p>
+              <ul>{completionSummary.achievedGoalIds.slice(0, 4).map((goalId) => { const goal = course.goals.find((item) => item.id === goalId); return goal ? <li key={goalId}><Check size={13} />{displayText(goal.description, teachingLocale)}</li> : null; })}</ul>
+              <div className="course-completion-stats">
+                <span><strong>{completionSummary.masteryCounts["independent-output"] + completionSummary.masteryCounts["delayed-transfer"]}</strong>{c("个知识点可独立运用", "knowledge items used independently")}</span>
+                <span><strong>{completionSummary.dueReviewCount}</strong>{c("项到期复习", "reviews due")}</span>
+                <span><strong>{completionSummary.weakKnowledge.length}</strong>{c("项建议巩固", "items to reinforce")}</span>
+              </div>
+            </div>
+            <div className="course-completion-actions">
+              {weakTasks.length > 0 && <button className="primary-button" type="button" onClick={() => onStartReview(weakTasks)}><Target size={15} />{c("巩固薄弱项", "Practice weak items")}</button>}
+              <button className="outline-button" type="button" onClick={onOpenLibrary}><Library size={15} />{c("选择下一门课程", "Choose another course")}</button>
+            </div>
+          </section>
+        )}
+
+        {completionSummary.weakKnowledge.length > 0 && (
+          <section className="weak-knowledge-panel" aria-labelledby="weak-knowledge-title">
+            <header><div><Target size={19} /><span><small>{c("根据现有学习证据", "FROM EXISTING LEARNING EVIDENCE")}</small><h2 id="weak-knowledge-title">{c("建议重点巩固", "Recommended targeted practice")}</h2></span></div>{weakTasks.length > 0 && <button type="button" onClick={() => onStartReview(weakTasks)}>{c("开始针对练习", "Start targeted practice")}<ArrowRight size={14} /></button>}</header>
+            <div className="weak-knowledge-list">{completionSummary.weakKnowledge.map((item) => <article key={item.knowledgeItemId}><strong>{item.form}</strong><span>{item.reasons.map((reason) => ({ "lesson-retries": c("课内多次尝试", "lesson retries"), "review-retries": c("复习需要重试", "review retries"), "due-review": c("已经到期", "due now"), "early-mastery": c("仍在早期掌握阶段", "early mastery") })[reason]).join(" · ")}</span><em>{c(`优先级 ${item.priority}`, `Priority ${item.priority}`)}</em></article>)}</div>
+            <footer>{c("只使用尝试次数、掌握等级与复习结果推导；不会新增或展示原始作答内容。", "Derived only from attempt counts, mastery levels, and review results; raw answers are neither added nor shown.")}</footer>
           </section>
         )}
 

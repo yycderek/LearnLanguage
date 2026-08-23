@@ -56,6 +56,8 @@ import { ProductGuide, type ProductGuideAudience } from "@/app/product-guide";
 import { StudioStart } from "@/app/studio-start";
 import { testAiConnection, type AiProvider, type AiSettings } from "@/lib/ai";
 import {
+  clearAllDeviceData,
+  diagnoseDeviceStorage,
   getAllDeviceValues,
   getDeviceValue,
   IndexedDbDraftRepository,
@@ -63,6 +65,10 @@ import {
   IndexedDbLearningProfileRepository,
   IndexedDbLanguagePackRepository,
   IndexedDbLearningPlanRepository,
+  inspectDeviceData,
+  previewCourseDeviceReset,
+  rebuildDeviceDatabase,
+  resetCourseDeviceData,
   persistLearningState,
   putCourseRecord,
   putDeviceValue,
@@ -381,7 +387,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [plansByCourse, setPlansByCourse] = useState<Record<string, LearningPlan>>({});
   const [previewRecordsByCourse, setPreviewRecordsByCourse] = useState<Record<string, CourseLearningRecord>>({});
   const [learningContext, setLearningContext] = useState<"learn" | "preview">(space === "learn" ? "learn" : "preview");
-  const [learningView, setLearningView] = useState<"studio" | "drafts" | "languages" | "library" | "plan" | "dashboard" | "lesson" | "review">(space === "learn" ? "library" : "studio");
+  const [learningView, setLearningView] = useState<"studio" | "drafts" | "languages" | "library" | "settings" | "plan" | "dashboard" | "lesson" | "review">(space === "learn" ? "library" : "studio");
   const [selectedLessonId, setSelectedLessonId] = useState<string>();
   const [reviewTasks, setReviewTasks] = useState<ReviewTask[]>([]);
   const [syncSettings, setSyncSettings] = useState<DeviceSyncSettings>({ endpoint: "", profileId: "local-profile", deviceId: "" });
@@ -834,6 +840,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   function returnToLearningHome() {
     const selected = installedCourses.find((item) => item.manifest.id === course.manifest.id) ?? installedCourses[0];
     if (!selected) {
+      setLearningView("library");
       setNotice(t("选择一门课程，点击“一键开始学习”即可直接进入第一课", "Choose a course and select Start learning to enter the first lesson."));
       return;
     }
@@ -1020,6 +1027,80 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     } catch {
       setNotice(t("完整设备备份恢复失败，本机数据未完成变更", "Complete backup restore failed; device data was not fully changed"));
       setDeviceBackupBusy(false);
+    }
+  }
+
+
+  async function resetCurrentCourseLearning() {
+    const courseId = course.manifest.id;
+    if (!installedCourses.some((item) => item.manifest.id === courseId)) {
+      setNotice(t("当前没有可重置的已安装课程", "There is no installed current course to reset"));
+      return;
+    }
+    try {
+      const preview = await previewCourseDeviceReset(courseId);
+      const confirmed = window.confirm(t(
+        `将删除当前课程的学习记录 ${preview.learningRecordCount} 项、计划 ${preview.learningPlanCount} 项、会话 ${preview.sessionCount} 项和待处理效果 ${preview.effectCount} 项，共 ${preview.totalItems} 项。课程本身仍会保留。建议先取消并导出完整设备备份。确定继续？`,
+        `This removes ${preview.learningRecordCount} learning record, ${preview.learningPlanCount} plan, ${preview.sessionCount} session, and ${preview.effectCount} pending-effect items for the current course (${preview.totalItems} total). The course remains installed. Cancel and export a complete backup first if needed. Continue?`,
+      ));
+      if (!confirmed) return;
+      await resetCourseDeviceData(courseId);
+      setRecordsByCourse((current) => { const next = { ...current }; delete next[courseId]; return next; });
+      setPlansByCourse((current) => { const next = { ...current }; delete next[courseId]; return next; });
+      setNotice(t("当前课程的学习进度与计划已原子重置，课程仍保留", "Current-course progress and plan were reset atomically; the course remains installed"));
+      setLearningView("dashboard");
+    } catch {
+      setNotice(t("重置失败；未能确认本地数据已完整修改", "Reset failed; local data could not be confirmed as fully changed"));
+    }
+  }
+
+  async function deleteAllLocalData() {
+    try {
+      const inventory = await inspectDeviceData();
+      const confirmed = window.confirm(t(
+        `将永久删除当前浏览器中的全部 ${inventory.totalItems} 项 LearnLanguage 数据，包括课程、草稿、语言包、进度、计划和偏好。此操作不可撤销；请先取消并导出完整设备备份。确定继续？`,
+        `This permanently deletes all ${inventory.totalItems} LearnLanguage items in this browser, including courses, drafts, language packs, progress, plans, and preferences. This cannot be undone. Cancel and export a complete backup first if needed. Continue?`,
+      ));
+      if (!confirmed) return;
+      await clearAllDeviceData();
+      sessionStorage.removeItem(AI_SESSION_KEY);
+      sessionStorage.removeItem(SYNC_TOKEN_SESSION_KEY);
+      window.location.assign("/learn");
+    } catch {
+      setNotice(t("全部数据删除失败；请导出诊断后重试", "Could not delete all data; export diagnostics and try again"));
+    }
+  }
+
+  async function exportStorageDiagnostics() {
+    const diagnostics = await diagnoseDeviceStorage();
+    const storage = navigator.storage ? await navigator.storage.estimate().catch(() => undefined) : undefined;
+    const persistent = navigator.storage?.persisted ? await navigator.storage.persisted().catch(() => undefined) : undefined;
+    const payload = { ...diagnostics, browserStorage: { persistent, usage: storage?.usage, quota: storage?.quota } };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `learnlanguage-storage-diagnostics-${diagnostics.generatedAt.slice(0, 10)}.json`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    setNotice(t("隐私安全诊断已导出；不包含课程文本、作答、密钥、令牌或个人标识", "Privacy-safe diagnostics exported without course text, answers, keys, tokens, or personal identifiers"));
+  }
+
+  async function rebuildLocalStorage() {
+    const confirmed = window.confirm(t(
+      "重建设备数据库会删除当前浏览器中的全部 LearnLanguage 数据。请先导出完整设备备份，并关闭其他 LearnLanguage 标签页。确定继续？",
+      "Rebuilding the device database deletes all LearnLanguage data in this browser. Export a complete backup first and close other LearnLanguage tabs. Continue?",
+    ));
+    if (!confirmed) return;
+    try {
+      await rebuildDeviceDatabase();
+      sessionStorage.removeItem(AI_SESSION_KEY);
+      sessionStorage.removeItem(SYNC_TOKEN_SESSION_KEY);
+      window.location.assign("/learn");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : t("设备数据库重建失败", "Could not rebuild the device database"));
     }
   }
 
@@ -1632,8 +1713,53 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const selectedProgress = selectedLessonId ? currentRecord?.lessonProgress[selectedLessonId] : undefined;
   const productGuide = <ProductGuide key={`${guideAudience}:${guideOpen ? "open" : "closed"}`} open={guideOpen} audience={guideAudience} locale={appLocale} onClose={closeProductGuide} />;
 
+
+  const renderLibraryScreen = (settingsMode = false) => <CourseLibrary
+    entries={courseLibrary}
+    languagePacks={languagePacks}
+    locale={appLocale}
+    notice={notice}
+    onLocaleChange={changeAppLocale}
+    onOpenHelp={() => openProductGuide("learn")}
+    onBack={returnToLearningHome}
+    onStart={(entry) => void startLibraryCourse(entry)}
+    onUpdate={(entry) => void updateLibraryCourse(entry)}
+    onUninstall={(entry) => void uninstallLibraryCourse(entry)}
+    onOpen={openLibraryCourse}
+    onImportFile={(file) => void importCourseFile(file)}
+    onCreateCourse={() => window.location.assign("/studio")}
+    onExport={exportLibraryCourse}
+    recordCount={Object.keys(recordsByCourse).length}
+    planCount={Object.keys(plansByCourse).length}
+    onExportProfile={exportLearnerProfile}
+    onImportProfile={(file) => void importLearnerProfile(file)}
+    deviceBackupPreview={deviceBackupPreview}
+    deviceBackupBusy={deviceBackupBusy}
+    onExportDevice={() => void exportCompleteDeviceBackup()}
+    onImportDevice={(file) => void inspectCompleteDeviceBackup(file)}
+    onRestoreDevice={(mode) => void restoreCompleteDeviceBackup(mode)}
+    onCancelDeviceRestore={() => { setDeviceBackupCandidate(undefined); setDeviceBackupPreview(undefined); }}
+    syncSettings={syncSettings}
+    syncToken={syncToken}
+    syncStatus={syncStatus}
+    onSyncSettingsChange={setSyncSettings}
+    onSyncTokenChange={setSyncToken}
+    onSync={() => void performDeviceSync()}
+    onResolveSync={(resolution) => void performDeviceSync(resolution)}
+    settingsMode={settingsMode}
+    onOpenSettings={() => setLearningView("settings")}
+    onOpenAi={() => { setStudioStarted(true); setLearningView("studio"); setAiOpen(true); }}
+    onResetCurrentCourse={() => void resetCurrentCourseLearning()}
+    onClearAllData={() => void deleteAllLocalData()}
+    onExportDiagnostics={() => void exportStorageDiagnostics()}
+    onRebuildStorage={() => void rebuildLocalStorage()}
+  />;
+
   if (learningView === "library") {
-    return <><CourseLibrary entries={courseLibrary} languagePacks={languagePacks} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onOpenHelp={() => openProductGuide("learn")} onBack={returnToLearningHome} onStart={(entry) => void startLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onCreateCourse={() => window.location.assign("/studio")} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} planCount={Object.keys(plansByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} deviceBackupPreview={deviceBackupPreview} deviceBackupBusy={deviceBackupBusy} onExportDevice={() => void exportCompleteDeviceBackup()} onImportDevice={(file) => void inspectCompleteDeviceBackup(file)} onRestoreDevice={(mode) => void restoreCompleteDeviceBackup(mode)} onCancelDeviceRestore={() => { setDeviceBackupCandidate(undefined); setDeviceBackupPreview(undefined); }} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />{productGuide}</>;
+    return <>{renderLibraryScreen()}{productGuide}</>;
+  }
+  if (learningView === "settings") {
+    return <>{renderLibraryScreen(true)}{productGuide}</>;
   }
   if (learningView === "drafts") {
     return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />{productGuide}</>;
@@ -1645,7 +1771,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     return <><LearningPlanSetup course={course} locale={appLocale} existingPlan={plansByCourse[course.manifest.id]} onSave={saveLearningPlan} onStart={openLesson} onCancel={() => setLearningView(recordsByCourse[course.manifest.id] ? "dashboard" : "library")} />{productGuide}</>;
   }
   if (learningView === "dashboard") {
-    return <><LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} languagePack={currentLanguage} record={currentRecord} learningPlan={currentPlan} agenda={currentAgenda} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onOpenPlan={learningContext === "learn" ? () => setLearningView("plan") : undefined} onOpenHelp={() => openProductGuide(learningContext === "preview" ? "studio" : "learn")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />{productGuide}</>;
+    return <><LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} languagePack={currentLanguage} record={currentRecord} learningPlan={currentPlan} agenda={currentAgenda} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onOpenSettings={learningContext === "learn" ? () => setLearningView("settings") : undefined} onOpenPlan={learningContext === "learn" ? () => setLearningView("plan") : undefined} onOpenHelp={() => openProductGuide(learningContext === "preview" ? "studio" : "learn")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />{productGuide}</>;
   }
   if (learningView === "lesson" && selectedProgress) {
     return <><LearningPlayer course={course} languagePack={currentLanguage} locale={appLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />{productGuide}</>;

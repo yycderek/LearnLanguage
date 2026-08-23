@@ -264,3 +264,53 @@ test("an author can turn material into a recoverable private visual draft", asyn
   await expectResponsiveDocument(page);
   expect(problems).toEqual([]);
 });
+
+
+test("R33 settings center previews destructive actions and resets only the current course", async ({ page }) => {
+  const problems = observeBrowserProblems(page);
+  await page.goto(`${origin}/learn`);
+  await dismissFirstUseGuide(page);
+
+  await page.getByRole("button", { name: "一键开始学习" }).first().click();
+  await page.getByRole("button", { name: "跳过评估，从第一课开始" }).click();
+  await page.getByRole("button", { name: "保存计划并开始" }).click();
+  await page.getByRole("button", { name: "保存并退出" }).click();
+  await page.locator("button:visible").filter({ hasText: "设置" }).first().click();
+
+  await expect(page.getByRole("heading", { name: "设置与本地数据" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "配置 AI" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "导出全部数据" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "删除全部本地数据" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "备份后重建设备数据库" })).toBeVisible();
+  await expectResponsiveDocument(page);
+
+  const deleteDialogPromise = page.waitForEvent("dialog");
+  await page.getByRole("button", { name: "删除全部本地数据" }).click();
+  const deleteDialog = await deleteDialogPromise;
+  expect(deleteDialog.message()).toContain("永久删除");
+  expect(deleteDialog.message()).toContain("完整设备备份");
+  await deleteDialog.dismiss();
+
+  const resetDialogPromise = page.waitForEvent("dialog");
+  await page.getByRole("button", { name: "重置当前课程学习" }).click();
+  const resetDialog = await resetDialogPromise;
+  expect(resetDialog.message()).toContain("课程本身仍会保留");
+  expect(resetDialog.message()).toContain("共");
+  await resetDialog.accept();
+
+  await expect(page.getByText("还没有个人学习计划")).toBeVisible();
+  const counts = await page.evaluate(() => new Promise<{ courses: number; records: number; plans: number }>((resolve, reject) => {
+    const request = indexedDB.open("learn-language-device-v1");
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const transaction = request.result.transaction(["installedCourses", "courseRecords", "learningPlans"], "readonly");
+      const courses = transaction.objectStore("installedCourses").count();
+      const records = transaction.objectStore("courseRecords").count();
+      const plans = transaction.objectStore("learningPlans").count();
+      transaction.oncomplete = () => resolve({ courses: courses.result, records: records.result, plans: plans.result });
+      transaction.onerror = () => reject(transaction.error);
+    };
+  }));
+  expect(counts).toEqual({ courses: 1, records: 0, plans: 0 });
+  expect(problems).toEqual([]);
+});
