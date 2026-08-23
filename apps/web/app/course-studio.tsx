@@ -67,7 +67,20 @@ import {
   putCourseRecord,
   putDeviceValue,
   putInstalledCourseVersion,
+  readDurableDeviceData,
+  restoreDurableDeviceData,
 } from "@/lib/device-repository";
+import {
+  buildDeviceBackupPreview,
+  createDeviceBackup,
+  deviceBackupFileName,
+  MAX_DEVICE_BACKUP_BYTES,
+  parseDeviceBackup,
+  serializeDeviceBackup,
+  type DeviceBackup,
+  type DeviceBackupPreview,
+} from "@/lib/device-backup";
+
 import {
   assessCourseUpdate,
   buildCourseLibrary,
@@ -376,6 +389,9 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [syncStatus, setSyncStatus] = useState<{ state: "idle" | "syncing" | "success" | "error" | "conflict"; message?: string; conflicts?: readonly SyncConflict[] }>({ state: "idle" });
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideAudience, setGuideAudience] = useState<ProductGuideAudience>(space);
+  const [deviceBackupCandidate, setDeviceBackupCandidate] = useState<DeviceBackup>();
+  const [deviceBackupPreview, setDeviceBackupPreview] = useState<DeviceBackupPreview>();
+  const [deviceBackupBusy, setDeviceBackupBusy] = useState(false);
   const t = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
 
   const stats = useMemo(
@@ -942,6 +958,68 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       ));
     } catch {
       setNotice(t("无法读取学习档案", "The learning profile could not be read"));
+    }
+  }
+
+  async function exportCompleteDeviceBackup() {
+    setDeviceBackupBusy(true);
+    try {
+      const backup = createDeviceBackup(await readDurableDeviceData());
+      const blob = new Blob([serializeDeviceBackup(backup)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = deviceBackupFileName(backup.exportedAt);
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      const itemCount = Object.values(backup.collections).reduce((count, items) => count + items.length, 0);
+      setNotice(t(`完整设备备份已导出，共 ${itemCount} 项；未包含密钥和临时请求`, `Complete device backup exported with ${itemCount} items; keys and temporary requests were excluded`));
+    } catch {
+      setNotice(t("完整设备备份导出失败", "Could not export the complete device backup"));
+    } finally {
+      setDeviceBackupBusy(false);
+    }
+  }
+
+  async function inspectCompleteDeviceBackup(file: File) {
+    if (file.size > MAX_DEVICE_BACKUP_BYTES) {
+      setNotice(t("完整设备备份超过 25 MB，已停止读取", "The complete device backup is larger than 25 MB and was not read"));
+      return;
+    }
+    setDeviceBackupBusy(true);
+    try {
+      const parsed = parseDeviceBackup(await file.text());
+      if (!parsed.backup) {
+        setNotice(parsed.error === "unsupported-version" ? t("此完整备份版本暂不受支持", "This complete-backup version is not supported") : t("完整备份格式无效或内容损坏", "The complete backup is invalid or damaged"));
+        return;
+      }
+      const preview = buildDeviceBackupPreview(parsed.backup, await readDurableDeviceData());
+      setDeviceBackupCandidate(parsed.backup);
+      setDeviceBackupPreview(preview);
+      setNotice(t("完整备份已校验，请查看恢复前预览", "Complete backup validated; review it before restoring"));
+    } catch {
+      setNotice(t("无法读取完整设备备份", "Could not read the complete device backup"));
+    } finally {
+      setDeviceBackupBusy(false);
+    }
+  }
+
+  async function restoreCompleteDeviceBackup(mode: "merge" | "replace") {
+    if (!deviceBackupCandidate) return;
+    setDeviceBackupBusy(true);
+    try {
+      await restoreDurableDeviceData(deviceBackupCandidate.collections, mode);
+      sessionStorage.removeItem(AI_SESSION_KEY);
+      sessionStorage.removeItem(SYNC_TOKEN_SESSION_KEY);
+      setDeviceBackupCandidate(undefined);
+      setDeviceBackupPreview(undefined);
+      setNotice(mode === "replace" ? t("本机数据已替换，正在重新载入", "Device data replaced; reloading") : t("备份已合并，正在重新载入", "Backup merged; reloading"));
+      window.setTimeout(() => window.location.reload(), 500);
+    } catch {
+      setNotice(t("完整设备备份恢复失败，本机数据未完成变更", "Complete backup restore failed; device data was not fully changed"));
+      setDeviceBackupBusy(false);
     }
   }
 
@@ -1555,7 +1633,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const productGuide = <ProductGuide key={`${guideAudience}:${guideOpen ? "open" : "closed"}`} open={guideOpen} audience={guideAudience} locale={appLocale} onClose={closeProductGuide} />;
 
   if (learningView === "library") {
-    return <><CourseLibrary entries={courseLibrary} languagePacks={languagePacks} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onOpenHelp={() => openProductGuide("learn")} onBack={returnToLearningHome} onStart={(entry) => void startLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onCreateCourse={() => window.location.assign("/studio")} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} planCount={Object.keys(plansByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />{productGuide}</>;
+    return <><CourseLibrary entries={courseLibrary} languagePacks={languagePacks} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onOpenHelp={() => openProductGuide("learn")} onBack={returnToLearningHome} onStart={(entry) => void startLibraryCourse(entry)} onUpdate={(entry) => void updateLibraryCourse(entry)} onUninstall={(entry) => void uninstallLibraryCourse(entry)} onOpen={openLibraryCourse} onImportFile={(file) => void importCourseFile(file)} onCreateCourse={() => window.location.assign("/studio")} onExport={exportLibraryCourse} recordCount={Object.keys(recordsByCourse).length} planCount={Object.keys(plansByCourse).length} onExportProfile={exportLearnerProfile} onImportProfile={(file) => void importLearnerProfile(file)} deviceBackupPreview={deviceBackupPreview} deviceBackupBusy={deviceBackupBusy} onExportDevice={() => void exportCompleteDeviceBackup()} onImportDevice={(file) => void inspectCompleteDeviceBackup(file)} onRestoreDevice={(mode) => void restoreCompleteDeviceBackup(mode)} onCancelDeviceRestore={() => { setDeviceBackupCandidate(undefined); setDeviceBackupPreview(undefined); }} syncSettings={syncSettings} syncToken={syncToken} syncStatus={syncStatus} onSyncSettingsChange={setSyncSettings} onSyncTokenChange={setSyncToken} onSync={() => void performDeviceSync()} onResolveSync={(resolution) => void performDeviceSync(resolution)} />{productGuide}</>;
   }
   if (learningView === "drafts") {
     return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />{productGuide}</>;

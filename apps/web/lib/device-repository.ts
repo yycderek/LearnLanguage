@@ -14,6 +14,12 @@ import type { LearningPlan, LearningPlanRepository } from "@learn-language/appli
 import type { LearningEffect, SessionEvent } from "@learn-language/engine";
 import type { LanguageDefinition } from "@learn-language/protocol";
 import type { CoursePack } from "./course";
+import {
+  durableDeviceStores,
+  type DeviceBackupCollections,
+  type DeviceBackupEntry,
+  type DurableDeviceStoreName,
+} from "./device-backup.ts";
 import type { CourseLearningRecord, LearningProgress } from "./learning";
 
 const DATABASE_NAME = "learn-language-device-v1";
@@ -82,6 +88,30 @@ export async function getAllDeviceValues<T>(storeName: DeviceStoreName): Promise
   const database = await openDeviceDatabase();
   const transaction = database.transaction(storeName, "readonly");
   return requestResult(transaction.objectStore(storeName).getAll()) as Promise<T[]>;
+}
+
+export async function getAllDeviceEntries<T = unknown>(storeName: DurableDeviceStoreName): Promise<DeviceBackupEntry[]> {
+  const database = await openDeviceDatabase();
+  const transaction = database.transaction(storeName, "readonly");
+  const store = transaction.objectStore(storeName);
+  const [keys, values] = await Promise.all([requestResult(store.getAllKeys()), requestResult(store.getAll()) as Promise<T[]>]);
+  return keys.map((key, index) => ({ key: String(key), value: values[index] }));
+}
+
+export async function readDurableDeviceData(): Promise<DeviceBackupCollections> {
+  const entries = await Promise.all(durableDeviceStores.map((store) => getAllDeviceEntries(store)));
+  return Object.fromEntries(durableDeviceStores.map((store, index) => [store, entries[index]])) as unknown as DeviceBackupCollections;
+}
+
+export async function restoreDurableDeviceData(collections: DeviceBackupCollections, mode: "merge" | "replace"): Promise<void> {
+  const database = await openDeviceDatabase();
+  const transaction = database.transaction([...durableDeviceStores], "readwrite");
+  for (const storeName of durableDeviceStores) {
+    const store = transaction.objectStore(storeName);
+    if (mode === "replace") store.clear();
+    for (const entry of collections[storeName]) store.put(entry.value, entry.key);
+  }
+  await transactionDone(transaction);
 }
 
 export async function putDeviceValue<T>(storeName: DeviceStoreName, key: IDBValidKey, value: T): Promise<void> {

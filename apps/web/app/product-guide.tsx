@@ -36,7 +36,7 @@ const sharedDataStep: GuideStep = {
   icon: ShieldCheck,
   items: [
     { icon: Bot, title: ["AI 完全可选", "AI is optional"], body: ["单选、排序、短输入和本地规则练习不依赖 AI；密钥只保留到当前标签页关闭。", "Choice, ordering, short-input, and local-rule exercises do not need AI; keys are cleared when this tab closes."] },
-    { icon: DatabaseBackup, title: ["记得备份", "Remember to back up"], body: ["学习档案、课程草稿和自定义语言包需要分别导出；清除浏览器站点数据可能删除本地内容。", "Export learning profiles, course drafts, and custom Language Packs separately; clearing browser site data can remove local content."] },
+    { icon: DatabaseBackup, title: ["保护并备份本地数据", "Protect and back up local data"], body: ["可以请求浏览器持久保留数据，并在“课程与数据管理”中一键导出课程、草稿、语言包、进度、计划和偏好。", "Ask the browser to retain local data, then export courses, drafts, language packs, progress, plans, and preferences together from Course and data management."] },
   ],
 };
 

@@ -1,7 +1,7 @@
 {
   "name": "LearnLanguage",
   "short_name": "LearnLanguage",
-  "description": "A language-neutral learning and course-authoring studio.",
+  "description": "Learn any language with local-first courses, review, and no-code course authoring.",
   "start_url": "/learn",
   "scope": "/",
   "display": "standalone",
@@ -14,5 +14,11 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "id": "/learn",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "orientation": "any"
 }

@@ -88,6 +88,28 @@ test("first visit redirects to a styled, language-neutral Learn entry", async ({
   expect(problems).toEqual([]);
 });
 
+test("complete device backups are previewed before any restore choice", async ({ page }) => {
+  const problems = observeBrowserProblems(page);
+  await page.goto(`${origin}/learn`);
+  await dismissFirstUseGuide(page);
+  await page.getByText("课程与数据管理", { exact: true }).click();
+  await expect(page.getByRole("button", { name: /保护本地数据|本地数据已保护|浏览器不支持保护/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "导出全部数据" })).toBeVisible();
+
+  const backup = {
+    kind: "learn-language-device-backup",
+    schemaVersion: 1,
+    exportedAt: "2026-08-22T12:00:00.000Z",
+    collections: { preferences: [], drafts: [], languagePacks: [], installedCourses: [], courseRecords: [], learningPlans: [] },
+  };
+  await page.getByLabel("选择完整备份").setInputFiles({ name: "device-backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
+  await expect(page.getByText("恢复前预览", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "合并恢复" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "清空本机后恢复" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "取消" })).toBeVisible();
+  expect(problems).toEqual([]);
+});
+
 test("the Learn entry supports keyboard navigation and announced interface changes", async ({ page }) => {
   await page.goto(`${origin}/learn`);
   await dismissFirstUseGuide(page);

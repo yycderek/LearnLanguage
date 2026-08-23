@@ -40,5 +40,5 @@ test("production server exposes every asset referenced by Learn and Studio", asy
 
   const serviceWorker = await fetch(`http://127.0.0.1:${port}/sw.js`);
   assert.equal(serviceWorker.status, 200);
-  assert.match(await serviceWorker.text(), /learnlanguage-shell-v1/);
+  assert.match(await serviceWorker.text(), /learnlanguage-shell-v2/);
 });

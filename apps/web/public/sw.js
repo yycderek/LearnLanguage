@@ -1,13 +1,17 @@
 const CACHE_PREFIX = "learnlanguage-shell-";
-const CACHE_NAME = "learnlanguage-shell-v1";
+const CACHE_NAME = "learnlanguage-shell-v2";
 const SHELL_URLS = ["/learn", "/studio", "/favicon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => Promise.all(SHELL_URLS.map((url) => cache.add(url).catch(() => undefined))))
-      .then(() => self.skipWaiting()),
+      .then(() => undefined),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

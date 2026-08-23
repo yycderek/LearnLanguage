@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { displayText } from "@/lib/course";
 import type { CourseLibraryEntry, CourseUpdateIssue } from "@/lib/course-library";
+import type { DeviceBackupPreview } from "@/lib/device-backup";
 import { uiText, type AppLocale } from "@/lib/i18n";
 import { languageName, type LanguagePack } from "@/lib/language-pack";
 import type { DeviceSyncSettings } from "@/lib/sync";
@@ -74,6 +75,12 @@ export function CourseLibrary({
   planCount,
   onExportProfile,
   onImportProfile,
+  deviceBackupPreview,
+  deviceBackupBusy,
+  onExportDevice,
+  onImportDevice,
+  onRestoreDevice,
+  onCancelDeviceRestore,
   syncSettings,
   syncToken,
   syncStatus,
@@ -100,6 +107,12 @@ export function CourseLibrary({
   planCount: number;
   onExportProfile: () => void;
   onImportProfile: (file: File) => void;
+  deviceBackupPreview?: DeviceBackupPreview;
+  deviceBackupBusy: boolean;
+  onExportDevice: () => void;
+  onImportDevice: (file: File) => void;
+  onRestoreDevice: (mode: "merge" | "replace") => void;
+  onCancelDeviceRestore: () => void;
   syncSettings: DeviceSyncSettings;
   syncToken: string;
   syncStatus: { state: "idle" | "syncing" | "success" | "error" | "conflict"; message?: string };
@@ -109,6 +122,21 @@ export function CourseLibrary({
   onResolveSync: (resolution: "keep-local" | "use-remote") => void;
 }) {
   const [filter, setFilter] = useState<"all" | "installed">("all");
+  const [storageState, setStorageState] = useState<"checking" | "persistent" | "temporary" | "unsupported">("checking");
+
+  useEffect(() => {
+    if (!navigator.storage?.persisted) return;
+    void navigator.storage.persisted().then((persistent) => setStorageState(persistent ? "persistent" : "temporary")).catch(() => setStorageState("unsupported"));
+  }, []);
+
+  async function protectLocalStorage() {
+    if (!navigator.storage?.persist) {
+      setStorageState("unsupported");
+      return;
+    }
+    const persistent = await navigator.storage.persist().catch(() => false);
+    setStorageState(persistent ? "persistent" : "temporary");
+  }
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
   const installedCount = entries.filter((entry) => entry.status !== "available").length;
   const readyCourseCount = entries.filter((entry) => entry.source === "bundled").length;
@@ -185,6 +213,11 @@ export function CourseLibrary({
           <section className="course-file-management">
             <div><span><Upload size={18} /></span><p><strong>{c("导入他人分享的课程", "Import a shared course")}</strong><small>{c("只有收到课程文件时才需要使用。内置课程可直接在上方开始学习。", "Use this only when someone shares a course file with you. Built-in courses can be started above.")}</small></p></div>
             <label><Upload size={14} />{c("选择课程文件", "Choose course file")}<input type="file" accept=".json,.course.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportFile(file); event.target.value = ""; }} /></label>
+          </section>
+
+          <section className="full-device-backup-panel">
+            <header><div><span><DatabaseBackup size={18} /></span><p><strong>{c("完整设备备份", "Complete device backup")}</strong><small>{c("一次保存课程、草稿、自定义 Language Pack、学习进度、个人计划和设备偏好；不会包含 AI 密钥、同步令牌或进行中的临时请求。", "Save courses, drafts, custom Language Packs, progress, plans, and device preferences together. AI keys, sync tokens, and in-progress requests are excluded.")}</small></p></div><aside><button onClick={() => void protectLocalStorage()} disabled={storageState !== "temporary"}><ShieldCheck size={14} />{storageState === "persistent" ? c("本地数据已保护", "Local data protected") : storageState === "unsupported" ? c("浏览器不支持保护", "Storage protection unavailable") : c("保护本地数据", "Protect local data")}</button><button onClick={onExportDevice} disabled={deviceBackupBusy}><FileDown size={14} />{c("导出全部数据", "Export all data")}</button><label className={deviceBackupBusy ? "disabled" : ""}><ArchiveRestore size={14} />{c("选择完整备份", "Choose full backup")}<input disabled={deviceBackupBusy} type="file" accept=".json,.learnlanguage.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImportDevice(file); event.target.value = ""; }} /></label></aside></header>
+            {deviceBackupPreview && <div className="device-backup-preview" role="status" aria-live="polite"><div><strong>{c("恢复前预览", "Restore preview")}</strong><span>{c(`备份包含 ${deviceBackupPreview.totalItems} 项：${deviceBackupPreview.addedItems} 项新增，${deviceBackupPreview.replacedItems} 项与本机同 ID。`, `Backup contains ${deviceBackupPreview.totalItems} items: ${deviceBackupPreview.addedItems} new and ${deviceBackupPreview.replacedItems} matching local IDs.`)}</span><small>{c(`课程 ${deviceBackupPreview.counts.installedCourses} · 草稿数据 ${deviceBackupPreview.counts.drafts} · 语言包 ${deviceBackupPreview.counts.languagePacks} · 学习记录 ${deviceBackupPreview.counts.courseRecords} · 计划 ${deviceBackupPreview.counts.learningPlans}`, `Courses ${deviceBackupPreview.counts.installedCourses} · draft data ${deviceBackupPreview.counts.drafts} · language packs ${deviceBackupPreview.counts.languagePacks} · learning records ${deviceBackupPreview.counts.courseRecords} · plans ${deviceBackupPreview.counts.learningPlans}`)}</small></div><aside><button onClick={() => onRestoreDevice("merge")} disabled={deviceBackupBusy}>{c("合并恢复", "Merge restore")}</button><button className="danger" onClick={() => onRestoreDevice("replace")} disabled={deviceBackupBusy}>{c("清空本机后恢复", "Replace this device")}</button><button onClick={onCancelDeviceRestore} disabled={deviceBackupBusy}>{c("取消", "Cancel")}</button></aside><p>{c("合并恢复会保留备份中没有的本机项目；同 ID 项使用备份内容。清空恢复会先移除本机全部持久数据。", "Merge keeps local items absent from the backup and uses the backup for matching IDs. Replace first removes all durable local data.")}</p></div>}
           </section>
 
           <section className="learner-backup-bar">

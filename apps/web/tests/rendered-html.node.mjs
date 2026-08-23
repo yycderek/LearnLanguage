@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, readme, studio, studioStart, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
+  const [page, learnPage, studioPage, readme, studio, studioStart, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, deviceBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
@@ -28,6 +28,7 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("lib/course-file.ts", root), "utf8"),
     readFile(new URL("lib/draft-library.ts", root), "utf8"),
     readFile(new URL("lib/learner-backup.ts", root), "utf8"),
+    readFile(new URL("lib/device-backup.ts", root), "utf8"),
     readFile(new URL("lib/learning.ts", root), "utf8"),
     readFile(new URL("lib/course-authoring.ts", root), "utf8"),
     readFile(new URL("lib/course-templates.ts", root), "utf8"),
@@ -49,7 +50,7 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(readme, /五分钟快速开始/);
   assert.match(readme, /learnlanguage-studio\.yycderek\.chatgpt\.site\/learn/);
   assert.match(readme, /AI 是可选的/);
-  assert.match(readme, /本地数据与备份/);
+  assert.match(readme, /安装、更新与完整备份/);
   assert.match(studio, /课程编辑器/);
   assert.match(studio, /可视化/);
   assert.match(studio, /基本信息/);
@@ -99,6 +100,9 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /exportLibraryCourse/);
   assert.match(studio, /exportLearnerProfile/);
   assert.match(studio, /importLearnerProfile/);
+  assert.match(studio, /exportCompleteDeviceBackup/);
+  assert.match(studio, /inspectCompleteDeviceBackup/);
+  assert.match(studio, /restoreCompleteDeviceBackup/);
   assert.match(studio, /learningView === "drafts"/);
   assert.match(studio, /importDraftFile/);
   assert.match(studio, /exportDraftRevision/);
@@ -214,6 +218,11 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(courseLibraryPage, /只有收到课程文件时才需要使用/);
   assert.match(courseLibraryPage, /导出备份/);
   assert.match(courseLibraryPage, /学习档案备份/);
+  assert.match(courseLibraryPage, /完整设备备份/);
+  assert.match(courseLibraryPage, /navigator\.storage\.persist/);
+  assert.match(courseLibraryPage, /恢复前预览/);
+  assert.match(courseLibraryPage, /合并恢复/);
+  assert.match(courseLibraryPage, /清空本机后恢复/);
   assert.match(courseLibraryPage, /恢复学习档案/);
   assert.match(courseLibraryPage, /可选设备同步/);
   assert.match(courseLibraryPage, /官方可信来源/);
@@ -243,6 +252,9 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(learnerBackup, /createLearnerBackup/);
   assert.match(learnerBackup, /mergeLearnerRecords/);
   assert.doesNotMatch(learnerBackup, /apiKey/);
+  assert.match(deviceBackup, /learn-language-device-backup/);
+  assert.match(deviceBackup, /buildDeviceBackupPreview/);
+  assert.match(deviceBackup, /sensitiveKey/);
   assert.match(reviewPlayer, /显示答案/);
   assert.match(reviewPlayer, /提高掌握度并延长间隔/);
   assert.match(reviewPlayer, /uiText\(locale/);
@@ -336,8 +348,16 @@ test("build includes the offline shell and accessibility baseline", async () => 
   assert.match(layout, /className="skip-link"/);
   assert.match(layout, /id="main-content"/);
   assert.match(offlineReady, /serviceWorker\.register\("\/sw\.js"\)/);
+  assert.match(offlineReady, /beforeinstallprompt/);
+  assert.match(offlineReady, /SKIP_WAITING/);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
+  assert.match(serviceWorker, /learnlanguage-shell-v2/);
+  assert.match(serviceWorker, /SKIP_WAITING/);
   assert.equal(JSON.parse(manifest).start_url, "/learn");
+  assert.equal(JSON.parse(manifest).id, "/learn");
+  assert.deepEqual(JSON.parse(manifest).display_override, ["window-controls-overlay", "standalone"]);
   assert.match(css, /:focus-visible/);
+  assert.match(css, /pwa-action-card/);
+  assert.match(css, /full-device-backup-panel/);
   assert.match(css, /prefers-reduced-motion: reduce/);
 });
