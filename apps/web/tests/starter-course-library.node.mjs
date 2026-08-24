@@ -33,7 +33,7 @@ test("the bundled library contains progressive English, Japanese, and Cantonese 
   const expected = {
     en: { version: "0.7.0", lessons: 16, exercises: 60 },
     ja: { version: "0.7.0", lessons: 16, exercises: 60 },
-    "yue-Hant-HK": { version: "0.6.0", lessons: 12, exercises: 43 },
+    "yue-Hant-HK": { version: "0.7.0", lessons: 16, exercises: 60 },
   };
 
   for (const course of courses) {
@@ -131,7 +131,7 @@ test("A1 courses include denser vocabulary and short-text information extraction
     const readingExercises = course.exercises.filter((item) => item.id.includes("-read-"));
 
     assert.ok(readingKnowledge.length >= 15, `${course.manifest.languageId} needs denser reading vocabulary`);
-    const expectedReadingCount = course.manifest.languageId === "yue-Hant-HK" ? 4 : 8;
+    const expectedReadingCount = 8;
     assert.equal(readingTexts.length, expectedReadingCount, `${course.manifest.languageId} has the wrong short-reading count`);
     assert.equal(readingExercises.length, expectedReadingCount, `${course.manifest.languageId} has the wrong information-extraction count`);
 
@@ -251,6 +251,35 @@ test("Japanese 0.7 adds four compatible N5-relevant A1 domains after the stable 
   assert.ok(japanese.knowledge.some((item) => item.id === "ja-time-ni"));
   assert.ok(japanese.knowledge.some((item) => item.id === "ja-body-pain"));
   assert.ok(japanese.exercises.some((item) => item.id === "ja-capstone-expanded-a1"));
+});
+
+test("Cantonese 0.7 adds four compatible A1 domains after the stable twelve-lesson core", () => {
+  const cantonese = bundledStarterCourses().find((course) => course.manifest.languageId === "yue-Hant-HK");
+  assert.ok(cantonese);
+  assert.equal(cantonese.manifest.version, "0.7.0");
+  assert.deepEqual(cantonese.lessons.slice(0, 12).map((lesson) => lesson.id), [
+    "jyutping-structure",
+    "jyutping-finals",
+    "jyutping-tones",
+    "greeting-and-identity",
+    "numbers-and-time",
+    "places-and-questions",
+    "shopping-and-prices",
+    "transport-and-directions",
+    "help-and-negation",
+    "basic-order",
+    "drink-details",
+    "dine-or-takeaway",
+  ]);
+  assert.deepEqual(cantonese.lessons.slice(12).map((lesson) => lesson.id), [
+    "daily-routines",
+    "classifiers-and-family",
+    "days-and-arrangements",
+    "health-and-medicine",
+  ]);
+  assert.ok(cantonese.knowledge.some((item) => item.id === "yue-classifier-go"));
+  assert.ok(cantonese.knowledge.some((item) => item.id === "yue-body-pain"));
+  assert.ok(cantonese.exercises.some((item) => item.id === "yue-capstone-expanded-a1"));
 });
 
 test("sampleCourse selects bundled content while custom languages receive an editable scaffold", () => {
