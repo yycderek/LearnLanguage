@@ -16,7 +16,7 @@ test("a published course file survives an export and import round trip", async (
   const result = await parseCourseFile(serialized);
   assert.equal(result.error, undefined);
   assert.deepEqual(result.course, course);
-  assert.equal(courseFileName(course), "private.ja.cafe-request-0.6.0.course.json");
+  assert.equal(courseFileName(course), "private.ja.cafe-request-0.7.0.course.json");
   assert.equal(MAX_COURSE_FILE_BYTES, 5 * 1024 * 1024);
 });
 

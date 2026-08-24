@@ -73,6 +73,7 @@ function baseCourse({
   utterances,
   exercises,
   lessons,
+  version = "0.6.0",
 }: {
   languageId: string;
   adapterId: string;
@@ -82,12 +83,13 @@ function baseCourse({
   utterances: Utterance[];
   exercises: Exercise[];
   lessons: LessonPlan[];
+  version?: string;
 }): CoursePack {
   return {
     schemaVersion: 2,
     manifest: {
       id: `private.${languageId}.cafe-request`,
-      version: "0.6.0",
+      version,
       languageId,
       title: l(`${targetName}零基础入门`, `${englishTargetName} Zero Beginner`),
       description: l("从文字或标音基础开始，学习问候、时间、位置、购物、交通、求助和服务场景中的 A1 核心表达。", "Start with the writing or romanization system and build A1 core expressions for greetings, time, places, shopping, transport, help, and service encounters."),
@@ -198,6 +200,61 @@ function japaneseA1CoreExtension(): CourseExtension {
   };
 }
 
+function japaneseA1Expansion(): CourseExtension {
+  const tags = ["a1-expanded", "reading", "jlpt-n5-relevant"];
+  return {
+    knowledge: [
+      { id: "ja-routine-actions", kind: "lexeme", form: "毎日・起きます・食べます・行きます", reading: { kana: "まいにち・おきます・たべます・いきます", hepburn: "mainichi, okimasu, tabemasu, ikimasu" }, meaning: l("每天、起床、吃、去", "every day, wake up, eat, go"), usage: l("用礼貌动词描述日常作息。", "Uses polite verbs to describe daily routines."), tags },
+      { id: "ja-time-ni", kind: "grammar", form: "〜時に〜ます／〜ません", reading: { kana: "〜じに〜ます／〜ません", hepburn: "... ji ni ... masu / masen" }, meaning: l("在……点做／不做……", "do / do not do ... at ... o'clock"), usage: l("明确时间后加に；ます的礼貌否定是ません。", "Adds に after a specific time; ません is the polite negative of ます."), tags },
+      { id: "ja-family-vocab", kind: "lexeme", form: "家族・父・母・兄・姉・弟・妹", reading: { kana: "かぞく・ちち・はは・あに・あね・おとうと・いもうと", hepburn: "kazoku, chichi, haha, ani, ane, otōto, imōto" }, meaning: l("家人、父母和兄弟姐妹", "family, parents, and siblings"), usage: l("这些形式用于介绍自己的家庭成员。", "These forms introduce one's own family members."), tags },
+      { id: "ja-possession-no", kind: "grammar", form: "〜の〜", reading: { kana: "〜の〜", hepburn: "... no ..." }, meaning: l("……的……", "...'s ..."), usage: l("连接两个名词，表示所属或类别。", "Links two nouns to show possession or category."), tags },
+      { id: "ja-person-exists", kind: "grammar", form: "〜と〜がいます", reading: { kana: "〜と〜がいます", hepburn: "... to ... ga imasu" }, meaning: l("有……和……（人或动物）", "there are ... and ... (people or animals)"), usage: l("と连接名词，がいます表示人或动物的存在。", "と joins nouns; がいます expresses the existence of people or animals."), tags },
+      { id: "ja-weekdays", kind: "lexeme", form: "月曜日・火曜日・水曜日・木曜日・金曜日・土曜日・日曜日", reading: { kana: "げつようび・かようび・すいようび・もくようび・きんようび・どようび・にちようび", hepburn: "getsuyōbi, kayōbi, suiyōbi, mokuyōbi, kin'yōbi, doyōbi, nichiyōbi" }, meaning: l("星期一到星期日", "Monday through Sunday"), usage: l("用于日程和约见安排。", "Used for schedules and arrangements."), tags },
+      { id: "ja-invitation", kind: "grammar", form: "一緒に〜ませんか／〜ましょう", reading: { kana: "いっしょに〜ませんか／〜ましょう", hepburn: "issho ni ... masen ka / ... mashō" }, meaning: l("要不要一起……？／一起……吧", "Would you like to ...? / Let's ..."), usage: l("前者发出礼貌邀请，后者接受或提出共同建议。", "The first invites politely; the second accepts or suggests a shared action."), tags },
+      { id: "ja-tomorrow", kind: "lexeme", form: "明日", reading: { kana: "あした", hepburn: "ashita" }, meaning: l("明天", "tomorrow"), usage: l("说明第二天的计划。", "States a plan for the next day."), tags },
+      { id: "ja-body-pain", kind: "grammar", form: "頭・お腹／〜が痛いです", reading: { kana: "あたま・おなか／〜がいたいです", hepburn: "atama, onaka / ... ga itai desu" }, meaning: l("头、肚子／……疼", "head, stomach / ... hurts"), usage: l("用が标记疼痛的身体部位。", "Uses が to mark the body part that hurts."), tags },
+      { id: "ja-hospital", kind: "lexeme", form: "病院", reading: { kana: "びょういん", hepburn: "byōin" }, meaning: l("医院", "hospital"), usage: l("用于寻找基础医疗帮助。", "Used when seeking basic medical help."), tags },
+      { id: "ja-medicine", kind: "lexeme", form: "薬", reading: { kana: "くすり", hepburn: "kusuri" }, meaning: l("药", "medicine"), usage: l("在药店或医疗求助场景中使用。", "Used in pharmacies or medical-help situations."), tags },
+      { id: "ja-please-give", kind: "grammar", form: "〜をください", reading: { kana: "〜をください", hepburn: "... o kudasai" }, meaning: l("请给我……", "Please give me ..."), usage: l("直接请求具体物品。", "Directly requests a specific item."), tags },
+    ],
+    utterances: [
+      { id: "ja-routine-seven", text: "毎日、七時に起きます。", translation: l("我每天七点起床。", "I wake up at seven every day."), reading: { kana: "まいにち、しちじにおきます。", hepburn: "mainichi, shichiji ni okimasu." }, knowledgeRefs: ["ja-routine-actions", "ja-time-ni"] },
+      { id: "ja-reading-routine", text: "毎日、朝七時に起きます。八時にパンを食べます。九時に学校に行きます。", translation: l("我每天早上七点起床，八点吃面包，九点去学校。", "Every day I wake up at 7 a.m., eat bread at 8, and go to school at 9."), reading: { kana: "まいにち、あさしちじにおきます。はちじにパンをたべます。くじにがっこうにいきます。", hepburn: "mainichi, asa shichiji ni okimasu. hachiji ni pan o tabemasu. kuji ni gakkō ni ikimasu." }, knowledgeRefs: ["ja-routine-actions", "ja-time-ni", "ja-morning", "ja-bread"] },
+      { id: "ja-family-four", text: "わたしの家族は四人です。", translation: l("我家有四口人。", "There are four people in my family."), reading: { kana: "わたしのかぞくはよにんです。", hepburn: "watashi no kazoku wa yonin desu." }, knowledgeRefs: ["ja-family-vocab", "ja-possession-no", "ja-numbers"] },
+      { id: "ja-reading-family", text: "わたしの家族は四人です。父と母と兄がいます。", translation: l("我家有四口人，有父亲、母亲和哥哥。", "There are four people in my family: my father, mother, and older brother."), reading: { kana: "わたしのかぞくはよにんです。ちちとははとあにがいます。", hepburn: "watashi no kazoku wa yonin desu. chichi to haha to ani ga imasu." }, knowledgeRefs: ["ja-family-vocab", "ja-possession-no", "ja-person-exists", "ja-numbers"] },
+      { id: "ja-invite-library", text: "土曜日、一緒に図書館に行きませんか。", translation: l("星期六要不要一起去图书馆？", "Would you like to go to the library together on Saturday?"), reading: { kana: "どようび、いっしょにとしょかんにいきませんか。", hepburn: "doyōbi, issho ni toshokan ni ikimasen ka." }, knowledgeRefs: ["ja-weekdays", "ja-invitation", "ja-library"] },
+      { id: "ja-reading-arrangement", text: "明日は土曜日です。午後二時から図書館で勉強します。", translation: l("明天是星期六。我从下午两点开始在图书馆学习。", "Tomorrow is Saturday. I study at the library from 2 p.m."), reading: { kana: "あしたはどようびです。ごごにじからとしょかんでべんきょうします。", hepburn: "ashita wa doyōbi desu. gogo niji kara toshokan de benkyō shimasu." }, knowledgeRefs: ["ja-tomorrow", "ja-weekdays", "ja-afternoon", "ja-from-until", "ja-library"] },
+      { id: "ja-head-hurts", text: "頭が痛いです。薬をください。", translation: l("我头疼。请给我药。", "My head hurts. Please give me medicine."), reading: { kana: "あたまがいたいです。くすりをください。", hepburn: "atama ga itai desu. kusuri o kudasai." }, knowledgeRefs: ["ja-body-pain", "ja-medicine", "ja-please-give"] },
+      { id: "ja-reading-health", text: "頭が痛いです。病院は駅の右です。薬をください。", translation: l("我头疼。医院在车站右边。请给我药。", "My head hurts. The hospital is to the right of the station. Please give me medicine."), reading: { kana: "あたまがいたいです。びょういんはえきのみぎです。くすりをください。", hepburn: "atama ga itai desu. byōin wa eki no migi desu. kusuri o kudasai." }, knowledgeRefs: ["ja-body-pain", "ja-hospital", "ja-station-bus", "ja-exit-right", "ja-medicine", "ja-please-give"] },
+    ],
+    exercises: [
+      { id: "ja-recognize-routine", kind: "single-choice", prompt: l("哪一句表示“每天七点起床”？", "Which sentence means 'I wake up at seven every day'?"), options: [target("毎日、七時に起きます。"), target("明日、七時に行きます。"), target("七時に食べません。")], correctOptionIndex: 0, guidance: l("找出毎日、七時に和起きます。", "Look for 毎日, 七時に, and 起きます."), knowledgeRefs: ["ja-routine-actions", "ja-time-ni"], utteranceRefs: ["ja-routine-seven"] },
+      { id: "ja-read-routine", kind: "single-choice", prompt: l("阅读作息短文：几点去学校？", "Read the routine: When does the speaker go to school?"), options: [l("七点", "7"), l("八点", "8"), l("九点", "9")], correctOptionIndex: 2, guidance: l("最后一句是九時に学校に行きます。", "The last sentence says 九時に学校に行きます."), knowledgeRefs: ["ja-routine-actions", "ja-time-ni"], utteranceRefs: ["ja-reading-routine"] },
+      { id: "ja-build-routine", kind: "ordering", prompt: l("排成“每天七点起床”。", "Order 'wake up at seven every day.'"), options: [target("起きます。"), target("毎日、"), target("七時に")], correctOrder: [1, 2, 0], guidance: l("先毎日，再时间和动作。", "Give 毎日, then the time and action."), knowledgeRefs: ["ja-routine-actions", "ja-time-ni"], utteranceRefs: ["ja-routine-seven"] },
+      { id: "ja-type-routine", kind: "short-input", prompt: l("输入“七点起床”。", "Type 'wake up at seven.'"), acceptedAnswers: ["七時に起きます", "七時に起きます。"], guidance: l("七時に起きます。", "七時に起きます."), knowledgeRefs: ["ja-routine-actions", "ja-time-ni"], utteranceRefs: ["ja-routine-seven"] },
+      { id: "ja-recognize-family", kind: "single-choice", prompt: l("“わたしの母”是什么？", "What is わたしの母?"), options: [l("我的母亲", "my mother"), l("母亲和我", "mother and me"), l("母亲有我", "mother has me")], correctOptionIndex: 0, guidance: l("の表示所属。", "の shows possession."), knowledgeRefs: ["ja-family-vocab", "ja-possession-no"], utteranceRefs: ["ja-family-four"] },
+      { id: "ja-read-family", kind: "single-choice", prompt: l("短文提到哪位兄弟姐妹？", "Which sibling is mentioned?"), options: [l("姐姐", "older sister"), l("哥哥", "older brother"), l("妹妹", "younger sister")], correctOptionIndex: 1, guidance: l("短文写的是兄がいます。", "The text says 兄がいます."), knowledgeRefs: ["ja-family-vocab", "ja-person-exists"], utteranceRefs: ["ja-reading-family"] },
+      { id: "ja-build-family", kind: "ordering", prompt: l("排成“我家有四口人”。", "Order 'There are four people in my family.'"), options: [target("四人です。"), target("わたしの"), target("家族は")], correctOrder: [1, 2, 0], guidance: l("先用わたしの说明所属。", "Use わたしの first."), knowledgeRefs: ["ja-family-vocab", "ja-possession-no"], utteranceRefs: ["ja-family-four"] },
+      { id: "ja-type-family", kind: "short-input", prompt: l("输入“有父亲和母亲”。", "Type 'There are my father and mother.'"), acceptedAnswers: ["父と母がいます", "父と母がいます。"], guidance: l("父と母がいます。", "父と母がいます."), knowledgeRefs: ["ja-family-vocab", "ja-person-exists"], utteranceRefs: ["ja-reading-family"] },
+      { id: "ja-recognize-invitation", kind: "single-choice", prompt: l("哪一句是邀请？", "Which sentence is an invitation?"), options: [target("一緒に図書館に行きませんか。"), target("図書館に行きません。"), target("図書館は休みです。")], correctOptionIndex: 0, guidance: l("一緒に〜ませんか用于邀请。", "一緒に〜ませんか makes an invitation."), knowledgeRefs: ["ja-invitation", "ja-library"], utteranceRefs: ["ja-invite-library"] },
+      { id: "ja-read-arrangement", kind: "single-choice", prompt: l("学习何时开始？", "When does studying begin?"), options: [l("周五下午两点", "Friday 2 p.m."), l("周六下午两点", "Saturday 2 p.m."), l("周日下午五点", "Sunday 5 p.m.")], correctOptionIndex: 1, guidance: l("明日は土曜日，午後二時から。", "明日は土曜日 and 午後二時から."), knowledgeRefs: ["ja-tomorrow", "ja-weekdays"], utteranceRefs: ["ja-reading-arrangement"] },
+      { id: "ja-build-invitation", kind: "ordering", prompt: l("排成星期六的图书馆邀请。", "Order the Saturday library invitation."), options: [target("図書館に"), target("土曜日、"), target("行きませんか。"), target("一緒に")], correctOrder: [1, 3, 0, 2], guidance: l("日期、一緒に、目的地、邀请形式。", "Day, 一緒に, destination, invitation."), knowledgeRefs: ["ja-weekdays", "ja-invitation"], utteranceRefs: ["ja-invite-library"] },
+      { id: "ja-role-arrangement", kind: "role-play", prompt: l("邀请朋友星期日一起去图书馆，再说“一起去吧”。", "Invite a friend to the library on Sunday, then say 'Let's go.'"), guidance: l("包含日曜日、一緒に〜ませんか和行きましょう。", "Include 日曜日, 一緒に〜ませんか, and 行きましょう."), knowledgeRefs: ["ja-weekdays", "ja-invitation", "ja-library"], utteranceRefs: ["ja-invite-library"], rubricRef: "cafe-task-rubric", requiredCapabilities: ["token-comparison"], capabilityFallback: "self-assessment" },
+      { id: "ja-recognize-pain", kind: "single-choice", prompt: l("“お腹が痛いです”是什么？", "What is お腹が痛いです?"), options: [l("肚子疼", "stomach hurts"), l("需要吃饭", "need to eat"), l("医院里面", "inside hospital")], correctOptionIndex: 0, guidance: l("〜が痛いです表示该处疼。", "〜が痛いです says it hurts."), knowledgeRefs: ["ja-body-pain"], utteranceRefs: ["ja-head-hurts"] },
+      { id: "ja-read-health", kind: "single-choice", prompt: l("医院在哪里？", "Where is the hospital?"), options: [l("车站右边", "right of station"), l("图书馆里", "inside library"), l("机场左边", "left of airport")], correctOptionIndex: 0, guidance: l("病院は駅の右です。", "病院は駅の右です."), knowledgeRefs: ["ja-hospital", "ja-exit-right"], utteranceRefs: ["ja-reading-health"] },
+      { id: "ja-build-pain", kind: "ordering", prompt: l("排成“我头疼”。", "Order 'My head hurts.'"), options: [target("痛いです。"), target("頭"), target("が")], correctOrder: [1, 2, 0], guidance: l("身体部位＋が＋痛いです。", "Body part + が + 痛いです."), knowledgeRefs: ["ja-body-pain"], utteranceRefs: ["ja-head-hurts"] },
+      { id: "ja-role-health", kind: "role-play", prompt: l("向药店说明肚子疼并请求药。", "Tell a pharmacy worker your stomach hurts and ask for medicine."), guidance: l("包含お腹が痛いです和薬をください。", "Include お腹が痛いです and 薬をください."), knowledgeRefs: ["ja-body-pain", "ja-medicine", "ja-please-give"], utteranceRefs: ["ja-head-hurts"], rubricRef: "cafe-task-rubric", requiredCapabilities: ["token-comparison"], capabilityFallback: "self-assessment" },
+      { id: "ja-capstone-expanded-a1", kind: "role-play", prompt: l("结业综合：介绍作息和家人，邀请朋友星期六去图书馆，再说明头疼并请求药。", "Course capstone: describe a routine and family, invite a friend to the library on Saturday, then explain a headache and ask for medicine."), guidance: l("包含时间＋ます、家人＋がいます、一緒に〜ませんか、〜が痛いです和〜をください。", "Include time + ます, family + がいます, 一緒に〜ませんか, 〜が痛いです, and 〜をください."), knowledgeRefs: ["ja-time-ni", "ja-family-vocab", "ja-person-exists", "ja-weekdays", "ja-invitation", "ja-body-pain", "ja-medicine", "ja-please-give"], utteranceRefs: ["ja-routine-seven", "ja-reading-family", "ja-invite-library", "ja-head-hurts"], rubricRef: "cafe-task-rubric", requiredCapabilities: ["token-comparison"], capabilityFallback: "self-assessment" },
+    ],
+    lessons: [
+      { id: "daily-routines", title: l("第十三课：描述日常作息", "Lesson 13: Describe daily routines"), goalRef: "describe-routine-in-japanese", goalDescription: l("能够用明确时间和礼貌动词描述日常作息。", "Can describe daily routines with specific times and polite verbs."), knowledgeRefs: ["ja-routine-actions", "ja-time-ni", "ja-morning", "ja-bread"], utteranceRefs: ["ja-routine-seven", "ja-reading-routine"], recognitionExerciseRef: "ja-recognize-routine", readingExerciseRef: "ja-read-routine", guidedExerciseRef: "ja-build-routine", taskExerciseRef: "ja-type-routine" },
+      { id: "family-and-existence", title: l("第十四课：介绍家人与所属", "Lesson 14: Introduce family and possession"), goalRef: "introduce-family-in-japanese", goalDescription: l("能够介绍家庭成员，并表达所属和人的存在。", "Can introduce family members and express possession and existence."), knowledgeRefs: ["ja-family-vocab", "ja-possession-no", "ja-person-exists", "ja-numbers"], utteranceRefs: ["ja-family-four", "ja-reading-family"], recognitionExerciseRef: "ja-recognize-family", readingExerciseRef: "ja-read-family", guidedExerciseRef: "ja-build-family", taskExerciseRef: "ja-type-family" },
+      { id: "days-and-arrangements", title: l("第十五课：星期、安排和邀请", "Lesson 15: Days, arrangements, and invitations"), goalRef: "make-arrangements-in-japanese", goalDescription: l("能够理解简单日程并发出基础邀请。", "Can understand a simple schedule and make a basic invitation."), knowledgeRefs: ["ja-weekdays", "ja-tomorrow", "ja-invitation", "ja-library", "ja-from-until"], utteranceRefs: ["ja-invite-library", "ja-reading-arrangement"], recognitionExerciseRef: "ja-recognize-invitation", readingExerciseRef: "ja-read-arrangement", guidedExerciseRef: "ja-build-invitation", taskExerciseRef: "ja-role-arrangement" },
+      { id: "health-and-medicine", title: l("第十六课：说明不适和请求药品", "Lesson 16: Describe pain and ask for medicine"), goalRef: "seek-basic-health-help-in-japanese", goalDescription: l("能够说明常见疼痛、找到医院并请求药品。", "Can describe common pain, locate a hospital, and ask for medicine."), knowledgeRefs: ["ja-body-pain", "ja-hospital", "ja-medicine", "ja-please-give", "ja-exit-right"], utteranceRefs: ["ja-head-hurts", "ja-reading-health"], recognitionExerciseRef: "ja-recognize-pain", readingExerciseRef: "ja-read-health", guidedExerciseRef: "ja-build-pain", taskExerciseRef: "ja-role-health", capstone: { title: l("扩充课程结业综合任务", "Expanded course completion capstone"), exerciseRef: "ja-capstone-expanded-a1", knowledgeRefs: ["ja-time-ni", "ja-family-vocab", "ja-person-exists", "ja-weekdays", "ja-invitation", "ja-body-pain", "ja-medicine", "ja-please-give"], utteranceRefs: ["ja-routine-seven", "ja-reading-family", "ja-invite-library", "ja-head-hurts"] } },
+    ],
+  };
+}
+
 function japaneseCourse(): CoursePack {
   const knowledge: KnowledgeItem[] = [
     { id: "ja-writing-systems", kind: "script", form: "ひらがな・カタカナ・漢字", reading: { kana: "ひらがな・カタカナ・かんじ", hepburn: "hiragana / katakana / kanji" }, meaning: l("平假名、片假名和汉字", "hiragana, katakana, and kanji"), usage: l("日语混合使用三种文字；本课程先建立假名阅读能力。", "Japanese mixes three scripts; this course first builds kana reading skills."), tags: ["foundation", "writing-system"] },
@@ -265,9 +322,10 @@ function japaneseCourse(): CoursePack {
     { id: "ja-capstone-course", kind: "role-play", prompt: l("结业综合：在车站询问去机场的巴士并请求帮助；到咖啡店后点两杯冰咖啡，选择外带。", "Course capstone: at a station, ask about the bus to the airport and request help; then order two iced coffees at a café and choose takeaway."), guidance: l("完成标准：依次表达机场巴士问题、すみません求助、饮料、冰饮、数量和持ち帰り六项。信息清楚即可，不要求使用课文原句。", "Completion criteria: communicate the airport-bus question, a すみません help request, drink, iced option, quantity, and 持ち帰り in sequence. Clear meaning is enough; exact textbook wording is not required."), knowledgeRefs: ["ja-airport", "ja-go-question", "ja-excuse-me", "ja-iced", "ja-coffee", "ja-two", "ja-takeaway", "ja-request"], utteranceRefs: ["ja-ask-bus", "ja-order-two-iced", "ja-choose-takeaway"], rubricRef: "cafe-task-rubric", requiredCapabilities: ["token-comparison"], capabilityFallback: "self-assessment" },
   ];
   const a1Core = japaneseA1CoreExtension();
-  knowledge.push(...a1Core.knowledge);
-  utterances.push(...a1Core.utterances);
-  exercises.push(...a1Core.exercises);
+  const expandedA1 = japaneseA1Expansion();
+  knowledge.push(...a1Core.knowledge, ...expandedA1.knowledge);
+  utterances.push(...a1Core.utterances, ...expandedA1.utterances);
+  exercises.push(...a1Core.exercises, ...expandedA1.exercises);
   const lessons: LessonPlan[] = [
     { id: "writing-and-vowels", title: l("第一课：认识日语文字和五个元音", "Lesson 1: Meet the scripts and five vowels"), goalRef: "read-ja-vowels", goalDescription: l("能够区分日语的三种文字，并认读あ、い、う、え、お。", "Can distinguish the three Japanese scripts and read あ, い, う, え, お."), knowledgeRefs: ["ja-writing-systems", "ja-hiragana-vowels"], utteranceRefs: ["ja-word-blue", "ja-word-house"], diagnosticExerciseRef: "ja-recognize-vowel", recognitionExerciseRef: "ja-recognize-vowel", guidedExerciseRef: "ja-build-house", taskExerciseRef: "ja-type-blue" },
     { id: "hiragana-core", title: l("第二课：读完整平假名基础表", "Lesson 2: Read the basic hiragana chart"), goalRef: "read-hiragana-core", goalDescription: l("能够认读平假名基础行，并组合出简单词语。", "Can recognize the basic hiragana rows and combine them into simple words."), knowledgeRefs: ["ja-hiragana-k-s", "ja-hiragana-t-n", "ja-hiragana-h-m", "ja-hiragana-y-r-w-n"], utteranceRefs: ["ja-word-sushi", "ja-word-cat"], diagnosticExerciseRef: "ja-recognize-cat", recognitionExerciseRef: "ja-recognize-cat", guidedExerciseRef: "ja-build-sushi", taskExerciseRef: "ja-type-cat" },
@@ -277,8 +335,9 @@ function japaneseCourse(): CoursePack {
     { id: "basic-order", title: l("第十课：礼貌点一杯饮料", "Lesson 10: Order a drink politely"), goalRef: "order-drink", goalDescription: l("能够礼貌地点一杯饮料。", "Can politely order a drink."), knowledgeRefs: ["ja-coffee", "ja-tea", "ja-request"], utteranceRefs: ["ja-order-coffee", "ja-order-tea"], recognitionExerciseRef: "ja-recognize-drink", guidedExerciseRef: "ja-build-request", taskExerciseRef: "ja-role-basic" },
     { id: "drink-details", title: l("第十一课：说明冷热和数量", "Lesson 11: Specify temperature and quantity"), goalRef: "specify-drink", goalDescription: l("能够说明饮料的冷热、种类和数量。", "Can specify a drink's temperature, type, and quantity."), knowledgeRefs: ["ja-hot", "ja-iced", "ja-two", "ja-request"], utteranceRefs: ["ja-ask-temperature", "ja-order-two-iced"], recognitionExerciseRef: "ja-recognize-temperature", guidedExerciseRef: "ja-select-details", taskExerciseRef: "ja-role-details" },
     { id: "dine-or-takeaway", title: l("第十二课：选择堂食或外带", "Lesson 12: Choose dine-in or takeaway"), goalRef: "choose-location", goalDescription: l("能够回答堂食或外带问题并确认选择。", "Can answer a dine-in or takeaway question and confirm the choice."), knowledgeRefs: ["ja-inside", "ja-takeaway", "ja-choice"], utteranceRefs: ["ja-ask-location", "ja-choose-takeaway"], recognitionExerciseRef: "ja-recognize-location", guidedExerciseRef: "ja-build-takeaway", taskExerciseRef: "ja-role-transfer", capstone: { title: l("课程结业综合任务", "Course completion capstone"), exerciseRef: "ja-capstone-course", knowledgeRefs: ["ja-airport", "ja-go-question", "ja-excuse-me", "ja-iced", "ja-coffee", "ja-two", "ja-takeaway", "ja-request"], utteranceRefs: ["ja-ask-bus", "ja-order-two-iced", "ja-choose-takeaway"] } },
+    ...expandedA1.lessons,
   ];
-  return baseCourse({ languageId: "ja", adapterId: "core.japanese", targetName: "日语", englishTargetName: "Japanese", knowledge, utterances, exercises, lessons });
+  return baseCourse({ languageId: "ja", adapterId: "core.japanese", targetName: "日语", englishTargetName: "Japanese", knowledge, utterances, exercises, lessons, version: "0.7.0" });
 }
 
 function cantoneseA1CoreExtension(): CourseExtension {

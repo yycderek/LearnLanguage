@@ -5,7 +5,7 @@ import { bundledStarterCourses } from "./starter-course-library.ts";
 
 const BUNDLED_CONTENT_HASHES: Record<string, string> = {
   en: "sha256:7ac5ca6559caf36c54e7190d9cc7ebdbec34f62ad8de91a0b19cceb0288e8c11",
-  ja: "sha256:46ecf1a335fcbd6ee4bfd8738a6fcc953775b2cbd01aaeca6b164ee70ed2ee86",
+  ja: "sha256:55447535bf6a692d440f3b4989db6376e95733fcb8eb463886e2f7310045fe0d",
   "yue-Hant-HK": "sha256:9a7fe9bc28e50c7e06c86b08ea99b7671ba19e5de52048b71c2b4bc42608e137",
 };
 

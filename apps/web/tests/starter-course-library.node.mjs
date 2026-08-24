@@ -32,7 +32,7 @@ test("the bundled library contains progressive English, Japanese, and Cantonese 
   assert.equal(courses.length, 3);
   const expected = {
     en: { version: "0.7.0", lessons: 16, exercises: 60 },
-    ja: { version: "0.6.0", lessons: 12, exercises: 43 },
+    ja: { version: "0.7.0", lessons: 16, exercises: 60 },
     "yue-Hant-HK": { version: "0.6.0", lessons: 12, exercises: 43 },
   };
 
@@ -131,7 +131,7 @@ test("A1 courses include denser vocabulary and short-text information extraction
     const readingExercises = course.exercises.filter((item) => item.id.includes("-read-"));
 
     assert.ok(readingKnowledge.length >= 15, `${course.manifest.languageId} needs denser reading vocabulary`);
-    const expectedReadingCount = course.manifest.languageId === "en" ? 8 : 4;
+    const expectedReadingCount = course.manifest.languageId === "yue-Hant-HK" ? 4 : 8;
     assert.equal(readingTexts.length, expectedReadingCount, `${course.manifest.languageId} has the wrong short-reading count`);
     assert.equal(readingExercises.length, expectedReadingCount, `${course.manifest.languageId} has the wrong information-extraction count`);
 
@@ -222,6 +222,35 @@ test("English 0.7 adds four compatible A1 domains after the stable twelve-lesson
   assert.ok(english.knowledge.some((item) => item.id === "en-present-routine"));
   assert.ok(english.knowledge.some((item) => item.id === "en-feel-sick"));
   assert.ok(english.exercises.some((item) => item.id === "en-capstone-expanded-a1"));
+});
+
+test("Japanese 0.7 adds four compatible N5-relevant A1 domains after the stable twelve-lesson core", () => {
+  const japanese = bundledStarterCourses().find((course) => course.manifest.languageId === "ja");
+  assert.ok(japanese);
+  assert.equal(japanese.manifest.version, "0.7.0");
+  assert.deepEqual(japanese.lessons.slice(0, 12).map((lesson) => lesson.id), [
+    "writing-and-vowels",
+    "hiragana-core",
+    "kana-patterns",
+    "katakana-core",
+    "greeting-and-identity",
+    "numbers-and-time",
+    "places-and-questions",
+    "shopping-and-prices",
+    "transport-and-help",
+    "basic-order",
+    "drink-details",
+    "dine-or-takeaway",
+  ]);
+  assert.deepEqual(japanese.lessons.slice(12).map((lesson) => lesson.id), [
+    "daily-routines",
+    "family-and-existence",
+    "days-and-arrangements",
+    "health-and-medicine",
+  ]);
+  assert.ok(japanese.knowledge.some((item) => item.id === "ja-time-ni"));
+  assert.ok(japanese.knowledge.some((item) => item.id === "ja-body-pain"));
+  assert.ok(japanese.exercises.some((item) => item.id === "ja-capstone-expanded-a1"));
 });
 
 test("sampleCourse selects bundled content while custom languages receive an editable scaffold", () => {

@@ -70,13 +70,13 @@ test("course record unlocks lessons and reschedules completed reviews", () => {
   }
 
   assert.equal(lessonIsUnlocked(course, record, 1), true);
-  assert.equal(courseLearningPercent(course, record), 8);
+  assert.equal(courseLearningPercent(course, record), Math.round(100 / course.lessons.length));
   assert.ok(record.reviews.length > 0);
 
   const replay = startLearning(course, course.lessons[0].id, "2026-08-06T08:00:00.000Z");
   record = updateCourseLearningRecord(record, replay);
   assert.equal(lessonIsUnlocked(course, record, 1), true);
-  assert.equal(courseLearningPercent(course, record), 8);
+  assert.equal(courseLearningPercent(course, record), Math.round(100 / course.lessons.length));
 
   const original = record.reviews[0];
   const reviewed = completeReviewTask(record, original.id, "remembered", "2026-08-06T12:00:00.000Z");
