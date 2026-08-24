@@ -32,10 +32,10 @@ type GuideStep = {
 const sharedDataStep: GuideStep = {
   eyebrow: ["可选能力与数据", "OPTIONAL TOOLS & DATA"],
   title: ["AI 可以不设置，学习数据保存在当前设备", "AI is optional, and learning data stays on this device"],
-  description: ["没有账户、没有 AI 也能完成内置课程。需要开放任务反馈时，再配置你自己的 AI 服务。", "Built-in courses work without an account or AI. Configure your own AI only when you want feedback on open-ended tasks."],
+  description: ["没有账户、没有 AI 也能完成内置课程。需要开放题反馈或课节内解释与提示时，再配置你自己的 AI 服务。", "Built-in courses work without an account or AI. Configure your own AI only when you want open-task feedback or contextual explanations and hints."],
   icon: ShieldCheck,
   items: [
-    { icon: Bot, title: ["AI 完全可选", "AI is optional"], body: ["单选、排序、短输入和本地规则练习不依赖 AI；密钥只保留到当前标签页关闭。", "Choice, ordering, short-input, and local-rule exercises do not need AI; keys are cleared when this tab closes."] },
+    { icon: Bot, title: ["AI 完全可选", "AI is optional"], body: ["单选、排序、短输入和本地规则练习不依赖 AI；课节内导师只提供参考，不改变评分或进度；密钥只保留到当前标签页关闭。", "Choice, ordering, short-input, and local-rule exercises do not need AI. The in-lesson tutor is reference only and never changes grading or progress; keys are cleared when this tab closes."] },
     { icon: DatabaseBackup, title: ["保护并备份本地数据", "Protect and back up local data"], body: ["可以请求浏览器持久保留数据，并在“课程与数据管理”中一键导出课程、草稿、语言包、进度、计划和偏好。", "Ask the browser to retain local data, then export courses, drafts, language packs, progress, plans, and preferences together from Course and data management."] },
   ],
 };

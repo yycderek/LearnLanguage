@@ -123,10 +123,25 @@ export interface AiFeedbackRequestedEffect {
   readonly afterSequence: number;
 }
 
+export type AiTutorIntent = "explain" | "hint" | "example" | "question";
+
+export interface AiTutorRequestedEffect {
+  readonly id: string;
+  readonly type: "ai-tutor.requested";
+  readonly requestId: string;
+  readonly intent: AiTutorIntent;
+  readonly sessionId: string;
+  readonly courseId: string;
+  readonly lessonId: string;
+  readonly stepId: string;
+  readonly afterSequence: number;
+}
+
 export type LearningEffect =
   | RefreshLearningProjectionEffect
   | LessonCompletedEffect
-  | AiFeedbackRequestedEffect;
+  | AiFeedbackRequestedEffect
+  | AiTutorRequestedEffect;
 
 export interface SessionTransition {
   readonly state: LearningSessionState;
@@ -188,6 +203,22 @@ export function createAiFeedbackEffect(input: {
   return {
     id: `${input.sessionId}:${input.afterSequence}:ai:${input.requestId}`,
     type: "ai-feedback.requested",
+    ...input,
+  };
+}
+
+export function createAiTutorEffect(input: {
+  requestId: string;
+  intent: AiTutorIntent;
+  sessionId: string;
+  courseId: string;
+  lessonId: string;
+  stepId: string;
+  afterSequence: number;
+}): AiTutorRequestedEffect {
+  return {
+    id: `${input.sessionId}:${input.afterSequence}:tutor:${input.requestId}`,
+    type: "ai-tutor.requested",
     ...input,
   };
 }

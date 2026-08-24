@@ -165,6 +165,11 @@ test("first course start saves an optional personal plan before entering the lea
   await page.getByRole("button", { name: "保存计划并开始" }).click();
   await expect(page.getByRole("button", { name: "保存并退出" })).toBeVisible();
   await expect(page.locator(".learner-shell")).toBeVisible();
+  await page.getByRole("button", { name: "AI 导师" }).click();
+  await expect(page.getByRole("heading", { name: "可选 AI 学习导师" })).toBeVisible();
+  await expect(page.getByText("需要先配置个人 AI")).toBeVisible();
+  await expect(page.getByRole("button", { name: "打开 AI 设置" })).toBeVisible();
+  await page.getByRole("button", { name: "关闭 AI 导师" }).click();
   await page.getByRole("button", { name: "保存并退出" }).click();
 
   await expect(page.getByText("本课学习地图")).toBeVisible();

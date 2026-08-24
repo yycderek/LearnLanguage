@@ -171,6 +171,10 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(player, /AI 反馈/);
   assert.match(player, /AI 参考 · 不自动评分/);
   assert.match(player, /createAiFeedbackEffect/);
+  assert.match(player, /createAiTutorEffect/);
+  assert.match(player, /可选 AI 学习导师/);
+  assert.match(player, /回复只作参考，不自动评分，也不改变进度/);
+  assert.match(player, /requestAiTutor/);
   assert.match(player, /IndexedDbEffectQueue/);
   assert.match(player, /当前语言能力不足/);
   assert.match(player, /请对照参考答案自行确认/);
@@ -308,6 +312,9 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(languageRuntime, /course-adapter-mismatch/);
   assert.match(languageRuntime, /exercise-capability-missing/);
   assert.match(ai, /requestAiFeedback/);
+  assert.match(ai, /requestAiTutor/);
+  assert.match(ai, /不得评分、判定完成、改变学习进度/);
+  assert.match(aiRoute, /body\.action === "tutor"/);
   assert.match(aiRoute, /api\.openai\.com\/v1\/responses/);
   assert.match(worker, /withFreshDocumentHeaders/);
   assert.match(worker, /Cache-Control", "no-store, max-age=0/);

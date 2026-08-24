@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpenCheck,
+  Bot,
   CalendarClock,
   Check,
   CheckCircle2,
@@ -12,12 +13,15 @@ import {
   Eye,
   Lightbulb,
   ListChecks,
+  MessageCircleQuestion,
   RotateCcw,
+  Send,
   Sparkles,
   Target,
   TriangleAlert,
+  X,
 } from "lucide-react";
-import { requestAiFeedback, type AiSettings } from "@/lib/ai";
+import { requestAiFeedback, requestAiTutor, type AiSettings, type AiTutorAnswer } from "@/lib/ai";
 import { ExerciseRenderer } from "@/app/exercise-renderer";
 import { displayText, type CoursePack } from "@/lib/course";
 import { IndexedDbEffectQueue } from "@/lib/device-repository";
@@ -32,7 +36,7 @@ import {
   textExerciseResponse,
   type ExerciseResponse,
 } from "@learn-language/application";
-import { createAiFeedbackEffect } from "@learn-language/engine";
+import { createAiFeedbackEffect, createAiTutorEffect, type AiTutorIntent } from "@learn-language/engine";
 import {
   learningPercent,
   startLearning,
@@ -102,6 +106,7 @@ export function LearningPlayer({
   locale = "zh-CN",
   preview = false,
   aiSettings,
+  onConfigureAi,
   onProgress,
   onExit,
 }: {
@@ -111,6 +116,7 @@ export function LearningPlayer({
   locale?: AppLocale;
   preview?: boolean;
   aiSettings?: AiSettings;
+  onConfigureAi?: () => void;
   onProgress: (progress: LearningProgress) => void;
   onExit: () => void;
 }) {
@@ -123,6 +129,11 @@ export function LearningPlayer({
   const [feedback, setFeedback] = useState<Feedback>();
   const [evaluating, setEvaluating] = useState(false);
   const [reviewPlanOpen, setReviewPlanOpen] = useState(false);
+  const [tutorOpen, setTutorOpen] = useState(false);
+  const [tutorQuestion, setTutorQuestion] = useState("");
+  const [tutorReply, setTutorReply] = useState<AiTutorAnswer>();
+  const [tutorError, setTutorError] = useState("");
+  const [tutorBusy, setTutorBusy] = useState(false);
 
   const lesson = course.lessons.find((item) => item.id === progress.lessonId) ?? course.lessons[0];
   const currentStep = lesson?.steps.find((item) => item.id === progress.currentStepId);
@@ -151,6 +162,11 @@ export function LearningPlayer({
     setShowSupport(false);
     setFeedback(undefined);
     setEvaluating(false);
+    setTutorOpen(false);
+    setTutorQuestion("");
+    setTutorReply(undefined);
+    setTutorError("");
+    setTutorBusy(false);
   }
 
   function advance(evaluationSource: EvaluationSource = "deterministic", evidenceEligible = true, nextStepId?: string, score = 1) {
@@ -298,6 +314,53 @@ export function LearningPlayer({
     }
   }
 
+  async function askTutor(intent: AiTutorIntent) {
+    if (!aiSettings || !lesson || !currentStep) {
+      setTutorOpen(true);
+      return;
+    }
+    if (intent === "question" && !tutorQuestion.trim()) {
+      setTutorError(c("请先输入想问的问题。", "Enter a question first."));
+      return;
+    }
+    setTutorBusy(true);
+    setTutorError("");
+    setTutorReply(undefined);
+    const requestId = crypto.randomUUID();
+    const effect = createAiTutorEffect({
+      requestId,
+      intent,
+      sessionId: progress.sessionId,
+      courseId: progress.courseId,
+      lessonId: progress.lessonId,
+      stepId: currentStep.id,
+      afterSequence: progress.engineEvents.at(-1)?.sequence ?? progress.events.length,
+    });
+    const effectQueue = preview ? undefined : new IndexedDbEffectQueue();
+    await effectQueue?.enqueue([effect], new Date().toISOString()).catch(() => undefined);
+    try {
+      const answer = await requestAiTutor(aiSettings, {
+        course,
+        lessonTitle: displayText(lesson.title, teachingLocale),
+        stepTitle: displayText(currentStep.title, teachingLocale),
+        phase: currentStep.phase,
+        task: exercise ? displayText(exercise.prompt, teachingLocale) : undefined,
+        learnerResponse: activeResponse ? textExerciseResponse(activeResponse) || undefined : undefined,
+        knowledge: knowledge.flatMap((item) => item ? [{ form: item.form, meaning: displayText(item.meaning, teachingLocale) }] : []),
+        utterances: utterances.flatMap((item) => item ? [{ text: item.text, ...(item.translation ? { translation: displayText(item.translation, teachingLocale) } : {}) }] : []),
+        intent,
+        question: intent === "question" ? tutorQuestion.trim() : undefined,
+        teachingLocale,
+      });
+      setTutorReply(answer);
+      await effectQueue?.markCompleted(effect.id).catch(() => undefined);
+    } catch (error) {
+      setTutorError(error instanceof Error ? error.message : c("AI 导师暂时不可用。", "The AI tutor is temporarily unavailable."));
+    } finally {
+      setTutorBusy(false);
+    }
+  }
+
   function tryAgain() {
     setResponse(undefined);
     setShowSupport(true);
@@ -391,13 +454,39 @@ export function LearningPlayer({
 
           {capabilityResolution.missing.length > 0 && <div className="capability-fallback"><TriangleAlert size={17} /><div><strong>{c("当前语言能力不足，已启用降级模式", "A required language capability is unavailable")}</strong><p>{c("缺少：", "Missing: ")}{capabilityResolution.missing.join(", ")} · {capabilityResolution.mode === "disabled" ? c("本练习将跳过且不记录掌握证据", "This exercise will be skipped without mastery evidence") : capabilityResolution.mode === "reference-answer" ? c("显示参考答案后由你确认", "You will confirm after seeing a reference answer") : c("改为学习者自评", "The exercise will use learner self-assessment")}</p></div></div>}
 
+          {tutorOpen && <section className="ai-tutor-panel" aria-labelledby="ai-tutor-title">
+            <header>
+              <div><span><Bot size={19} /></span><div><small>OPTIONAL AI TUTOR</small><h2 id="ai-tutor-title">{c("可选 AI 学习导师", "Optional AI tutor")}</h2></div></div>
+              <button type="button" onClick={() => setTutorOpen(false)} aria-label={c("关闭 AI 导师", "Close AI tutor")}><X size={17} /></button>
+            </header>
+            {!aiSettings ? <div className="ai-tutor-empty"><MessageCircleQuestion size={24} /><div><strong>{c("需要先配置个人 AI", "Configure Personal AI first")}</strong><p>{c("课程和本地练习不依赖 AI。配置后，导师可以解释当前步骤、提供提示和回答问题。", "Courses and local exercises do not require AI. Once configured, the tutor can explain this step, give hints, and answer questions.")}</p></div>{onConfigureAi && <button type="button" onClick={onConfigureAi}>{c("打开 AI 设置", "Open AI settings")}</button>}</div> : <>
+              <p className="ai-tutor-boundary">{c("只发送当前课节内容、当前回答和你主动输入的问题。回复只作参考，不自动评分，也不改变进度。", "Only this lesson context, the current response, and questions you enter are sent. Replies are reference only: no automatic grading or progress changes.")}</p>
+              <div className="ai-tutor-shortcuts">
+                <button type="button" disabled={tutorBusy} onClick={() => void askTutor("explain")}><BookOpenCheck size={15} />{c("解释本步", "Explain this step")}</button>
+                <button type="button" disabled={tutorBusy} onClick={() => void askTutor("hint")}><Lightbulb size={15} />{c("给一个提示", "Give me a hint")}</button>
+                <button type="button" disabled={tutorBusy} onClick={() => void askTutor("example")}><Sparkles size={15} />{c("换个例子", "Show another example")}</button>
+              </div>
+              {tutorBusy && <div className="ai-tutor-loading" role="status"><Sparkles size={16} />{c("正在结合当前课节生成帮助…", "Creating help from this lesson context…")}</div>}
+              {tutorError && <div className="ai-tutor-error" role="alert"><CircleAlert size={16} />{tutorError}</div>}
+              {tutorReply && <article className="ai-tutor-reply" aria-live="polite"><span>{c("AI 参考 · 不记录为学习证据", "AI reference · not learning evidence")}</span><h3>{tutorReply.title}</h3><p>{tutorReply.explanation}</p>{tutorReply.examples.length > 0 && <ul>{tutorReply.examples.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>}{tutorReply.practicePrompt && <div className="ai-tutor-practice"><strong>{c("可以接着试", "Try next")}</strong><p>{tutorReply.practicePrompt}</p></div>}{tutorReply.caution && <small>{tutorReply.caution}</small>}</article>}
+              <form className="ai-tutor-question" onSubmit={(event) => { event.preventDefault(); void askTutor("question"); }}>
+                <label htmlFor="ai-tutor-question">{c("针对当前步骤提问", "Ask about this step")}</label>
+                <textarea id="ai-tutor-question" value={tutorQuestion} maxLength={600} onChange={(event) => { setTutorQuestion(event.target.value); setTutorError(""); }} placeholder={c("例如：这个句型和刚才的表达有什么区别？", "For example: How is this pattern different from the previous one?")} />
+                <footer><span>{tutorQuestion.length} / 600</span><button type="submit" disabled={tutorBusy || !tutorQuestion.trim()}><Send size={14} />{c("发送问题", "Send question")}</button></footer>
+              </form>
+            </>}
+          </section>}
+
           {feedback && <div className={`learning-feedback ${feedback.kind}`}>
             {feedback.kind === "success" ? <CheckCircle2 size={21} /> : feedback.kind === "review" ? <Sparkles size={21} /> : <CircleAlert size={21} />}
             <div><span className={`feedback-source ${feedback.source ?? "local"}`}>{feedback.source === "ai" ? c("AI 参考 · 不自动评分", "AI reference · no automatic grading") : c("本地规则", "Local rules")}</span><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.detail && <small>{feedback.kind === "review" ? feedback.detail : c(`AI 未使用：${feedback.detail}`, `AI not used: ${feedback.detail}`)}</small>}</div>
           </div>}
 
           <footer className="learning-actions">
-            {!showSupport && (exercise || currentStep.supportLevel !== "none") ? <button className="support-button" onClick={() => setShowSupport(true)}><Eye size={16} />{c("查看提示", "View support")}</button> : <span />}
+            <div className="learning-support-actions">
+              {!showSupport && (exercise || currentStep.supportLevel !== "none") && <button className="support-button" onClick={() => setShowSupport(true)}><Eye size={16} />{c("查看提示", "View support")}</button>}
+              <button className={`tutor-button ${tutorOpen ? "active" : ""}`} type="button" onClick={() => setTutorOpen((open) => !open)}><Bot size={16} />{c("AI 导师", "AI tutor")}</button>
+            </div>
             {feedback?.diagnosticAction === "skip" ? <button className="learner-primary" onClick={() => advance("deterministic", true, feedback.nextStepId, 1)}>{c("跳过并完成本课", "Skip and complete lesson")}<ArrowRight size={17} /></button> : feedback?.diagnosticAction === "learn" ? <button className="learner-primary" onClick={() => advance("deterministic", false, feedback.nextStepId, 0)}>{c("开始学习本课", "Start this lesson")}<ArrowRight size={17} /></button> : feedback?.kind === "success" ? <button className="learner-primary" onClick={() => advance("deterministic")}>{c("继续下一步", "Continue")}<ArrowRight size={17} /></button> : feedback?.kind === "retry" ? <button className="learner-primary retry-button" onClick={tryAgain}><RotateCcw size={16} />{c("根据提示重试", "Try again with support")}</button> : feedback?.kind === "review" ? <div className="ai-review-actions"><button className="support-button" onClick={tryAgain}><RotateCcw size={16} />{c("继续修改", "Keep editing")}</button><button className="learner-primary" onClick={() => advance("self")}>{c("我确认已完成", "I confirm completion")}<ArrowRight size={17} /></button></div> : capabilityResolution.mode === "disabled" ? <button className="learner-primary" onClick={submitAnswer}>{c("跳过不兼容练习", "Skip incompatible exercise")}<ArrowRight size={17} /></button> : <button className="learner-primary" onClick={submitAnswer} disabled={evaluating}>{evaluating ? <><Sparkles size={16} />{c("AI 反馈中…", "Getting AI feedback…")}</> : exercise ? <><ListChecks size={16} />{c("提交答案", "Submit answer")}</> : <><Sparkles size={16} />{c("完成并继续", "Complete and continue")}</>}</button>}
           </footer>
         </article>

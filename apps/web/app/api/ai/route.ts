@@ -1,7 +1,7 @@
 type AiProvider = "openai" | "anthropic" | "gemini";
 
 type AiGatewayRequest = {
-  action?: "test" | "feedback" | "authoring";
+  action?: "test" | "feedback" | "tutor" | "authoring";
   provider?: AiProvider;
   model?: string;
   apiKey?: string;
@@ -27,8 +27,8 @@ function extractText(provider: AiProvider, data: unknown) {
   return value.candidates?.[0]?.content?.parts?.map((item) => item.text ?? "").join("") ?? "";
 }
 
-async function providerRequest(provider: AiProvider, model: string, apiKey: string, prompt: string, action: "test" | "feedback" | "authoring") {
-  const maxTokens = action === "test" ? 32 : action === "authoring" ? 4000 : 700;
+async function providerRequest(provider: AiProvider, model: string, apiKey: string, prompt: string, action: "test" | "feedback" | "tutor" | "authoring") {
+  const maxTokens = action === "test" ? 32 : action === "authoring" ? 4000 : action === "tutor" ? 1200 : 700;
   if (provider === "openai") {
     return fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
   } catch {
     return json({ error: "请求格式无效。" }, 400);
   }
-  const action = body.action === "test" ? "test" : body.action === "feedback" ? "feedback" : body.action === "authoring" ? "authoring" : undefined;
+  const action = body.action === "test" ? "test" : body.action === "feedback" ? "feedback" : body.action === "tutor" ? "tutor" : body.action === "authoring" ? "authoring" : undefined;
   const provider = (["openai", "anthropic", "gemini"] as const).find((item) => item === body.provider);
   const model = body.model?.trim() ?? "";
   const apiKey = body.apiKey?.trim() ?? "";

@@ -1278,7 +1278,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     setAiConnection({ state: "testing", message: t("正在连接所选 AI 服务……", "Connecting to the selected AI service…") });
     try {
       await testAiConnection(aiSettings);
-      setAiConnection({ state: "success", message: t("连接成功，可以用于文本学习反馈。", "Connection successful. The service is ready for text feedback.") });
+      setAiConnection({ state: "success", message: t("连接成功，可以用于开放题反馈和课节内 AI 导师。", "Connection successful. The service is ready for open-task feedback and the in-lesson AI tutor.") });
     } catch (error) {
       setAiConnection({ state: "error", message: error instanceof Error ? localizeRuntimeMessage(error.message, uiLocale) : t("连接失败，请检查配置。", "Connection failed. Check the settings.") });
     }
@@ -1774,7 +1774,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     return <><LearningDashboard course={course} courses={learningContext === "learn" ? learnCourses : [course]} languagePack={currentLanguage} record={currentRecord} learningPlan={currentPlan} agenda={currentAgenda} locale={appLocale} onLocaleChange={changeAppLocale} preview={learningContext === "preview"} onSelectCourse={selectLearningCourse} onOpenLibrary={() => setLearningView("library")} onOpenSettings={learningContext === "learn" ? () => setLearningView("settings") : undefined} onOpenPlan={learningContext === "learn" ? () => setLearningView("plan") : undefined} onOpenHelp={() => openProductGuide(learningContext === "preview" ? "studio" : "learn")} onBack={() => learningContext === "preview" ? setLearningView("studio") : window.location.assign("/studio")} onStartLesson={openLesson} onStartReview={openReview} />{productGuide}</>;
   }
   if (learningView === "lesson" && selectedProgress) {
-    return <><LearningPlayer course={course} languagePack={currentLanguage} locale={appLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />{productGuide}</>;
+    return <><LearningPlayer course={course} languagePack={currentLanguage} locale={appLocale} initialProgress={selectedProgress} preview={learningContext === "preview"} aiSettings={aiConfigured ? aiSettings : undefined} onConfigureAi={() => setLearningView("settings")} onProgress={storeLessonProgress} onExit={() => setLearningView("dashboard")} />{productGuide}</>;
   }
   if (learningView === "review" && currentRecord) {
     return <><ReviewPlayer course={course} locale={appLocale} initialRecord={currentRecord} tasks={reviewTasks} preview={learningContext === "preview"} onRecord={storeCourseRecord} onExit={() => setLearningView("dashboard")} />{productGuide}</>;

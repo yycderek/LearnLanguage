@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createAiFeedbackEffect,
+  createAiTutorEffect,
   SessionTransitionError,
   replaySessionEvents,
   startSession,
@@ -81,6 +82,28 @@ describe("lesson session state machine", () => {
       afterSequence: 4,
     });
   });
+  it("creates a persistable AI tutor effect without changing session state", () => {
+    expect(createAiTutorEffect({
+      requestId: "tutor-request-1",
+      intent: "hint",
+      sessionId: "session-1",
+      courseId: "course-1",
+      lessonId: "test-lesson",
+      stepId: "task",
+      afterSequence: 4,
+    })).toEqual({
+      id: "session-1:4:tutor:tutor-request-1",
+      type: "ai-tutor.requested",
+      requestId: "tutor-request-1",
+      intent: "hint",
+      sessionId: "session-1",
+      courseId: "course-1",
+      lessonId: "test-lesson",
+      stepId: "task",
+      afterSequence: 4,
+    });
+  });
+
   it("starts at the declared entry step", () => {
     const transition = start();
 
