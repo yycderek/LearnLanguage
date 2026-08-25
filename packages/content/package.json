@@ -1,0 +1,34 @@
+{
+  "name": "@learn-language/content",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./starter-course-library": {
+      "types": "./src/starter-course-library.ts",
+      "default": "./src/starter-course-library.ts"
+    },
+    "./english-starter-course": {
+      "types": "./src/english-starter-course.ts",
+      "default": "./src/english-starter-course.ts"
+    },
+    "./english-a1-extension": {
+      "types": "./src/english-a1-extension.ts",
+      "default": "./src/english-a1-extension.ts"
+    },
+    "./language-pack": {
+      "types": "./src/language-pack.ts",
+      "default": "./src/language-pack.ts"
+    }
+  },
+  "dependencies": {
+    "@learn-language/language-runtime": "workspace:*",
+    "@learn-language/protocol": "workspace:*",
+    "ajv": "^8.20.0"
+  }
+}

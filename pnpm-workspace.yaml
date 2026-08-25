@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "apps/headless"
+  - "apps/mobile"
   - "apps/web"
 allowBuilds:
   esbuild: true

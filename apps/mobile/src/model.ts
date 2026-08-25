@@ -1,0 +1,6 @@
+import { reviewsDue, type CourseLearningRecord } from "@learn-language/application/learning-record";
+import type { CoursePack, LocalizedText } from "@learn-language/protocol";
+export type MobileLocale = "zh-CN" | "en";
+export function mobileText(value: LocalizedText | undefined, locale: MobileLocale) { if (!value) return ""; return value[locale] ?? value["zh-CN"] ?? value.en ?? value.native ?? Object.values(value)[0] ?? ""; }
+export function nextLessonIndex(course: CoursePack, record?: CourseLearningRecord) { const active = course.lessons.findIndex((lesson) => record?.lessonProgress[lesson.id]?.status === "active"); if (active >= 0) return active; const firstIncomplete = course.lessons.findIndex((lesson) => !record?.completedLessonIds.includes(lesson.id)); return firstIncomplete >= 0 ? firstIncomplete : Math.max(0, course.lessons.length - 1); }
+export function mobileReviewItems(courses: readonly CoursePack[], records: Readonly<Record<string, CourseLearningRecord>>, now = Date.now()) { return courses.flatMap((course) => { const record = records[course.manifest.id]; if (!record) return []; return reviewsDue(record, now).map((task) => ({ course, record, task, knowledge: course.knowledge.find((item) => item.id === task.knowledgeItemId) })); }); }

@@ -32,6 +32,14 @@
     "./product-closure": {
       "types": "./src/product-closure.ts",
       "default": "./src/product-closure.ts"
+    },
+    "./learning-record": {
+      "types": "./src/learning-record.ts",
+      "default": "./src/learning-record.ts"
+    },
+    "./exercise-response": {
+      "types": "./src/exercise-response.ts",
+      "default": "./src/exercise-response.ts"
     }
   },
   "dependencies": {

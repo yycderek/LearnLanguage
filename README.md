@@ -37,6 +37,8 @@ AI 为可选功能；基础学习和课程编辑无需配置 AI。配置个人 A
 
 - 内置英语、日语和粤语核心入门课程，也支持任意语种的自定义课程。
 - 当前课程用于入门学习，不等同于完整的 CEFR 或 JLPT 考试认证课程。
+- 提供 Web 客户端和 Android/iOS 移动学习客户端源码；移动端首版只包含 Learn 学习空间。
+- 移动端目前需要从源码构建，尚未提供已签名的 APK、AAB 或 IPA；详见 [移动端安装与开发](docs/MOBILE_INSTALL.md)。
 - 暂不提供录音、语音识别或发音评分。
 
 ## 本地开发
@@ -48,12 +50,15 @@ pnpm install --frozen-lockfile
 pnpm check
 pnpm --dir apps/web test
 pnpm --dir apps/web lint
+pnpm --dir apps/mobile typecheck
+pnpm --dir apps/mobile test
 ```
 
-主要代码位于 `apps/web` 和 `packages`。项目使用共享协议、应用服务和学习引擎，为未来移动端与桌面端保留客户端边界。
+客户端代码位于 `apps/web` 和 `apps/mobile`，共享内容与核心能力位于 `packages`。移动端与 Web 复用 Course Pack、Language Pack、应用服务和学习引擎，但界面与本地存储适配器独立。移动端开发说明见[移动端 README](apps/mobile/README.md)。
 
 ## 项目文档
 
+- [移动端安装与开发](docs/MOBILE_INSTALL.md)
 - [完整使用手册](docs/USER_GUIDE.md)
 - [产品定位与竞品基线](docs/PRODUCT_POSITIONING.md)
 - [架构设计](docs/ARCHITECTURE.md)

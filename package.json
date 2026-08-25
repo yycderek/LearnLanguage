@@ -11,7 +11,8 @@
     "test": "vitest run",
     "release:verify": "node scripts/verify-release.mjs",
     "client:smoke": "node apps/headless/src/main.mjs",
-    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm client:smoke && pnpm release:verify"
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm client:smoke && pnpm mobile:check && pnpm release:verify",
+    "mobile:check": "pnpm --dir apps/mobile typecheck && pnpm --dir apps/mobile test"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
