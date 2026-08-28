@@ -1,0 +1,58 @@
+name: Dependency Security
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 1 * * 1"
+  push:
+    branches:
+      - main
+    paths:
+      - "package.json"
+      - "apps/*/package.json"
+      - "packages/*/package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/security.yml"
+  pull_request:
+    paths:
+      - "package.json"
+      - "apps/*/package.json"
+      - "packages/*/package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/security.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-audit:
+    name: Production dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.10
+        with:
+          version: 11.9.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Reject high and critical production vulnerabilities
+        run: pnpm audit --prod --audit-level high

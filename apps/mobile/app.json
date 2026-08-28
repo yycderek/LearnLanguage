@@ -18,7 +18,8 @@
       }
     },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-sharing"
     ]
   }
 }
