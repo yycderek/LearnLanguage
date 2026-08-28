@@ -24,6 +24,10 @@
     "./language-pack": {
       "types": "./src/language-pack.ts",
       "default": "./src/language-pack.ts"
+    },
+    "./course-validation": {
+      "types": "./src/course-validation.ts",
+      "default": "./src/course-validation.ts"
     }
   },
   "dependencies": {

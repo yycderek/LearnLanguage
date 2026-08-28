@@ -354,7 +354,8 @@
 - [x] Android 与 iOS Metro 生产 bundle、TypeScript 和共享逻辑测试通过。
 - [ ] 生成签名 Android/iOS 安装包，并完成至少一台 Android 与一台 iOS 真机的安装、离线、备份和恢复验收。
 - [ ] 根据真机结果补齐触控、键盘遮挡、安全区、系统返回键和屏幕阅读器问题。
-- [ ] 评估移动端个人计划、课程文件导入和可选同步；Studio 与 AI 导师不作为首版阻塞项。
+- [x] 移动端支持导入、更新和移除已发布 Course Pack 与自定义 Language Pack，并持久化到 SQLite。
+- [ ] 评估移动端个人计划和可选同步；Studio 与 AI 导师不作为首版阻塞项。
 
 ## 已确认的后续发展顺序
 
@@ -373,12 +374,12 @@
 
 ## R35：依赖安全与自动更新
 
-状态：实施中。
+状态：已于 2026-08-28 完成。
 
 - [x] 将 Next.js、React、Expo 和 React Native 更新到已修复的兼容补丁版本。
 - [x] 使用 pnpm 安全覆盖修复仍由上游范围锁定的高危传递依赖，不忽略安全公告。
 - [x] 增加高危生产依赖 CI 门禁和每周 Dependabot 更新。
-- [ ] 完成全量 Core、Web、移动 bundle 和浏览器回归，并等待 GitHub CI 终态。
+- [x] 完成全量 Core、Web、移动 bundle 和浏览器回归；GitHub CI 与 Dependency Security 均为绿色。
 - [ ] 定期处理剩余低危／中危 Expo 构建工具依赖，避免未经验证的主版本强制覆盖。
 
 ## 暂不实施

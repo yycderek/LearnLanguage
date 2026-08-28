@@ -82,7 +82,7 @@ Web 在首次联网访问后通过同源 Service Worker 缓存 Learn、Studio �
 
 ## 移动端客户端
 
-`apps/mobile` 使用 Expo SDK 57 和 React Native，为 Android 与 iOS 提供独立 Learn 界面。它直接消费 `@learn-language/content`、`@learn-language/application`、`@learn-language/engine` 和 `@learn-language/protocol`；选择、排序、文字回答、掌握度投影和复习规则不在移动界面中重新实现。SQLite Repository 保存课程学习记录和应用语言偏好，WAL 与事务保证本地写入边界。内置课程随应用包分发，因此核心学习离线可用。移动备份只包含学习记录，并通过同一 ProfileBackupApplicationService 按更新时间合并。
+`apps/mobile` 使用 Expo SDK 57 和 React Native，为 Android 与 iOS 提供独立 Learn 界面。它直接消费 `@learn-language/content`、`@learn-language/application`、`@learn-language/engine` 和 `@learn-language/protocol`；选择、排序、文字回答、掌握度投影和复习规则不在移动界面中重新实现。SQLite Repository 分别保存课程学习记录、应用语言偏好、导入 Course Pack 和自定义 Language Pack，WAL 与事务保证本地写入边界。移动文件选择器只负责读取文件；结构校验、课程更新兼容性、来源信任、Language Pack 生命周期和语言运行时门禁复用共享内容与 Application 模块。内置与导入课程均可离线学习。移动备份仍只包含学习记录，并通过同一 ProfileBackupApplicationService 按更新时间合并；导入内容需保留原文件用于换机或重装。
 
 移动端首版只实现 Learn 学习空间；无代码 Studio 继续使用 Web。AI 与同步保持可选并暂不进入首版移动界面。独立桌面客户端不再列入当前计划，桌面设备使用 Web/PWA。
 

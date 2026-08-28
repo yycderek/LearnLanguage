@@ -15,6 +15,7 @@
     "@learn-language/application": "workspace:*",
     "@learn-language/content": "workspace:*",
     "@learn-language/engine": "workspace:*",
+    "@learn-language/language-runtime": "workspace:*",
     "@learn-language/protocol": "workspace:*",
     "expo": "~57.0.18",
     "expo-crypto": "~57.0.2",

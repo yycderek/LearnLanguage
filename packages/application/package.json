@@ -40,6 +40,10 @@
     "./exercise-response": {
       "types": "./src/exercise-response.ts",
       "default": "./src/exercise-response.ts"
+    },
+    "./course-update": {
+      "types": "./src/course-update.ts",
+      "default": "./src/course-update.ts"
     }
   },
   "dependencies": {

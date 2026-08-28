@@ -1,6 +1,8 @@
 import type { Exercise, LanguageCapability, LanguageDefinition } from "@learn-language/protocol";
 import { resolveLanguageRuntime } from "@learn-language/language-runtime";
 
+const LANGUAGE_CAPABILITIES = new Set(["normalization", "segmentation", "token-comparison", "script-detection", "reading-transform"]);
+
 export type LanguagePack = LanguageDefinition;
 export type { LanguageDirection } from "@learn-language/protocol";
 
@@ -87,6 +89,20 @@ export function validateLanguagePack(input: string): { pack?: LanguagePack; erro
   if (pack.scripts.some((script) => !script?.code || !["ltr", "rtl", "ttb"].includes(script.direction))) return { error: "书写系统需要 code 和有效的 direction" };
   if (!pack.segmentation?.strategy) return { error: "segmentation.strategy 不能为空" };
   if (!["whitespace", "grapheme", "character", "script-run", "adapter"].includes(pack.segmentation.strategy)) return { error: "segmentation.strategy 不受支持" };
+  if (Object.values(pack.name).some((name) => typeof name !== "string" || !name.trim())) return { error: "语言名称必须是非空文本" };
+  const scriptCodes = new Set<string>();
+  for (const script of pack.scripts) {
+    if (!script.name || typeof script.name !== "object" || !Object.values(script.name).some((name) => typeof name === "string" && name.trim())) return { error: "每种书写系统至少需要一个名称" };
+    if (scriptCodes.has(script.code)) return { error: `书写系统 code 重复：${script.code}` };
+    scriptCodes.add(script.code);
+  }
+  if (pack.scripts.filter((script) => script.primary).length !== 1) return { error: "Language Pack 必须且只能有一种主要书写系统" };
+  if (pack.adapter) {
+    if (!pack.adapter.id || !pack.adapter.version) return { error: "adapter 需要 id 和 version" };
+    if (!Array.isArray(pack.adapter.capabilities)) return { error: "adapter.capabilities 必须是数组" };
+    if (pack.adapter.capabilities.some((capability) => !LANGUAGE_CAPABILITIES.has(capability))) return { error: "adapter.capabilities 包含不受支持的能力" };
+  }
+  if (pack.segmentation.strategy === "adapter" && !pack.adapter) return { error: "adapter 分词策略需要 adapter 定义" };
 
   return {
     pack: {
