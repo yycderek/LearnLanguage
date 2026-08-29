@@ -56,7 +56,9 @@ export async function importMobileBackup(
   const asset = picked.assets[0];
   if (!asset) throw new Error("没有读取到备份文件");
   const raw = await new File(asset.uri).text();
-  const input = JSON.parse(raw) as Partial<MobileBackup>;
+  let input: Partial<MobileBackup>;
+  try { input = JSON.parse(raw) as Partial<MobileBackup>; }
+  catch { throw new Error("备份文件不是有效的 JSON"); }
   if ((input.schemaVersion !== 1 && input.schemaVersion !== 2)
     || input.kind !== "learn-language-mobile-backup"
     || !Array.isArray(input.records)

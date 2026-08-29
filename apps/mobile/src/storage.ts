@@ -189,4 +189,17 @@ export class SQLitePreferenceRepository {
       locale,
     );
   }
+  async onboardingComplete(): Promise<boolean> {
+    const row = await this.db.getFirstAsync<{ preference_value: string }>("SELECT preference_value FROM app_preferences WHERE preference_key = ?", "onboarding-complete");
+    return row?.preference_value === "true";
+  }
+
+  async setOnboardingComplete(): Promise<void> {
+    await this.db.runAsync(
+      `INSERT INTO app_preferences(preference_key, preference_value) VALUES (?, ?)
+       ON CONFLICT(preference_key) DO UPDATE SET preference_value = excluded.preference_value`,
+      "onboarding-complete",
+      "true",
+    );
+  }
 }

@@ -65,10 +65,14 @@ test("mobile source keeps native storage and UI outside engine", async () => {
   assert.match(backup, /LearningPlanApplicationService/);
   assert.match(backup, /schemaVersion: 2/);
   assert.match(app, /function PlanSetup/);
+  assert.match(app, /function Onboarding/);
+  assert.match(app, /function StartupFailure/);
+  assert.match(app, /Could not save progress/);
+  assert.match(storage, /onboarding-complete/);
+  assert.match(backup, /不是有效的 JSON/);
   assert.match(app, /courseAdaptiveAgenda/);
   assert.doesNotMatch(app, /IndexedDB|localStorage|document\./);
 });
-
 test("shared content validation protects mobile imports", () => {
   const course = bundledStarterCourses()[0];
   assert.ok(course);

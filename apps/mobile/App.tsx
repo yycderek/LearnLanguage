@@ -110,6 +110,64 @@ function AppHeader({ locale, title, subtitle }: { locale: MobileLocale; title: s
   );
 }
 
+function Onboarding({
+  locale,
+  onLocale,
+  onComplete,
+}: {
+  locale: MobileLocale;
+  onLocale: (locale: MobileLocale) => Promise<void>;
+  onComplete: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const run = async (work: () => Promise<void>) => {
+    if (busy) return;
+    setBusy(true);
+    setNotice("");
+    try { await work(); }
+    catch (error) { setNotice(copy(locale, "操作失败，请重试。", "Something went wrong. Try again.") + (error instanceof Error ? `\n${error.message}` : "")); }
+    finally { setBusy(false); }
+  };
+  return (
+    <ScrollView contentContainerStyle={styles.onboardingContent}>
+      <AppHeader locale={locale} title={copy(locale, "开始你的语言学习", "Start language learning")} subtitle={copy(locale, "自由选择语种、课程和学习节奏", "Choose any language, course, and learning pace")} />
+      <View style={styles.choiceGrid}>
+        <Button label="中文" onPress={() => void run(() => onLocale("zh-CN"))} tone={locale === "zh-CN" ? "primary" : "secondary"} disabled={busy} />
+        <Button label="English" onPress={() => void run(() => onLocale("en"))} tone={locale === "en" ? "primary" : "secondary"} disabled={busy} />
+      </View>
+      <View style={styles.onboardingCard}>
+        <Text style={styles.onboardingNumber}>1</Text>
+        <View style={styles.onboardingCopy}><Text style={styles.settingsTitle}>{copy(locale, "无需账户", "No account required")}</Text><Text style={styles.settingsText}>{copy(locale, "课程、计划和进度默认保存在当前设备，可离线学习。", "Courses, plans, and progress stay on this device and work offline.")}</Text></View>
+      </View>
+      <View style={styles.onboardingCard}>
+        <Text style={styles.onboardingNumber}>2</Text>
+        <View style={styles.onboardingCopy}><Text style={styles.settingsTitle}>{copy(locale, "先选课程，再定节奏", "Choose a course, then your pace")}</Text><Text style={styles.settingsText}>{copy(locale, "可直接开始，也可设置学习目的、每天时长和每周频率。", "Start immediately, or set a goal, daily time, and weekly frequency.")}</Text></View>
+      </View>
+      <View style={styles.onboardingCard}>
+        <Text style={styles.onboardingNumber}>3</Text>
+        <View style={styles.onboardingCopy}><Text style={styles.settingsTitle}>{copy(locale, "学习与课程设计分开", "Learning and authoring are separate")}</Text><Text style={styles.settingsText}>{copy(locale, "移动端负责学习；Web Studio 负责设计课程。发布后的 Course Pack 可在设置中导入。", "Mobile is for learning; Web Studio is for authoring. Import published Course Packs in Settings.")}</Text></View>
+      </View>
+      <View style={styles.privacyCard}>
+        <Text style={styles.privacyTitle}>{copy(locale, "记得备份", "Remember backups")}</Text>
+        <Text style={styles.privacyText}>{copy(locale, "换机、重装或卸载前，到“设置与数据”导出本地备份。", "Before switching devices, reinstalling, or uninstalling, export a local backup from Settings.")}</Text>
+      </View>
+      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+      <Button label={busy ? copy(locale, "正在保存…", "Saving…") : copy(locale, "进入学习", "Start learning")} onPress={() => void run(onComplete)} disabled={busy} />
+    </ScrollView>
+  );
+}
+
+function StartupFailure({ locale, message, onRetry }: { locale: MobileLocale; message: string; onRetry: () => void }) {
+  return (
+    <View style={styles.failureScreen}>
+      <Text style={styles.failureTitle}>{copy(locale, "无法打开本地学习档案", "Could not open local learning profile")}</Text>
+      <Text style={styles.failureText}>{copy(locale, "数据没有被删除。请重试；如果持续失败，请保留错误信息。", "No data was deleted. Retry; if the problem continues, keep the error details.")}</Text>
+      <Text selectable style={styles.failureDetail}>{message}</Text>
+      <Button label={copy(locale, "重新尝试", "Try again")} onPress={onRetry} />
+    </View>
+  );
+}
 function BottomNav({ locale, active, onChange }: { locale: MobileLocale; active: "learn" | "reviews" | "settings"; onChange: (value: "learn" | "reviews" | "settings") => void }) {
   const items = [
     { id: "learn" as const, zh: "学习", en: "Learn" },
@@ -292,6 +350,7 @@ function PlanSetup({
   const [minutesPerDay, setMinutesPerDay] = useState(plan?.minutesPerDay ?? 20);
   const [daysPerWeek, setDaysPerWeek] = useState(plan?.daysPerWeek ?? 5);
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
   const startLesson = course.lessons[nextLessonIndex(course, record)] ?? course.lessons[0];
   const motivations: { value: LearningMotivation; zh: string; en: string }[] = [
     { value: "travel", zh: "旅行交流", en: "Travel" },
@@ -324,7 +383,8 @@ function PlanSetup({
         <Text style={styles.agendaTitle}>{copy(locale, `每周 ${minutesPerDay * daysPerWeek} 分钟`, `${minutesPerDay * daysPerWeek} minutes per week`)}</Text>
         <Text style={styles.agendaMeta}>{copy(locale, `从「${startLesson ? mobileText(startLesson.title, locale) : "—"}」开始。当前移动端不做分级测试，不会自动跳过基础内容。`, `Start with “${startLesson ? mobileText(startLesson.title, locale) : "—"}”. Mobile does not run placement yet and will not skip fundamentals automatically.`)}</Text>
       </View>
-      <Button disabled={saving || !startLesson} label={saving ? copy(locale, "正在保存…", "Saving…") : copy(locale, plan ? "保存调整" : "创建计划", plan ? "Save changes" : "Create plan")} onPress={() => { if (!startLesson) return; setSaving(true); void onSave({ motivation, minutesPerDay, daysPerWeek, placementMode: "skipped", startingLessonId: startLesson.id, occurredAt: new Date().toISOString() }).finally(() => setSaving(false)); }} />
+      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+      <Button disabled={saving || !startLesson} label={saving ? copy(locale, "正在保存…", "Saving…") : copy(locale, plan ? "保存调整" : "创建计划", plan ? "Save changes" : "Create plan")} onPress={() => { if (!startLesson) return; setSaving(true); setNotice(""); void onSave({ motivation, minutesPerDay, daysPerWeek, placementMode: "skipped", startingLessonId: startLesson.id, occurredAt: new Date().toISOString() }).catch((error) => setNotice(copy(locale, "计划保存失败，请重试。", "Could not save plan. Try again.") + (error instanceof Error ? `\n${error.message}` : ""))).finally(() => setSaving(false)); }} />
     </ScrollView>
   );
 }
@@ -460,6 +520,8 @@ function LessonPlayer({
       });
       await onSave(next);
       setNotice(decision === "retry" ? copy(locale, "再试一次，答案尚未匹配", "Try again; answer does not match yet") : "");
+    } catch (error) {
+      setNotice(copy(locale, "学习进度保存失败，请重试。本步尚未前进。", "Could not save progress. Try again; this step did not advance.") + (error instanceof Error ? `\n${error.message}` : ""));
     } finally {
       setBusy(false);
     }
@@ -513,7 +575,13 @@ function Reviews({
   courses: readonly CoursePack[];
   onUpdate: (record: CourseLearningRecord) => Promise<void>;
 }) {
+  const [notice, setNotice] = useState("");
   const items = mobileReviewItems(courses, records);
+  const finishReview = async (record: CourseLearningRecord, taskId: string, result: "retry" | "remembered") => {
+    setNotice("");
+    try { await onUpdate(completeReviewTask(record, taskId, result, new Date().toISOString())); }
+    catch (error) { setNotice(copy(locale, "复习结果保存失败，请重试。", "Could not save review result. Try again.") + (error instanceof Error ? `\n${error.message}` : "")); }
+  };
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <AppHeader locale={locale} title={copy(locale, "到期复习", "Due reviews")} subtitle={copy(locale, "复习由已有学习证据生成，不依赖签到或积分", "Reviews come from learning evidence, not streaks or points")} />
@@ -525,11 +593,12 @@ function Reviews({
           <Text style={styles.reviewForm}>{knowledge?.form ?? task.knowledgeItemId}</Text>
           <Text style={styles.reviewMeaning}>{mobileText(knowledge?.meaning, locale)}</Text>
           <View style={styles.actionRow}>
-            <Button label={copy(locale, "需要再练", "Retry later")} tone="secondary" onPress={() => void onUpdate(completeReviewTask(record, task.id, "retry", new Date().toISOString()))} />
-            <Button label={copy(locale, "记得", "Remembered")} onPress={() => void onUpdate(completeReviewTask(record, task.id, "remembered", new Date().toISOString()))} />
+            <Button label={copy(locale, "需要再练", "Retry later")} tone="secondary" onPress={() => void finishReview(record, task.id, "retry")} />
+            <Button label={copy(locale, "记得", "Remembered")} onPress={() => void finishReview(record, task.id, "remembered")} />
           </View>
         </View>
       ))}
+      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
     </ScrollView>
   );
 }
@@ -543,6 +612,7 @@ function Settings({
   customCourses,
   customLanguagePacks,
   onLocale,
+  onShowOnboarding,
   onReload,
   profileRepository,
   planRepository,
@@ -557,6 +627,7 @@ function Settings({
   customCourses: readonly CoursePack[];
   customLanguagePacks: readonly LanguageDefinition[];
   onLocale: (locale: MobileLocale) => Promise<void>;
+  onShowOnboarding: () => void;
   onReload: () => Promise<void>;
   profileRepository: SQLiteLearningProfileRepository;
   planRepository: SQLiteLearningPlanRepository;
@@ -677,9 +748,10 @@ function Settings({
       <View style={styles.settingsCard}>
         <Text style={styles.settingsTitle}>{copy(locale, "界面与讲解语言", "Interface and teaching language")}</Text>
         <View style={styles.actionRow}>
-          <Button label="中文" onPress={() => void onLocale("zh-CN")} tone={locale === "zh-CN" ? "primary" : "secondary"} />
-          <Button label="English" onPress={() => void onLocale("en")} tone={locale === "en" ? "primary" : "secondary"} />
+          <Button label="中文" onPress={() => void run(async () => { await onLocale("zh-CN"); setNotice(copy(locale, "界面语言已更新", "Interface language updated")); })} tone={locale === "zh-CN" ? "primary" : "secondary"} />
+          <Button label="English" onPress={() => void run(async () => { await onLocale("en"); setNotice(copy(locale, "界面语言已更新", "Interface language updated")); })} tone={locale === "en" ? "primary" : "secondary"} />
         </View>
+        <Button label={copy(locale, "重新查看使用引导", "View getting-started guide")} onPress={onShowOnboarding} tone="secondary" />
       </View>
       <View style={styles.settingsCard}>
         <Text style={styles.settingsTitle}>{copy(locale, "导入课程与语言", "Import courses and languages")}</Text>
@@ -735,6 +807,8 @@ function MobileApp() {
   const [customLanguagePacks, setCustomLanguagePacks] = useState<readonly LanguageDefinition[]>([]);
   const [progress, setProgress] = useState<LearningProgress>();
   const [ready, setReady] = useState(false);
+  const [startupError, setStartupError] = useState("");
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
   const courses = useMemo(() => mergeMobileCourses(bundledCourses, installedCourses), [installedCourses]);
   const languagePacks = useMemo(() => mergeMobileLanguagePacks(builtInLanguagePacks, customLanguagePacks), [customLanguagePacks]);
 
@@ -751,38 +825,54 @@ function MobileApp() {
     setCustomLanguagePacks(loadedPacks);
   }, [courseRepository, languagePackRepository, planService, profileRepository]);
 
-  useEffect(() => {
-    void Promise.all([profileRepository.list(), planService.list(), courseRepository.list(), languagePackRepository.list(), preferences.locale()])
-      .then(([loadedRecords, loadedPlans, loadedCourses, loadedPacks, storedLocale]) => {
-        setRecords(Object.fromEntries(loadedRecords.map((record) => [record.courseId, record])));
-        setPlans(Object.fromEntries(loadedPlans.map((plan) => [plan.courseId, plan])));
-        setInstalledCourses(loadedCourses);
-        setCustomLanguagePacks(loadedPacks);
-        setLocale(storedLocale);
-        setReady(true);
-      })
-      .catch((error) => {
-        Alert.alert("LearnLanguage", error instanceof Error ? error.message : String(error));
-        setReady(true);
-      });
+  const initialize = useCallback(async () => {
+    setReady(false);
+    setStartupError("");
+    try {
+      const [loadedRecords, loadedPlans, loadedCourses, loadedPacks, storedLocale, completed] = await Promise.all([
+        profileRepository.list(),
+        planService.list(),
+        courseRepository.list(),
+        languagePackRepository.list(),
+        preferences.locale(),
+        preferences.onboardingComplete(),
+      ]);
+      setRecords(Object.fromEntries(loadedRecords.map((record) => [record.courseId, record])));
+      setPlans(Object.fromEntries(loadedPlans.map((plan) => [plan.courseId, plan])));
+      setInstalledCourses(loadedCourses);
+      setCustomLanguagePacks(loadedPacks);
+      setLocale(storedLocale);
+      setOnboardingComplete(completed);
+    } catch (error) {
+      setStartupError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setReady(true);
+    }
   }, [courseRepository, languagePackRepository, planService, preferences, profileRepository]);
+
+  useEffect(() => { void initialize(); }, [initialize]);
 
   const saveRecord = async (record: CourseLearningRecord) => {
     await profileRepository.putMany([record]);
     setRecords((current) => ({ ...current, [record.courseId]: record }));
   };
 
-  const openLesson = async (course: CoursePack, lessonId: string) => {
-    const record = records[course.manifest.id] ?? createCourseLearningRecord(course, new Date().toISOString());
-    const existing = record.lessonProgress[lessonId];
-    const lessonProgress = existing?.status === "active" ? existing : startLearning(course, lessonId, new Date().toISOString());
-    const nextRecord = updateCourseLearningRecord(record, lessonProgress);
-    await saveRecord(nextRecord);
-    setProgress(lessonProgress);
-    setScreen({ kind: "lesson", courseId: course.manifest.id, lessonId });
+const openLesson = async (course: CoursePack, lessonId: string) => {
+    try {
+      const record = records[course.manifest.id] ?? createCourseLearningRecord(course, new Date().toISOString());
+      const existing = record.lessonProgress[lessonId];
+      const lessonProgress = existing?.status === "active" ? existing : startLearning(course, lessonId, new Date().toISOString());
+      const nextRecord = updateCourseLearningRecord(record, lessonProgress);
+      await saveRecord(nextRecord);
+      setProgress(lessonProgress);
+      setScreen({ kind: "lesson", courseId: course.manifest.id, lessonId });
+    } catch (error) {
+      Alert.alert(copy(locale, "无法开始课节", "Could not start lesson"), copy(locale, "本地进度未改变，请重试。", "Local progress was not changed. Try again.") + (error instanceof Error ? `\n\n${error.message}` : ""));
+    }
   };
-
   if (!ready) return <View style={styles.loading}><ActivityIndicator color="#5a48d6" /><Text style={styles.loadingText}>{copy(locale, "正在打开本地学习档案…", "Opening local learning profile…")}</Text></View>;
+  if (startupError) return <StartupFailure locale={locale} message={startupError} onRetry={() => void initialize()} />;
+  if (!onboardingComplete) return <Onboarding locale={locale} onLocale={async (nextLocale) => { await preferences.setLocale(nextLocale); setLocale(nextLocale); }} onComplete={async () => { await preferences.setOnboardingComplete(); setOnboardingComplete(true); }} />;
 
   const activeCourse = screen.kind === "course" || screen.kind === "plan" || screen.kind === "lesson" ? courses.find((course) => course.manifest.id === screen.courseId) : undefined;
   const activeTab = screen.kind === "reviews" ? "reviews" : screen.kind === "settings" ? "settings" : "learn";
@@ -797,7 +887,7 @@ function MobileApp() {
   } else if (screen.kind === "reviews") {
     content = <Reviews locale={locale} records={records} courses={courses} onUpdate={saveRecord} />;
   } else if (screen.kind === "settings") {
-    content = <Settings locale={locale} records={records} plans={plans} courses={courses} languagePacks={languagePacks} customCourses={installedCourses} customLanguagePacks={customLanguagePacks} profileRepository={profileRepository} planRepository={planRepository} courseRepository={courseRepository} languagePackRepository={languagePackRepository} onReload={reload} onLocale={async (nextLocale) => { await preferences.setLocale(nextLocale); setLocale(nextLocale); }} />;
+    content = <Settings locale={locale} records={records} plans={plans} courses={courses} languagePacks={languagePacks} customCourses={installedCourses} customLanguagePacks={customLanguagePacks} profileRepository={profileRepository} planRepository={planRepository} courseRepository={courseRepository} languagePackRepository={languagePackRepository} onReload={reload} onShowOnboarding={() => setOnboardingComplete(false)} onLocale={async (nextLocale) => { await preferences.setLocale(nextLocale); setLocale(nextLocale); }} />;
   } else {
     content = <Home locale={locale} records={records} plans={plans} courses={courses} languagePacks={languagePacks} onCourse={(courseId) => setScreen({ kind: "course", courseId })} />;
   }
@@ -877,6 +967,14 @@ const styles = StyleSheet.create({
   buttonDangerText: { color: "#a64336", fontSize: 12, fontWeight: "800" },
   pressed: { opacity: 0.72 },
   disabled: { opacity: 0.45 },
+  onboardingContent: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 20, paddingVertical: 28, gap: 14, backgroundColor: "#f4f1ea" },
+  onboardingCard: { flexDirection: "row", alignItems: "flex-start", gap: 13, padding: 16, borderRadius: 18, backgroundColor: "#fff", borderWidth: 1, borderColor: "#ded9e8" },
+  onboardingNumber: { width: 34, height: 34, textAlign: "center", lineHeight: 34, borderRadius: 12, overflow: "hidden", color: "#fff", backgroundColor: "#5a48d6", fontSize: 14, fontWeight: "900" },
+  onboardingCopy: { flex: 1, gap: 4 },
+  failureScreen: { flex: 1, justifyContent: "center", gap: 13, padding: 24, backgroundColor: "#f4f1ea" },
+  failureTitle: { color: "#252938", fontSize: 24, lineHeight: 30, fontWeight: "800" },
+  failureText: { color: "#6f6a76", fontSize: 13, lineHeight: 20 },
+  failureDetail: { padding: 12, borderRadius: 12, color: "#8a4c2c", backgroundColor: "#fff0e5", fontSize: 11, lineHeight: 17 },
   bottomNav: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#ddd8e3", backgroundColor: "#fff", paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10 },
   navItem: { flex: 1, minHeight: 42, alignItems: "center", justifyContent: "center", borderRadius: 12 },
   navItemActive: { backgroundColor: "#eeeafd" },
