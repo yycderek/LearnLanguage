@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AccessibilityInfo,
+  AppState,
+  BackHandler,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -81,6 +86,8 @@ function Button({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      hitSlop={8}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -103,7 +110,7 @@ function AppHeader({ locale, title, subtitle }: { locale: MobileLocale; title: s
       <View style={styles.brandMark}><Text style={styles.brandMarkText}>L</Text></View>
       <View style={styles.headerCopy}>
         <Text style={styles.eyebrow}>{copy(locale, "本地优先语言学习", "LOCAL-FIRST LANGUAGE LEARNING")}</Text>
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text accessibilityRole="header" style={styles.headerTitle}>{title}</Text>
         {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
       </View>
     </View>
@@ -152,7 +159,7 @@ function Onboarding({
         <Text style={styles.privacyTitle}>{copy(locale, "记得备份", "Remember backups")}</Text>
         <Text style={styles.privacyText}>{copy(locale, "换机、重装或卸载前，到“设置与数据”导出本地备份。", "Before switching devices, reinstalling, or uninstalling, export a local backup from Settings.")}</Text>
       </View>
-      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+      {notice ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
       <Button label={busy ? copy(locale, "正在保存…", "Saving…") : copy(locale, "进入学习", "Start learning")} onPress={() => void run(onComplete)} disabled={busy} />
     </ScrollView>
   );
@@ -163,7 +170,7 @@ function StartupFailure({ locale, message, onRetry }: { locale: MobileLocale; me
     <View style={styles.failureScreen}>
       <Text style={styles.failureTitle}>{copy(locale, "无法打开本地学习档案", "Could not open local learning profile")}</Text>
       <Text style={styles.failureText}>{copy(locale, "数据没有被删除。请重试；如果持续失败，请保留错误信息。", "No data was deleted. Retry; if the problem continues, keep the error details.")}</Text>
-      <Text selectable style={styles.failureDetail}>{message}</Text>
+      <Text accessibilityLiveRegion="assertive" selectable style={styles.failureDetail}>{message}</Text>
       <Button label={copy(locale, "重新尝试", "Try again")} onPress={onRetry} />
     </View>
   );
@@ -236,7 +243,7 @@ function Home({
         const percent = courseLearningPercent(course, record);
         const next = course.lessons[nextLessonIndex(course, record)];
         return (
-          <Pressable key={course.manifest.id} onPress={() => onCourse(course.manifest.id)} style={({ pressed }) => [styles.courseCard, pressed && styles.pressed]}>
+          <Pressable key={course.manifest.id} accessibilityRole="button" accessibilityLabel={copy(locale, `${mobileText(course.manifest.title, locale)}，进度 ${percent}%`, `${mobileText(course.manifest.title, locale)}, ${percent}% complete`)} accessibilityHint={copy(locale, "打开课程详情", "Opens course details")} onPress={() => onCourse(course.manifest.id)} style={({ pressed }) => [styles.courseCard, pressed && styles.pressed]}>
             <View style={[styles.languageBadge, { backgroundColor: pack?.accent ?? "#5a48d6" }]}>
               <Text style={styles.languageBadgeText}>{pack?.id.slice(0, 2).toUpperCase() ?? "LL"}</Text>
             </View>
@@ -244,7 +251,7 @@ function Home({
               <Text style={styles.courseTitle}>{mobileText(course.manifest.title, locale)}</Text>
               <Text numberOfLines={2} style={styles.courseDescription}>{mobileText(course.manifest.description, locale)}</Text>
               <Text style={styles.nextLesson}>{copy(locale, "下一课", "Next")}: {next ? mobileText(next.title, locale) : "—"}</Text>
-              <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percent}%` }]} /></View>
+              <View accessibilityRole="progressbar" accessibilityLabel={copy(locale, "课程进度", "Course progress")} accessibilityValue={{ min: 0, max: 100, now: percent }} style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percent}%` }]} /></View>
               <Text style={styles.progressText}>{percent}% · {record?.completedLessonIds.length ?? 0}/{course.lessons.length} · {plan ? copy(locale, `${plan.minutesPerDay} 分钟/天`, `${plan.minutesPerDay} min/day`) : copy(locale, "未设置计划", "No plan")}</Text>
             </View>
           </Pressable>
@@ -283,7 +290,7 @@ function CourseDetail({
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <Button label={copy(locale, "返回课程", "Back to courses")} onPress={onBack} tone="secondary" />
       <AppHeader locale={locale} title={mobileText(course.manifest.title, locale)} subtitle={mobileText(course.manifest.description, locale)} />
-      <View style={styles.summaryCard}>
+      <View accessibilityRole="progressbar" accessibilityLabel={copy(locale, "课程进度", "Course progress")} accessibilityValue={{ min: 0, max: 100, now: percent }} style={styles.summaryCard}>
         <Text style={styles.summaryValue}>{percent}%</Text>
         <View style={styles.summaryCopy}>
           <Text style={styles.summaryTitle}>{copy(locale, "课程进度", "Course progress")}</Text>
@@ -359,7 +366,7 @@ function PlanSetup({
     { value: "culture-media", zh: "文化内容", en: "Culture & media" },
   ];
   const Choice = ({ selected, label, onPress }: { selected: boolean; label: string; onPress: () => void }) => (
-    <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.choice, selected && styles.choiceSelected]}>
+    <Pressable accessibilityRole="button" accessibilityState={{ selected }} hitSlop={6} onPress={onPress} style={[styles.choice, selected && styles.choiceSelected]}>
       <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>{label}</Text>
     </Pressable>
   );
@@ -383,7 +390,7 @@ function PlanSetup({
         <Text style={styles.agendaTitle}>{copy(locale, `每周 ${minutesPerDay * daysPerWeek} 分钟`, `${minutesPerDay * daysPerWeek} minutes per week`)}</Text>
         <Text style={styles.agendaMeta}>{copy(locale, `从「${startLesson ? mobileText(startLesson.title, locale) : "—"}」开始。当前移动端不做分级测试，不会自动跳过基础内容。`, `Start with “${startLesson ? mobileText(startLesson.title, locale) : "—"}”. Mobile does not run placement yet and will not skip fundamentals automatically.`)}</Text>
       </View>
-      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+      {notice ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
       <Button disabled={saving || !startLesson} label={saving ? copy(locale, "正在保存…", "Saving…") : copy(locale, plan ? "保存调整" : "创建计划", plan ? "Save changes" : "Create plan")} onPress={() => { if (!startLesson) return; setSaving(true); setNotice(""); void onSave({ motivation, minutesPerDay, daysPerWeek, placementMode: "skipped", startingLessonId: startLesson.id, occurredAt: new Date().toISOString() }).catch((error) => setNotice(copy(locale, "计划保存失败，请重试。", "Could not save plan. Try again.") + (error instanceof Error ? `\n${error.message}` : ""))).finally(() => setSaving(false)); }} />
     </ScrollView>
   );
@@ -421,8 +428,8 @@ function ResponseEditor({
           <View key={`${optionIndex}-${position}`} style={styles.orderRow}>
             <Text style={styles.orderNumber}>{position + 1}</Text>
             <Text style={styles.orderText}>{mobileText(exercise.options?.[optionIndex], locale)}</Text>
-            <Pressable accessibilityLabel={copy(locale, "上移", "Move up")} disabled={position === 0} onPress={() => { const order = [...response.order]; [order[position - 1], order[position]] = [order[position]!, order[position - 1]!]; onChange({ kind: "ordering", order }); }} style={styles.orderControl}><Text>↑</Text></Pressable>
-            <Pressable accessibilityLabel={copy(locale, "下移", "Move down")} disabled={position === response.order.length - 1} onPress={() => { const order = [...response.order]; [order[position + 1], order[position]] = [order[position]!, order[position + 1]!]; onChange({ kind: "ordering", order }); }} style={styles.orderControl}><Text>↓</Text></Pressable>
+            <Pressable accessibilityLabel={copy(locale, "上移", "Move up")} accessibilityRole="button" accessibilityState={{ disabled: position === 0 }} hitSlop={6} disabled={position === 0} onPress={() => { const order = [...response.order]; [order[position - 1], order[position]] = [order[position]!, order[position - 1]!]; onChange({ kind: "ordering", order }); }} style={styles.orderControl}><Text>↑</Text></Pressable>
+            <Pressable accessibilityLabel={copy(locale, "下移", "Move down")} accessibilityRole="button" accessibilityState={{ disabled: position === response.order.length - 1 }} hitSlop={6} disabled={position === response.order.length - 1} onPress={() => { const order = [...response.order]; [order[position + 1], order[position]] = [order[position]!, order[position + 1]!]; onChange({ kind: "ordering", order }); }} style={styles.orderControl}><Text>↓</Text></Pressable>
           </View>
         ))}
       </View>
@@ -431,6 +438,8 @@ function ResponseEditor({
   return (
     <TextInput
       accessibilityLabel={copy(locale, "输入答案", "Enter answer")}
+      returnKeyType="done"
+      blurOnSubmit
       multiline
       onChangeText={(value) => onChange({ kind: "text", value })}
       placeholder={copy(locale, "在这里输入…", "Type here…")}
@@ -558,7 +567,7 @@ function LessonPlayer({
           {exercise.guidance ? <Button label={guidance ? copy(locale, "隐藏提示", "Hide hint") : copy(locale, "查看提示", "Show hint")} onPress={() => setGuidance((value) => !value)} tone="secondary" /> : null}
         </View>
       ) : null}
-      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+      {notice ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
       <Button label={busy ? copy(locale, "保存中…", "Saving…") : exercise ? copy(locale, "提交并继续", "Submit and continue") : copy(locale, "继续", "Continue")} onPress={() => void submit()} disabled={busy} />
     </ScrollView>
   );
@@ -598,7 +607,7 @@ function Reviews({
           </View>
         </View>
       ))}
-      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+      {notice ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
     </ScrollView>
   );
 }
@@ -786,7 +795,7 @@ function Settings({
         <Text style={styles.settingsText}>{copy(locale, `SQLite 保存 ${courses.length} 门可用课程的学习进度。AI 密钥、登录凭据和临时请求不会进入备份。`, `SQLite stores progress for ${courses.length} available courses. AI keys, sign-in credentials, and temporary requests are excluded from backup.`)}</Text>
         <Button label={copy(locale, "删除本机学习数据", "Delete local learning data")} onPress={reset} tone="danger" />
       </View>
-      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+      {notice ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
     </ScrollView>
   );
 }
@@ -809,6 +818,7 @@ function MobileApp() {
   const [ready, setReady] = useState(false);
   const [startupError, setStartupError] = useState("");
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [, setForegroundRevision] = useState(0);
   const courses = useMemo(() => mergeMobileCourses(bundledCourses, installedCourses), [installedCourses]);
   const languagePacks = useMemo(() => mergeMobileLanguagePacks(builtInLanguagePacks, customLanguagePacks), [customLanguagePacks]);
 
@@ -857,7 +867,7 @@ function MobileApp() {
     setRecords((current) => ({ ...current, [record.courseId]: record }));
   };
 
-const openLesson = async (course: CoursePack, lessonId: string) => {
+  const openLesson = async (course: CoursePack, lessonId: string) => {
     try {
       const record = records[course.manifest.id] ?? createCourseLearningRecord(course, new Date().toISOString());
       const existing = record.lessonProgress[lessonId];
@@ -870,7 +880,44 @@ const openLesson = async (course: CoursePack, lessonId: string) => {
       Alert.alert(copy(locale, "无法开始课节", "Could not start lesson"), copy(locale, "本地进度未改变，请重试。", "Local progress was not changed. Try again.") + (error instanceof Error ? `\n\n${error.message}` : ""));
     }
   };
-  if (!ready) return <View style={styles.loading}><ActivityIndicator color="#5a48d6" /><Text style={styles.loadingText}>{copy(locale, "正在打开本地学习档案…", "Opening local learning profile…")}</Text></View>;
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") setForegroundRevision((value) => value + 1);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (!ready || startupError || !onboardingComplete) return;
+    const label = screen.kind === "home"
+      ? copy(locale, "学习首页", "Learning home")
+      : screen.kind === "reviews"
+        ? copy(locale, "复习", "Reviews")
+        : screen.kind === "settings"
+          ? copy(locale, "设置与数据", "Settings and data")
+          : screen.kind === "plan"
+            ? copy(locale, "设置学习计划", "Set learning plan")
+            : screen.kind === "lesson"
+              ? copy(locale, "课节学习", "Lesson")
+              : copy(locale, "课程详情", "Course details");
+    AccessibilityInfo.announceForAccessibility(label);
+  }, [locale, onboardingComplete, ready, screen, startupError]);
+  useEffect(() => {
+    if (Platform.OS !== "android" || !ready || startupError || !onboardingComplete) return undefined;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (screen.kind === "lesson" || screen.kind === "plan") {
+        setScreen({ kind: "course", courseId: screen.courseId });
+        return true;
+      }
+      if (screen.kind === "course" || screen.kind === "reviews" || screen.kind === "settings") {
+        setScreen({ kind: "home" });
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [onboardingComplete, ready, screen, startupError]);
+  if (!ready) return <View style={styles.loading}><ActivityIndicator accessibilityLabel={copy(locale, "正在加载", "Loading")} accessibilityRole="progressbar" color="#5a48d6" /><Text style={styles.loadingText}>{copy(locale, "正在打开本地学习档案…", "Opening local learning profile…")}</Text></View>;
   if (startupError) return <StartupFailure locale={locale} message={startupError} onRetry={() => void initialize()} />;
   if (!onboardingComplete) return <Onboarding locale={locale} onLocale={async (nextLocale) => { await preferences.setLocale(nextLocale); setLocale(nextLocale); }} onComplete={async () => { await preferences.setOnboardingComplete(); setOnboardingComplete(true); }} />;
 
@@ -893,9 +940,11 @@ const openLesson = async (course: CoursePack, lessonId: string) => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, Platform.OS === "android" && { paddingTop: StatusBar.currentHeight ?? 0 }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#f4f1ea" />
-      <View style={styles.app}>{content}</View>
+      <KeyboardAvoidingView style={styles.app} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={0}>
+        {content}
+      </KeyboardAvoidingView>
       {screen.kind !== "lesson" ? <BottomNav locale={locale} active={activeTab} onChange={(tab) => setScreen(tab === "learn" ? { kind: "home" } : tab === "reviews" ? { kind: "reviews" } : { kind: "settings" })} /> : null}
     </SafeAreaView>
   );
@@ -921,7 +970,7 @@ const styles = StyleSheet.create({
   eyebrow: { color: "#5a48d6", fontSize: 10, fontWeight: "800", letterSpacing: 0.9 },
   headerTitle: { marginTop: 4, color: "#1f2533", fontSize: 28, lineHeight: 34, fontWeight: "800" },
   headerSubtitle: { marginTop: 5, color: "#686471", fontSize: 13, lineHeight: 19 },
-  sectionHeading: { marginTop: 6, flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
+  sectionHeading: { marginTop: 6, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: 6 },
   sectionTitle: { color: "#252938", fontSize: 19, fontWeight: "800" },
   sectionNote: { color: "#77727e", fontSize: 11 },
   courseCard: { flexDirection: "row", gap: 13, padding: 15, borderWidth: 1, borderColor: "#ded9e8", borderRadius: 18, backgroundColor: "#fff" },
@@ -950,7 +999,7 @@ const styles = StyleSheet.create({
   summaryCopy: { flex: 1 },
   summaryTitle: { color: "#fff", fontSize: 15, fontWeight: "800" },
   summaryText: { marginTop: 3, color: "#ced6e4", fontSize: 12 },
-  lessonCard: { flexDirection: "row", alignItems: "center", gap: 11, padding: 13, borderWidth: 1, borderColor: "#dfdbe5", borderRadius: 16, backgroundColor: "#fff" },
+  lessonCard: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 11, padding: 13, borderWidth: 1, borderColor: "#dfdbe5", borderRadius: 16, backgroundColor: "#fff" },
   lockedCard: { opacity: 0.48 },
   lessonIndex: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#ece9f8" },
   lessonIndexDone: { backgroundColor: "#dcefe6" },
@@ -958,7 +1007,7 @@ const styles = StyleSheet.create({
   lessonBody: { flex: 1 },
   lessonTitle: { color: "#282c39", fontSize: 14, fontWeight: "800" },
   lessonMeta: { marginTop: 3, color: "#77727e", fontSize: 10 },
-  button: { minHeight: 42, paddingHorizontal: 15, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  button: { minHeight: 44, paddingHorizontal: 15, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1 },
   buttonPrimary: { borderColor: "#5a48d6", backgroundColor: "#5a48d6" },
   buttonSecondary: { borderColor: "#c9c2df", backgroundColor: "#fff" },
   buttonDanger: { borderColor: "#e6bcb4", backgroundColor: "#fff5f3" },
@@ -1006,7 +1055,7 @@ const styles = StyleSheet.create({
   orderRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderWidth: 1, borderColor: "#ddd8e3", borderRadius: 12 },
   orderNumber: { width: 22, color: "#5a48d6", fontWeight: "900" },
   orderText: { flex: 1, color: "#303441", fontSize: 13 },
-  orderControl: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: "#efecf5" },
+  orderControl: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: "#efecf5" },
   textInput: { minHeight: 100, padding: 13, borderWidth: 1, borderColor: "#d4cedd", borderRadius: 13, color: "#272b39", backgroundColor: "#faf9fb", textAlignVertical: "top" },
   notice: { padding: 12, borderRadius: 12, color: "#8a4c2c", backgroundColor: "#fff0e5", fontSize: 12, lineHeight: 18 },
   completionCard: { alignItems: "center", gap: 10, marginTop: 60, padding: 28, borderRadius: 22, backgroundColor: "#fff", borderWidth: 1, borderColor: "#ded9e8" },
@@ -1019,12 +1068,12 @@ const styles = StyleSheet.create({
   reviewCard: { gap: 9, padding: 17, borderRadius: 18, backgroundColor: "#fff", borderWidth: 1, borderColor: "#ded9e8" },
   reviewForm: { color: "#222635", fontSize: 25, fontWeight: "800" },
   reviewMeaning: { color: "#716c78", fontSize: 13 },
-  actionRow: { flexDirection: "row", gap: 9 },
+  actionRow: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
   stackActions: { gap: 9 },
   settingsCard: { gap: 11, padding: 17, borderRadius: 18, backgroundColor: "#fff", borderWidth: 1, borderColor: "#ded9e8" },
   settingsTitle: { color: "#272b39", fontSize: 17, fontWeight: "800" },
   settingsText: { color: "#716c78", fontSize: 12, lineHeight: 18 },
-  installedRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 11, borderTopWidth: 1, borderTopColor: "#eeeaf1" },
+  installedRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10, paddingTop: 11, borderTopWidth: 1, borderTopColor: "#eeeaf1" },
   installedCopy: { flex: 1 },
   installedName: { color: "#282c39", fontSize: 13, fontWeight: "800" },
   installedMeta: { marginTop: 3, color: "#77727e", fontSize: 10 },

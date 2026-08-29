@@ -67,6 +67,11 @@ test("mobile source keeps native storage and UI outside engine", async () => {
   assert.match(app, /function PlanSetup/);
   assert.match(app, /function Onboarding/);
   assert.match(app, /function StartupFailure/);
+  assert.match(app, /BackHandler\.addEventListener/);
+  assert.match(app, /KeyboardAvoidingView/);
+  assert.match(app, /AppState\.addEventListener/);
+  assert.match(app, /AccessibilityInfo\.announceForAccessibility/);
+  assert.match(app, /accessibilityRole="progressbar"/);
   assert.match(app, /Could not save progress/);
   assert.match(storage, /onboarding-complete/);
   assert.match(backup, /不是有效的 JSON/);
