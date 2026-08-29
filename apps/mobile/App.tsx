@@ -16,6 +16,13 @@ import { bundledStarterCourses, builtInLanguagePacks } from "@learn-language/con
 import { assessCourseLanguageCompatibility } from "@learn-language/language-runtime";
 import { assessCourseTrust } from "@learn-language/application/trust";
 import { assessCourseUpdate, upgradeCourseLearningRecord } from "@learn-language/application/course-update";
+import { courseAdaptiveAgenda } from "@learn-language/application/adaptive-agenda";
+import {
+  LearningPlanApplicationService,
+  type CreateLearningPlanCommand,
+  type LearningMotivation,
+  type LearningPlan,
+} from "@learn-language/application/learning-plan";
 import { CourseLibraryApplicationService, LanguagePackApplicationService, languagePackReferenceUsage } from "@learn-language/application/workspace";
 import {
   completeReviewTask,
@@ -41,6 +48,7 @@ import {
   migrateMobileDatabase,
   SQLiteInstalledCourseRepository,
   SQLiteLanguagePackRepository,
+  SQLiteLearningPlanRepository,
   SQLiteLearningProfileRepository,
   SQLitePreferenceRepository,
 } from "./src/storage";
@@ -52,6 +60,7 @@ const builtInLanguageIds = new Set(builtInLanguagePacks.map((pack) => pack.id));
 type Screen =
   | { kind: "home" }
   | { kind: "course"; courseId: string }
+  | { kind: "plan"; courseId: string }
   | { kind: "lesson"; courseId: string; lessonId: string }
   | { kind: "reviews" }
   | { kind: "settings" };
@@ -121,19 +130,43 @@ function BottomNav({ locale, active, onChange }: { locale: MobileLocale; active:
 function Home({
   locale,
   records,
+  plans,
   courses,
   languagePacks,
   onCourse,
 }: {
   locale: MobileLocale;
   records: Record<string, CourseLearningRecord>;
+  plans: Record<string, LearningPlan>;
   courses: readonly CoursePack[];
   languagePacks: readonly LanguageDefinition[];
   onCourse: (courseId: string) => void;
 }) {
+  const occurredAt = new Date().toISOString();
+  const agendas = courses.flatMap((course) => {
+    const plan = plans[course.manifest.id];
+    return plan ? [{ course, agenda: courseAdaptiveAgenda(course, records[course.manifest.id], plan, occurredAt) }] : [];
+  });
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
-      <AppHeader locale={locale} title={copy(locale, "今天学一点", "Learn a little today")} subtitle={copy(locale, "课程、进度和复习都保存在当前设备", "Courses, progress, and review stay on this device")} />
+      <AppHeader locale={locale} title={copy(locale, "今天学一点", "Learn a little today")} subtitle={copy(locale, "课程、计划、进度和复习都保存在当前设备", "Courses, plans, progress, and review stay on this device")} />
+      <View style={styles.sectionHeading}>
+        <Text style={styles.sectionTitle}>{copy(locale, "今日安排", "Today’s agenda")}</Text>
+        <Text style={styles.sectionNote}>{copy(locale, "按学习证据自动调整", "Adapts to learning evidence")}</Text>
+      </View>
+      {agendas.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>{copy(locale, "还没有个人计划", "No personal plan yet")}</Text>
+          <Text style={styles.emptyText}>{copy(locale, "打开任一课程设置节奏。计划不是学习门槛，之后也能修改。", "Open any course to set your pace. A plan is optional and can be changed later.")}</Text>
+        </View>
+      ) : agendas.map(({ course, agenda }) => (
+        <View key={course.manifest.id} style={styles.agendaCard}>
+          <Text style={styles.cardLabel}>{mobileText(course.manifest.title, locale)}</Text>
+          <Text style={styles.agendaTitle}>{agenda.status === "course-complete" ? copy(locale, "课程已完成", "Course complete") : agenda.status === "target-met" ? copy(locale, "本周目标已完成", "Weekly target met") : copy(locale, `今天还需 ${agenda.today.remainingMinutes} 分钟`, `${agenda.today.remainingMinutes} min left today`)}</Text>
+          <Text style={styles.agendaMeta}>{copy(locale, `本周 ${agenda.week.completedMinutes}/${agenda.week.targetMinutes} 分钟`, `${agenda.week.completedMinutes}/${agenda.week.targetMinutes} min this week`)}</Text>
+          <Button label={agenda.status === "course-complete" ? copy(locale, "查看已完成课程", "View completed course") : copy(locale, "开始今日安排", "Start today’s agenda")} onPress={() => onCourse(course.manifest.id)} tone={agenda.status === "active" ? "primary" : "secondary"} />
+        </View>
+      ))}
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>{copy(locale, "选择课程", "Choose a course")}</Text>
         <Text style={styles.sectionNote}>{copy(locale, "内置与导入课程均可离线学习", "Built-in and imported courses work offline")}</Text>
@@ -141,6 +174,7 @@ function Home({
       {courses.map((course) => {
         const pack = languagePacks.find((item) => item.id === course.manifest.languageId);
         const record = records[course.manifest.id];
+        const plan = plans[course.manifest.id];
         const percent = courseLearningPercent(course, record);
         const next = course.lessons[nextLessonIndex(course, record)];
         return (
@@ -153,7 +187,7 @@ function Home({
               <Text numberOfLines={2} style={styles.courseDescription}>{mobileText(course.manifest.description, locale)}</Text>
               <Text style={styles.nextLesson}>{copy(locale, "下一课", "Next")}: {next ? mobileText(next.title, locale) : "—"}</Text>
               <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percent}%` }]} /></View>
-              <Text style={styles.progressText}>{percent}% · {record?.completedLessonIds.length ?? 0}/{course.lessons.length}</Text>
+              <Text style={styles.progressText}>{percent}% · {record?.completedLessonIds.length ?? 0}/{course.lessons.length} · {plan ? copy(locale, `${plan.minutesPerDay} 分钟/天`, `${plan.minutesPerDay} min/day`) : copy(locale, "未设置计划", "No plan")}</Text>
             </View>
           </Pressable>
         );
@@ -170,16 +204,23 @@ function CourseDetail({
   locale,
   course,
   record,
+  plan,
   onBack,
+  onPlan,
   onLesson,
+  onReviews,
 }: {
   locale: MobileLocale;
   course: CoursePack;
   record: CourseLearningRecord | undefined;
+  plan: LearningPlan | undefined;
   onBack: () => void;
+  onPlan: () => void;
   onLesson: (lessonId: string) => void;
+  onReviews: () => void;
 }) {
   const percent = courseLearningPercent(course, record);
+  const agenda = plan ? courseAdaptiveAgenda(course, record, plan) : undefined;
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <Button label={copy(locale, "返回课程", "Back to courses")} onPress={onBack} tone="secondary" />
@@ -190,6 +231,27 @@ function CourseDetail({
           <Text style={styles.summaryTitle}>{copy(locale, "课程进度", "Course progress")}</Text>
           <Text style={styles.summaryText}>{record?.completedLessonIds.length ?? 0}/{course.lessons.length} {copy(locale, "课已完成", "lessons completed")}</Text>
         </View>
+      </View>
+      <View style={styles.agendaCard}>
+        <Text style={styles.cardLabel}>{copy(locale, "个人学习计划", "PERSONAL LEARNING PLAN")}</Text>
+        {agenda && plan ? (
+          <>
+            <Text style={styles.agendaTitle}>{agenda.status === "course-complete" ? copy(locale, "你已完成这门课程", "You completed this course") : agenda.status === "target-met" ? copy(locale, "本周目标已完成", "Weekly target complete") : copy(locale, `今天还需 ${agenda.today.remainingMinutes} 分钟`, `${agenda.today.remainingMinutes} min left today`)}</Text>
+            <Text style={styles.agendaMeta}>{copy(locale, `每周 ${plan.daysPerWeek} 天 · 每天 ${plan.minutesPerDay} 分钟 · 本周 ${agenda.week.completedMinutes}/${agenda.week.targetMinutes} 分钟`, `${plan.daysPerWeek} days/week · ${plan.minutesPerDay} min/day · ${agenda.week.completedMinutes}/${agenda.week.targetMinutes} min this week`)}</Text>
+            <View style={styles.stackActions}>
+              {agenda.items.map((item) => item.kind === "review"
+                ? <Button key="review" label={copy(locale, `复习 ${item.taskCount} 项`, `Review ${item.taskCount} item(s)`)} onPress={onReviews} tone="secondary" />
+                : <Button key={item.lessonId} label={copy(locale, item.kind === "continue-lesson" ? "继续建议课节" : "开始建议课节", item.kind === "continue-lesson" ? "Continue suggested lesson" : "Start suggested lesson")} onPress={() => onLesson(item.lessonId)} />)}
+              <Button label={copy(locale, "调整计划", "Edit plan")} onPress={onPlan} tone="secondary" />
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.agendaTitle}>{copy(locale, "建立适合你的节奏", "Set your own pace")}</Text>
+            <Text style={styles.agendaMeta}>{copy(locale, "选择学习目的、每天时长和每周频率，系统会根据已完成课节与到期复习生成今日安排。", "Choose a goal, daily time, and weekly frequency. Today’s agenda adapts to completed lessons and due reviews.")}</Text>
+            <Button label={copy(locale, "设置学习计划", "Set learning plan")} onPress={onPlan} />
+          </>
+        )}
       </View>
       <Text style={styles.sectionTitle}>{copy(locale, "课节路径", "Lesson path")}</Text>
       {course.lessons.map((lesson, index) => {
@@ -207,6 +269,62 @@ function CourseDetail({
           </View>
         );
       })}
+    </ScrollView>
+  );
+}
+
+function PlanSetup({
+  locale,
+  course,
+  record,
+  plan,
+  onBack,
+  onSave,
+}: {
+  locale: MobileLocale;
+  course: CoursePack;
+  record: CourseLearningRecord | undefined;
+  plan: LearningPlan | undefined;
+  onBack: () => void;
+  onSave: (command: CreateLearningPlanCommand) => Promise<void>;
+}) {
+  const [motivation, setMotivation] = useState<LearningMotivation>(plan?.motivation ?? "daily-life");
+  const [minutesPerDay, setMinutesPerDay] = useState(plan?.minutesPerDay ?? 20);
+  const [daysPerWeek, setDaysPerWeek] = useState(plan?.daysPerWeek ?? 5);
+  const [saving, setSaving] = useState(false);
+  const startLesson = course.lessons[nextLessonIndex(course, record)] ?? course.lessons[0];
+  const motivations: { value: LearningMotivation; zh: string; en: string }[] = [
+    { value: "travel", zh: "旅行交流", en: "Travel" },
+    { value: "daily-life", zh: "日常生活", en: "Daily life" },
+    { value: "work-study", zh: "工作学习", en: "Work & study" },
+    { value: "culture-media", zh: "文化内容", en: "Culture & media" },
+  ];
+  const Choice = ({ selected, label, onPress }: { selected: boolean; label: string; onPress: () => void }) => (
+    <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.choice, selected && styles.choiceSelected]}>
+      <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>{label}</Text>
+    </Pressable>
+  );
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      <Button label={copy(locale, "返回课程", "Back to course")} onPress={onBack} tone="secondary" />
+      <AppHeader locale={locale} title={copy(locale, "设置学习计划", "Set learning plan")} subtitle={mobileText(course.manifest.title, locale)} />
+      <View style={styles.settingsCard}>
+        <Text style={styles.settingsTitle}>{copy(locale, "你为什么学习？", "Why are you learning?")}</Text>
+        <View style={styles.choiceGrid}>{motivations.map((item) => <Choice key={item.value} selected={motivation === item.value} label={copy(locale, item.zh, item.en)} onPress={() => setMotivation(item.value)} />)}</View>
+      </View>
+      <View style={styles.settingsCard}>
+        <Text style={styles.settingsTitle}>{copy(locale, "每天投入多久？", "How long each day?")}</Text>
+        <View style={styles.choiceGrid}>{[10, 20, 30, 45].map((value) => <Choice key={value} selected={minutesPerDay === value} label={copy(locale, `${value} 分钟`, `${value} min`)} onPress={() => setMinutesPerDay(value)} />)}</View>
+      </View>
+      <View style={styles.settingsCard}>
+        <Text style={styles.settingsTitle}>{copy(locale, "每周学习几天？", "How many days per week?")}</Text>
+        <View style={styles.choiceGrid}>{[3, 5, 7].map((value) => <Choice key={value} selected={daysPerWeek === value} label={copy(locale, `${value} 天`, `${value} days`)} onPress={() => setDaysPerWeek(value)} />)}</View>
+      </View>
+      <View style={styles.agendaCard}>
+        <Text style={styles.agendaTitle}>{copy(locale, `每周 ${minutesPerDay * daysPerWeek} 分钟`, `${minutesPerDay * daysPerWeek} minutes per week`)}</Text>
+        <Text style={styles.agendaMeta}>{copy(locale, `从「${startLesson ? mobileText(startLesson.title, locale) : "—"}」开始。当前移动端不做分级测试，不会自动跳过基础内容。`, `Start with “${startLesson ? mobileText(startLesson.title, locale) : "—"}”. Mobile does not run placement yet and will not skip fundamentals automatically.`)}</Text>
+      </View>
+      <Button disabled={saving || !startLesson} label={saving ? copy(locale, "正在保存…", "Saving…") : copy(locale, plan ? "保存调整" : "创建计划", plan ? "Save changes" : "Create plan")} onPress={() => { if (!startLesson) return; setSaving(true); void onSave({ motivation, minutesPerDay, daysPerWeek, placementMode: "skipped", startingLessonId: startLesson.id, occurredAt: new Date().toISOString() }).finally(() => setSaving(false)); }} />
     </ScrollView>
   );
 }
@@ -419,6 +537,7 @@ function Reviews({
 function Settings({
   locale,
   records,
+  plans,
   courses,
   languagePacks,
   customCourses,
@@ -426,11 +545,13 @@ function Settings({
   onLocale,
   onReload,
   profileRepository,
+  planRepository,
   courseRepository,
   languagePackRepository,
 }: {
   locale: MobileLocale;
   records: Record<string, CourseLearningRecord>;
+  plans: Record<string, LearningPlan>;
   courses: readonly CoursePack[];
   languagePacks: readonly LanguageDefinition[];
   customCourses: readonly CoursePack[];
@@ -438,6 +559,7 @@ function Settings({
   onLocale: (locale: MobileLocale) => Promise<void>;
   onReload: () => Promise<void>;
   profileRepository: SQLiteLearningProfileRepository;
+  planRepository: SQLiteLearningPlanRepository;
   courseRepository: SQLiteInstalledCourseRepository;
   languagePackRepository: SQLiteLanguagePackRepository;
 }) {
@@ -542,10 +664,10 @@ function Settings({
 
   const reset = () => Alert.alert(
     copy(locale, "删除本机学习数据？", "Delete local learning data?"),
-    copy(locale, "课程进度与复习将从本机永久删除。建议先导出备份。", "Progress and reviews will be permanently deleted from this device. Export a backup first."),
+    copy(locale, "课程进度、复习与个人计划将从本机永久删除。建议先导出备份。", "Progress, reviews, and personal plans will be permanently deleted from this device. Export a backup first."),
     [
       { text: copy(locale, "取消", "Cancel"), style: "cancel" },
-      { text: copy(locale, "删除", "Delete"), style: "destructive", onPress: () => void run(async () => { await profileRepository.clear(); await onReload(); setNotice(copy(locale, "本机学习数据已删除", "Local learning data deleted")); }) },
+      { text: copy(locale, "删除", "Delete"), style: "destructive", onPress: () => void run(async () => { await Promise.all([profileRepository.clear(), planRepository.clear()]); await onReload(); setNotice(copy(locale, "本机学习数据已删除", "Local learning data deleted")); }) },
     ],
   );
 
@@ -581,10 +703,10 @@ function Settings({
       </View>
       <View style={styles.settingsCard}>
         <Text style={styles.settingsTitle}>{copy(locale, "本地备份", "Local backup")}</Text>
-        <Text style={styles.settingsText}>{copy(locale, "导出和恢复学习进度与复习。恢复时较旧记录不会覆盖较新本机记录。", "Export and restore progress and reviews. Older records never overwrite newer local records.")}</Text>
+        <Text style={styles.settingsText}>{copy(locale, "导出和恢复学习进度、复习与个人计划。较旧数据不会覆盖较新本机数据。", "Export and restore progress, reviews, and personal plans. Older data never overwrites newer local data.")}</Text>
         <View style={styles.stackActions}>
-          <Button label={copy(locale, "导出学习备份", "Export learning backup")} onPress={() => void run(async () => { await exportMobileBackup(Object.values(records)); setNotice(copy(locale, "已交给系统分享", "Backup opened in system share")); })} tone="secondary" />
-          <Button label={copy(locale, "选择备份恢复", "Choose backup to restore")} onPress={() => void run(async () => { const result = await importMobileBackup(profileRepository); if (result) { await onReload(); setNotice(copy(locale, `恢复完成：新增 ${result.added}，更新 ${result.replaced}，跳过 ${result.skipped}`, `Restore complete: ${result.added} added, ${result.replaced} updated, ${result.skipped} skipped`)); } })} tone="secondary" />
+          <Button label={copy(locale, "导出学习备份", "Export learning backup")} onPress={() => void run(async () => { await exportMobileBackup(Object.values(records), Object.values(plans)); setNotice(copy(locale, "已交给系统分享", "Backup opened in system share")); })} tone="secondary" />
+          <Button label={copy(locale, "选择备份恢复", "Choose backup to restore")} onPress={() => void run(async () => { const result = await importMobileBackup(profileRepository, planRepository); if (result) { await onReload(); const added = result.records.added + result.plans.added; const replaced = result.records.replaced + result.plans.replaced; const skipped = result.records.skipped + result.plans.skipped; setNotice(copy(locale, `恢复完成：新增 ${added}，更新 ${replaced}，跳过 ${skipped}`, `Restore complete: ${added} added, ${replaced} updated, ${skipped} skipped`)); } })} tone="secondary" />
         </View>
       </View>
       <View style={styles.settingsCard}>
@@ -600,12 +722,15 @@ function Settings({
 function MobileApp() {
   const db = useSQLiteContext();
   const profileRepository = useMemo(() => new SQLiteLearningProfileRepository(db), [db]);
+  const planRepository = useMemo(() => new SQLiteLearningPlanRepository(db), [db]);
+  const planService = useMemo(() => new LearningPlanApplicationService(planRepository), [planRepository]);
   const courseRepository = useMemo(() => new SQLiteInstalledCourseRepository(db), [db]);
   const languagePackRepository = useMemo(() => new SQLiteLanguagePackRepository(db), [db]);
   const preferences = useMemo(() => new SQLitePreferenceRepository(db), [db]);
   const [screen, setScreen] = useState<Screen>({ kind: "home" });
   const [locale, setLocale] = useState<MobileLocale>("zh-CN");
   const [records, setRecords] = useState<Record<string, CourseLearningRecord>>({});
+  const [plans, setPlans] = useState<Record<string, LearningPlan>>({});
   const [installedCourses, setInstalledCourses] = useState<readonly CoursePack[]>([]);
   const [customLanguagePacks, setCustomLanguagePacks] = useState<readonly LanguageDefinition[]>([]);
   const [progress, setProgress] = useState<LearningProgress>();
@@ -614,20 +739,23 @@ function MobileApp() {
   const languagePacks = useMemo(() => mergeMobileLanguagePacks(builtInLanguagePacks, customLanguagePacks), [customLanguagePacks]);
 
   const reload = useCallback(async () => {
-    const [loadedRecords, loadedCourses, loadedPacks] = await Promise.all([
+    const [loadedRecords, loadedPlans, loadedCourses, loadedPacks] = await Promise.all([
       profileRepository.list(),
+      planService.list(),
       courseRepository.list(),
       languagePackRepository.list(),
     ]);
     setRecords(Object.fromEntries(loadedRecords.map((record) => [record.courseId, record])));
+    setPlans(Object.fromEntries(loadedPlans.map((plan) => [plan.courseId, plan])));
     setInstalledCourses(loadedCourses);
     setCustomLanguagePacks(loadedPacks);
-  }, [courseRepository, languagePackRepository, profileRepository]);
+  }, [courseRepository, languagePackRepository, planService, profileRepository]);
 
   useEffect(() => {
-    void Promise.all([profileRepository.list(), courseRepository.list(), languagePackRepository.list(), preferences.locale()])
-      .then(([loadedRecords, loadedCourses, loadedPacks, storedLocale]) => {
+    void Promise.all([profileRepository.list(), planService.list(), courseRepository.list(), languagePackRepository.list(), preferences.locale()])
+      .then(([loadedRecords, loadedPlans, loadedCourses, loadedPacks, storedLocale]) => {
         setRecords(Object.fromEntries(loadedRecords.map((record) => [record.courseId, record])));
+        setPlans(Object.fromEntries(loadedPlans.map((plan) => [plan.courseId, plan])));
         setInstalledCourses(loadedCourses);
         setCustomLanguagePacks(loadedPacks);
         setLocale(storedLocale);
@@ -637,7 +765,7 @@ function MobileApp() {
         Alert.alert("LearnLanguage", error instanceof Error ? error.message : String(error));
         setReady(true);
       });
-  }, [courseRepository, languagePackRepository, preferences, profileRepository]);
+  }, [courseRepository, languagePackRepository, planService, preferences, profileRepository]);
 
   const saveRecord = async (record: CourseLearningRecord) => {
     await profileRepository.putMany([record]);
@@ -656,20 +784,22 @@ function MobileApp() {
 
   if (!ready) return <View style={styles.loading}><ActivityIndicator color="#5a48d6" /><Text style={styles.loadingText}>{copy(locale, "正在打开本地学习档案…", "Opening local learning profile…")}</Text></View>;
 
-  const activeCourse = screen.kind === "course" || screen.kind === "lesson" ? courses.find((course) => course.manifest.id === screen.courseId) : undefined;
+  const activeCourse = screen.kind === "course" || screen.kind === "plan" || screen.kind === "lesson" ? courses.find((course) => course.manifest.id === screen.courseId) : undefined;
   const activeTab = screen.kind === "reviews" ? "reviews" : screen.kind === "settings" ? "settings" : "learn";
 
   let content;
   if (screen.kind === "lesson" && activeCourse && progress) {
     content = <LessonPlayer locale={locale} course={activeCourse} progress={progress} onClose={() => setScreen({ kind: "course", courseId: activeCourse.manifest.id })} onSave={async (next) => { const record = records[activeCourse.manifest.id] ?? createCourseLearningRecord(activeCourse, next.updatedAt); const nextRecord = updateCourseLearningRecord(record, next); await saveRecord(nextRecord); setProgress(next); }} />;
   } else if (screen.kind === "course" && activeCourse) {
-    content = <CourseDetail locale={locale} course={activeCourse} record={records[activeCourse.manifest.id]} onBack={() => setScreen({ kind: "home" })} onLesson={(lessonId) => void openLesson(activeCourse, lessonId)} />;
+    content = <CourseDetail locale={locale} course={activeCourse} record={records[activeCourse.manifest.id]} plan={plans[activeCourse.manifest.id]} onBack={() => setScreen({ kind: "home" })} onPlan={() => setScreen({ kind: "plan", courseId: activeCourse.manifest.id })} onReviews={() => setScreen({ kind: "reviews" })} onLesson={(lessonId) => void openLesson(activeCourse, lessonId)} />;
+  } else if (screen.kind === "plan" && activeCourse) {
+    content = <PlanSetup locale={locale} course={activeCourse} record={records[activeCourse.manifest.id]} plan={plans[activeCourse.manifest.id]} onBack={() => setScreen({ kind: "course", courseId: activeCourse.manifest.id })} onSave={async (command) => { const plan = await planService.create(activeCourse, command); setPlans((current) => ({ ...current, [plan.courseId]: plan })); setScreen({ kind: "course", courseId: activeCourse.manifest.id }); }} />;
   } else if (screen.kind === "reviews") {
     content = <Reviews locale={locale} records={records} courses={courses} onUpdate={saveRecord} />;
   } else if (screen.kind === "settings") {
-    content = <Settings locale={locale} records={records} courses={courses} languagePacks={languagePacks} customCourses={installedCourses} customLanguagePacks={customLanguagePacks} profileRepository={profileRepository} courseRepository={courseRepository} languagePackRepository={languagePackRepository} onReload={reload} onLocale={async (nextLocale) => { await preferences.setLocale(nextLocale); setLocale(nextLocale); }} />;
+    content = <Settings locale={locale} records={records} plans={plans} courses={courses} languagePacks={languagePacks} customCourses={installedCourses} customLanguagePacks={customLanguagePacks} profileRepository={profileRepository} planRepository={planRepository} courseRepository={courseRepository} languagePackRepository={languagePackRepository} onReload={reload} onLocale={async (nextLocale) => { await preferences.setLocale(nextLocale); setLocale(nextLocale); }} />;
   } else {
-    content = <Home locale={locale} records={records} courses={courses} languagePacks={languagePacks} onCourse={(courseId) => setScreen({ kind: "course", courseId })} />;
+    content = <Home locale={locale} records={records} plans={plans} courses={courses} languagePacks={languagePacks} onCourse={(courseId) => setScreen({ kind: "course", courseId })} />;
   }
 
   return (
@@ -717,6 +847,14 @@ const styles = StyleSheet.create({
   privacyCard: { padding: 16, borderRadius: 16, backgroundColor: "#e9f1ec" },
   privacyTitle: { color: "#245e4c", fontSize: 15, fontWeight: "800" },
   privacyText: { marginTop: 5, color: "#4f6c62", fontSize: 12, lineHeight: 18 },
+  agendaCard: { gap: 10, padding: 17, borderRadius: 18, backgroundColor: "#fff", borderWidth: 1, borderColor: "#d9d3e4" },
+  agendaTitle: { color: "#252938", fontSize: 18, lineHeight: 24, fontWeight: "800" },
+  agendaMeta: { color: "#6f6a76", fontSize: 12, lineHeight: 18 },
+  choiceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  choice: { minWidth: "46%", flexGrow: 1, paddingHorizontal: 12, paddingVertical: 11, borderRadius: 12, borderWidth: 1, borderColor: "#d4cedd", backgroundColor: "#faf9fb" },
+  choiceSelected: { borderColor: "#5a48d6", backgroundColor: "#eeeafd" },
+  choiceText: { textAlign: "center", color: "#4d4855", fontSize: 12, fontWeight: "700" },
+  choiceTextSelected: { color: "#493bb2" },
   summaryCard: { flexDirection: "row", alignItems: "center", gap: 14, padding: 17, borderRadius: 18, backgroundColor: "#26334d" },
   summaryValue: { color: "#fff", fontSize: 30, fontWeight: "900" },
   summaryCopy: { flex: 1 },

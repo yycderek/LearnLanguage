@@ -4,11 +4,12 @@ import type {
   LearningProfileRepository,
 } from "@learn-language/application/workspace";
 import type { CourseLearningRecord } from "@learn-language/application/learning-record";
+import type { LearningPlan, LearningPlanRepository } from "@learn-language/application/learning-plan";
 import type { CoursePack, LanguageDefinition } from "@learn-language/protocol";
 import type { SQLiteDatabase } from "expo-sqlite";
 import type { MobileLocale } from "./model";
 
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 
 export async function migrateMobileDatabase(db: SQLiteDatabase) {
   const row = await db.getFirstAsync<{ user_version: number }>("PRAGMA user_version");
@@ -23,6 +24,12 @@ export async function migrateMobileDatabase(db: SQLiteDatabase) {
       updated_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS learning_profiles_updated_at_idx ON learning_profiles(updated_at);
+    CREATE TABLE IF NOT EXISTS learning_plans (
+      course_id TEXT PRIMARY KEY NOT NULL,
+      payload TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS learning_plans_updated_at_idx ON learning_plans(updated_at);
     CREATE TABLE IF NOT EXISTS app_preferences (
       preference_key TEXT PRIMARY KEY NOT NULL,
       preference_value TEXT NOT NULL
@@ -77,6 +84,33 @@ export class SQLiteLearningProfileRepository implements LearningProfileRepositor
   async clear(): Promise<void> { await this.db.runAsync("DELETE FROM learning_profiles"); }
 }
 
+export class SQLiteLearningPlanRepository implements LearningPlanRepository {
+  constructor(private readonly db: SQLiteDatabase) {}
+
+  async list(): Promise<readonly LearningPlan[]> {
+    const rows = await this.db.getAllAsync<{ payload: string }>("SELECT payload FROM learning_plans ORDER BY updated_at DESC");
+    return parsedRows<LearningPlan>(rows);
+  }
+
+  async get(courseId: string): Promise<LearningPlan | undefined> {
+    const row = await this.db.getFirstAsync<{ payload: string }>("SELECT payload FROM learning_plans WHERE course_id = ?", courseId);
+    if (!row) return undefined;
+    try { return JSON.parse(row.payload) as LearningPlan; }
+    catch { return undefined; }
+  }
+
+  async put(plan: LearningPlan): Promise<void> {
+    await this.db.runAsync(
+      `INSERT INTO learning_plans(course_id, payload, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(course_id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at`,
+      plan.courseId,
+      JSON.stringify(plan),
+      plan.updatedAt,
+    );
+  }
+
+  async clear(): Promise<void> { await this.db.runAsync("DELETE FROM learning_plans"); }
+}
 export class SQLiteLanguagePackRepository implements LanguagePackRepository {
   constructor(private readonly db: SQLiteDatabase) {}
 

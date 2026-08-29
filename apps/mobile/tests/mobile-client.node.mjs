@@ -9,6 +9,8 @@ import {
   updateCourseLearningRecord,
 } from "@learn-language/application/learning-record";
 import { mobileText, nextLessonIndex } from "../src/model.ts";
+import { createLearningPlan } from "@learn-language/application/learning-plan";
+import { courseAdaptiveAgenda } from "@learn-language/application/adaptive-agenda";
 
 test("mobile client consumes shared built-in courses and learning records", () => {
   const courses = bundledStarterCourses();
@@ -24,6 +26,21 @@ test("mobile client consumes shared built-in courses and learning records", () =
   assert.ok(mobileText(course.manifest.title, "en"));
 });
 
+test("mobile personal plans produce an adaptive local agenda", () => {
+  const course = bundledStarterCourses()[0];
+  assert.ok(course);
+  const plan = createLearningPlan(course, {
+    motivation: "daily-life",
+    minutesPerDay: 20,
+    daysPerWeek: 5,
+    placementMode: "skipped",
+    occurredAt: "2026-08-25T08:00:00.000Z",
+  });
+  const agenda = courseAdaptiveAgenda(course, undefined, plan, "2026-08-25T09:00:00.000Z", 0);
+  assert.equal(agenda.today.targetMinutes, 20);
+  assert.equal(agenda.items[0]?.kind, "start-lesson");
+  assert.equal(agenda.items[0]?.lessonId, course.lessons[0]?.id);
+});
 test("mobile source keeps native storage and UI outside engine", async () => {
   const [app, storage, backup, contentImport] = await Promise.all([
     readFile(new URL("../App.tsx", import.meta.url), "utf8"),
@@ -34,6 +51,8 @@ test("mobile source keeps native storage and UI outside engine", async () => {
   assert.match(app, /SQLiteProvider/);
   assert.match(app, /evaluateExerciseResponse/);
   assert.match(storage, /implements LearningProfileRepository/);
+  assert.match(storage, /implements LearningPlanRepository/);
+  assert.match(storage, /learning_plans/);
   assert.match(storage, /PRAGMA journal_mode = WAL/);
   assert.match(storage, /implements LanguagePackRepository/);
   assert.match(storage, /implements InstalledCourseRepository/);
@@ -43,6 +62,10 @@ test("mobile source keeps native storage and UI outside engine", async () => {
   assert.match(contentImport, /validateLanguagePack/);
   assert.match(contentImport, /validateCourse/);
   assert.match(backup, /ProfileBackupApplicationService/);
+  assert.match(backup, /LearningPlanApplicationService/);
+  assert.match(backup, /schemaVersion: 2/);
+  assert.match(app, /function PlanSetup/);
+  assert.match(app, /courseAdaptiveAgenda/);
   assert.doesNotMatch(app, /IndexedDB|localStorage|document\./);
 });
 
