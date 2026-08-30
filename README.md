@@ -59,6 +59,7 @@ pnpm --dir apps/mobile test
 ## 项目文档
 
 - [移动端安装与开发](docs/MOBILE_INSTALL.md)
+- [移动端真机验收清单](docs/MOBILE_ACCEPTANCE.md)
 - [完整使用手册](docs/USER_GUIDE.md)
 - [产品定位与竞品基线](docs/PRODUCT_POSITIONING.md)
 - [架构设计](docs/ARCHITECTURE.md)

@@ -20,6 +20,12 @@
     "plugins": [
       "expo-sqlite",
       "expo-sharing"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c7858668-386e-417a-a984-826068f623d3"
+      }
+    },
+    "owner": "yycderek"
   }
 }

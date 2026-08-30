@@ -18,7 +18,7 @@ Android/iOS 移动学习客户端。使用 Expo SDK 57 和 React Native，复用
 
 ## 安装
 
-当前提供可从源码构建的移动端 MVP，尚未提供已签名的 APK、AAB 或 IPA。Android/iOS 环境要求、安装命令、离线范围与数据备份说明见 [移动端安装与开发](../../docs/MOBILE_INSTALL.md)。
+当前提供可从源码构建的移动端 MVP，尚未提供已签名的 APK、AAB 或 IPA。Android/iOS 环境要求、安装命令、EAS 内部分发准备、离线范围与数据备份说明见 [移动端安装与开发](../../docs/MOBILE_INSTALL.md)；实体设备检查项见[移动端真机验收清单](../../docs/MOBILE_ACCEPTANCE.md)。
 
 ## 开发
 

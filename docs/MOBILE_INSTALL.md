@@ -19,6 +19,7 @@ LearnLanguage Mobile 当前是可从源码构建的 Android/iOS MVP，尚未提�
 3. 点击“进入学习”。引导只显示一次，之后直接打开学习首页。
 
 如果本地档案读取失败，应用不会进入空白首页，也不会删除数据；错误页会保留错误详情并提供“重新尝试”。计划、课节进度和复习结果保存失败时，当前页面保留并允许重试。
+
 ## 准备环境
 
 所有平台都需要：
@@ -85,6 +86,7 @@ pnpm --dir apps/mobile test
 打开课程后可设置个人学习计划：选择学习目的、每天时长和每周频率。首页“今日安排”根据已完成课节与到期复习实时生成，不要求账户，也不会把计划作为开始学习的门槛。当前移动端暂不提供分级测试，因此不会自动跳过课程基础内容。
 
 移动端会限制文件大小，验证 JSON 结构、领域引用、发布状态、许可证、来源、SHA-256 内容哈希、适配器版本与练习能力。内置课程和内置 Language Pack 不能被设备文件覆盖。同 ID 课程只接受保持现有学习进度兼容的更高版本。
+
 ## 离线与数据
 
 内置课程、已导入课程和核心练习可离线使用。学习记录、导入课程与自定义 Language Pack 只保存在当前设备；卸载应用会删除这些本地数据。移动备份包含学习记录、复习与个人计划，并兼容旧版仅含学习记录的备份；恢复后仍需重新导入自定义内容文件。卸载、换机或重装前，请在应用设置中导出备份，并在新安装中导入。移动端首版暂不包含 AI 服务和跨设备云同步。
@@ -94,6 +96,21 @@ pnpm --dir apps/mobile test
 源码版本已实现 Android 系统返回键、前台恢复后的日程刷新、iOS 键盘避让、Android 状态栏安全区、44 点最小按钮高度、小屏与大字体换行，以及 VoiceOver/TalkBack 所需的标题、按钮、进度和错误播报语义。
 
 这些项目已通过 TypeScript、源码契约测试和 Android/iOS Metro bundle；仍需签名包真机验收确认厂商系统、实体键盘、刘海机型和具体屏幕阅读器行为。
+
+## EAS 内部分发准备
+
+仓库已包含 Expo 项目绑定及 `preview`、`production` 构建配置。配置本身不包含 Android Keystore、Apple Distribution Certificate 或其他签名密钥。
+
+准备生成内部分发包时，先登录具有项目权限的 Expo 账户，再分别启动 Android APK 和 iOS 内部分发构建：
+
+```bash
+pnpm dlx eas-cli@latest whoami
+pnpm dlx eas-cli@latest build --platform android --profile preview
+pnpm dlx eas-cli@latest build --platform ios --profile preview
+```
+
+构建完成后，按[移动端真机验收清单](MOBILE_ACCEPTANCE.md)记录设备、系统、构建编号和结果。未执行构建时，不应把源码 bundle 验证描述为签名安装包验收。
+
 ## 尚未提供
 
 - 已签名的 Android APK/AAB 和 iOS IPA。
