@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import { startProdServer } from "vinext/server/prod-server";
+import { publishCourseDraft, sampleCourse } from "../../lib/course.ts";
 
 let origin = "";
 let closeServer: (() => Promise<void>) | undefined;
@@ -55,6 +56,33 @@ async function readStudioWorkingCopy(page: Page) {
     };
   }));
 }
+
+async function readDevicePreference(page: Page, key: string) {
+  return page.evaluate((preferenceKey) => new Promise<unknown>((resolve, reject) => {
+    const request = indexedDB.open("learn-language-device-v1");
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const transaction = request.result.transaction("preferences", "readonly");
+      const value = transaction.objectStore("preferences").get(preferenceKey);
+      value.onerror = () => reject(value.error);
+      value.onsuccess = () => resolve(value.result);
+    };
+  }), key);
+}
+
+async function acceptanceCourse(version: string) {
+  const draft = sampleCourse("en");
+  draft.manifest.id = "community.en.acceptance";
+  draft.manifest.version = version;
+  draft.manifest.title = { "zh-CN": "验收英语课程", en: "Acceptance English Course" };
+  draft.manifest.description = { "zh-CN": `用于验证课程迁移流程的 ${version} 版本。`, en: `Version ${version} for validating course portability.` };
+  draft.manifest.author = { id: "acceptance-author", displayName: "Acceptance Author" };
+  draft.manifest.visibility = "community";
+  draft.manifest.source = { kind: "original", title: "LearnLanguage acceptance fixture" };
+  draft.manifest.license = { id: "CC-BY-4.0", attribution: "Acceptance Author" };
+  return publishCourseDraft(draft);
+}
+
 async function expectResponsiveDocument(page: Page) {
   const documentState = await page.evaluate(() => ({
     primary: getComputedStyle(document.documentElement).getPropertyValue("--primary").trim(),
@@ -107,9 +135,81 @@ test("complete device backups are previewed before any restore choice", async ({
   await expect(page.getByRole("button", { name: "合并恢复" })).toBeVisible();
   await expect(page.getByRole("button", { name: "清空本机后恢复" })).toBeVisible();
   await expect(page.getByRole("button", { name: "取消" })).toBeVisible();
+
+  const reload = page.waitForEvent("load");
+  await page.getByRole("button", { name: "合并恢复" }).click();
+  await reload;
+  await expect(page.getByRole("heading", { name: "从一门课程开始" })).toBeVisible();
+  await expect(page.getByText("恢复前预览", { exact: true })).toBeHidden();
   expect(problems).toEqual([]);
 });
 
+test("Personal AI connection settings keep credentials session-only", async ({ page }) => {
+  const problems = observeBrowserProblems(page);
+  await page.route(`${origin}/api/ai`, async (route) => {
+    const body = route.request().postDataJSON() as { action?: string; apiKey?: string };
+    expect(body.action).toBe("test");
+    expect(body.apiKey).toBe("acceptance-secret");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ text: "Connection ready" }) });
+  });
+
+  await page.goto(`${origin}/learn`);
+  await dismissFirstUseGuide(page);
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await page.getByRole("button", { name: "配置 AI" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "选择你使用的 AI" });
+  await dialog.getByLabel("模型 ID").fill("acceptance-model");
+  await dialog.getByLabel("API 密钥（兼容服务可不填）").fill("acceptance-secret");
+  await dialog.getByRole("button", { name: "测试连接" }).click();
+  await expect(dialog.getByText("连接成功，可以用于开放题反馈和课节内 AI 导师。")).toBeVisible();
+  await dialog.getByRole("button", { name: "保存设置" }).click();
+  await expect(page.getByText("OpenAI 配置已保存；密钥将在关闭标签页后清除")).toBeVisible();
+
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem("learn-language-ai-key-session-v1"))).toBe("acceptance-secret");
+  await expect.poll(() => readDevicePreference(page, "ai")).toMatchObject({ provider: "openai", model: "acceptance-model", apiKey: "" });
+  expect(problems).toEqual([]);
+});
+
+test("published community Course Packs can be imported, updated, and exported", async ({ page }) => {
+  const problems = observeBrowserProblems(page);
+  await page.goto(`${origin}/learn`);
+  await dismissFirstUseGuide(page);
+
+  const first = await acceptanceCourse("1.0.0");
+  const firstConfirmation = page.waitForEvent("dialog");
+  await page.getByLabel("选择文件", { exact: true }).setInputFiles({
+    name: "acceptance-1.0.0.course.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(first)),
+  });
+  const firstDialog = await firstConfirmation;
+  expect(firstDialog.message()).toContain("非官方课程");
+  expect(firstDialog.message()).toContain("CC-BY-4.0");
+  await firstDialog.accept();
+  await expect(page.getByText("已导入并安装「验收英语课程」")).toBeVisible();
+
+  await page.getByRole("button", { name: "我的课程" }).click();
+  const card = page.locator(".library-course-card").filter({ hasText: "验收英语课程" });
+  await expect(card).toContainText("用户课程");
+  await expect(card).toContainText("v1.0.0");
+  const downloadPromise = page.waitForEvent("download");
+  await card.getByRole("button", { name: "导出备份" }).click();
+  expect((await downloadPromise).suggestedFilename()).toBe("community.en.acceptance-1.0.0.course.json");
+
+  const second = await acceptanceCourse("1.1.0");
+  const secondConfirmation = page.waitForEvent("dialog");
+  await page.getByLabel("选择文件", { exact: true }).setInputFiles({
+    name: "acceptance-1.1.0.course.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(second)),
+  });
+  const secondDialog = await secondConfirmation;
+  await secondDialog.accept();
+  await expect(page.getByText("已从文件更新至 v1.1.0，学习进度已保留")).toBeVisible();
+  await expect(card).toContainText("v1.1.0");
+  expect(problems).toEqual([]);
+});
 test("the Learn entry supports keyboard navigation and announced interface changes", async ({ page }) => {
   await page.goto(`${origin}/learn`);
   await dismissFirstUseGuide(page);

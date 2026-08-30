@@ -2,7 +2,7 @@
 
 LearnLanguage 的 Learn 学习空间与 Studio 无代码课程创作空间。Web 客户端使用与 Headless、未来移动端和桌面端共享的 Course Pack v2、应用服务和学习引擎。
 
-面向使用者的操作说明见[完整使用手册](../../docs/USER_GUIDE.md)。本文件只保留 Web 客户端开发信息。
+面向使用者的操作说明见[完整使用手册](../../docs/USER_GUIDE.md)，发布检查见[Web/PWA 产品验收](../../docs/WEB_ACCEPTANCE.md)。本文件只保留 Web 客户端开发信息。
 
 当前主要能力：
 
