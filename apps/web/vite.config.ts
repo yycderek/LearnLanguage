@@ -44,6 +44,32 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // pdfjs ships as one 1.6 MB module, but stays behind the Studio file-import action.
+    // Product tests enforce a 500 KiB limit for every non-document client chunk.
+    build: {
+      chunkSizeWarningLimit: 1650,
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            minSize: 40 * 1024,
+            maxSize: 350 * 1024,
+            groups: [
+              {
+                name: "document-import",
+                test: /node_modules[\\/](?:mammoth|pdfjs-dist|unpdf)[\\/]/,
+                priority: 20,
+                maxSize: 350 * 1024,
+              },
+              {
+                name: "icons",
+                test: /node_modules[\\/]lucide-react[\\/]/,
+                priority: 10,
+              },
+            ],
+          },
+        },
+      },
+    },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,

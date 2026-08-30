@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+import { readdir, stat } from "node:fs/promises";
 import { startProdServer } from "vinext/server/prod-server";
 import { publishCourseDraft, sampleCourse } from "../../lib/course.ts";
 
@@ -116,6 +117,30 @@ test("first visit redirects to a styled, language-neutral Learn entry", async ({
   expect(problems).toEqual([]);
 });
 
+test("Learn defers Studio material and document parsers until requested", async ({ page }) => {
+  const assetsDirectory = fileURLToPath(new URL("../../dist/client/assets", import.meta.url));
+  const documentAssets = (await readdir(assetsDirectory)).filter((name) => name.startsWith("document-import-") && name.endsWith(".js"));
+  const heavyParserAssets = new Set((await Promise.all(documentAssets.map(async (name) => ({
+    name,
+    size: (await stat(new URL(`../../dist/client/assets/${name}`, import.meta.url))).size,
+  })))).filter(({ size }) => size > 100 * 1024).map(({ name }) => name));
+  const deferredAssetRequests: string[] = [];
+  page.on("request", (request) => {
+    const name = new URL(request.url()).pathname.split("/").at(-1) ?? "";
+    if (heavyParserAssets.has(name) || name.startsWith("material-import-dialog-")) deferredAssetRequests.push(name);
+  });
+
+  await page.goto(`${origin}/learn`);
+  await dismissFirstUseGuide(page);
+  await expect(page.getByRole("heading", { name: "从一门课程开始" })).toBeVisible();
+  expect(deferredAssetRequests).toEqual([]);
+
+  await page.goto(`${origin}/studio`);
+  await page.getByRole("button", { name: "导入素材" }).click();
+  await expect(page.getByRole("dialog", { name: "导入素材生成课程草稿" })).toBeVisible();
+  await expect.poll(() => deferredAssetRequests.some((name) => name.startsWith("material-import-dialog-"))).toBeTruthy();
+  expect(deferredAssetRequests.filter((name) => heavyParserAssets.has(name))).toEqual([]);
+});
 test("complete device backups are previewed before any restore choice", async ({ page }) => {
   const problems = observeBrowserProblems(page);
   await page.goto(`${origin}/learn`);

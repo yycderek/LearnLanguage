@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function StudioPage() {
-  return <CourseStudio space="studio" />;
+  return <CourseStudio key="studio" space="studio" />;
 }

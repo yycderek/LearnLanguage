@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function LearnPage() {
-  return <CourseStudio space="learn" />;
+  return <CourseStudio key="learn" space="learn" />;
 }

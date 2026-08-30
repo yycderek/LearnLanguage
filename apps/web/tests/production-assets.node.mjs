@@ -1,8 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { readdir, stat } from "node:fs/promises";
 import { startProdServer } from "vinext/server/prod-server";
 
+test("non-document client chunks stay below the initial-load budget", async () => {
+  const assetsDirectory = fileURLToPath(new URL("../dist/client/assets", import.meta.url));
+  const assets = await readdir(assetsDirectory);
+  const javascriptAssets = await Promise.all(assets.filter((name) => name.endsWith(".js")).map(async (name) => ({
+    name,
+    size: (await stat(new URL(`../dist/client/assets/${name}`, import.meta.url))).size,
+  })));
+  const oversizedInitialAssets = javascriptAssets.filter(({ name, size }) => size > 500 * 1024 && !name.startsWith("document-import-"));
+  assert.deepEqual(oversizedInitialAssets, []);
+  assert.ok(javascriptAssets.some(({ name, size }) => name.startsWith("document-import-") && size > 500 * 1024), "the known lazy PDF parser should remain isolated");
+  assert.ok(javascriptAssets.some(({ name }) => name.startsWith("material-import-dialog-")), "the material dialog should remain a separate chunk");
+});
 test("production server exposes every asset referenced by Learn and Studio", async (context) => {
   const { server, port } = await startProdServer({
     host: "127.0.0.1",
