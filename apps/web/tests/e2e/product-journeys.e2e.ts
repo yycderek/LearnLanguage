@@ -337,17 +337,17 @@ test("a non-technical author can create a new language, save a draft, and previe
   await page.getByRole("button", { name: "设置目标语言" }).click();
   const dialog = page.getByRole("dialog", { name: "添加目标语言" });
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel("语言 ID").fill("es");
-  await dialog.getByLabel("语言符号").fill("Es");
-  await dialog.getByLabel("中文名称").fill("西班牙语");
-  await dialog.getByLabel("英文名称").fill("Spanish");
-  await dialog.getByLabel("本地名称").fill("Español");
+  await dialog.getByLabel("语言 ID").fill("it");
+  await dialog.getByLabel("语言符号").fill("It");
+  await dialog.getByLabel("中文名称").fill("意大利语");
+  await dialog.getByLabel("英文名称").fill("Italian");
+  await dialog.getByLabel("本地名称").fill("Italiano");
   await dialog.getByLabel("书写系统代码").fill("Latn");
   await dialog.getByRole("button", { name: "保存并创建课程" }).click();
 
   await expect(page.getByRole("navigation", { name: "工作台导航" })).toBeVisible();
   await expect(page.getByRole("button", { name: "保存草稿" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "西班牙语咖啡店点单", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "意大利语咖啡店点单", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText(/已保存到当前设备 · 修订 1/)).toBeVisible();
 

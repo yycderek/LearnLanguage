@@ -8,6 +8,7 @@ const BUNDLED_CONTENT_HASHES: Record<string, string> = {
   en: "sha256:7ac5ca6559caf36c54e7190d9cc7ebdbec34f62ad8de91a0b19cceb0288e8c11",
   ja: "sha256:55447535bf6a692d440f3b4989db6376e95733fcb8eb463886e2f7310045fe0d",
   "yue-Hant-HK": "sha256:80ccd005ac7fc9b5cc363d596e8242f4ba631e9b9972ea322514f358834f0a54",
+  es: "sha256:50e1f938b87ca46defc601a9b72de96e9e20b7bd6ccef391982fd76f3a922faf",
 };
 
 export type CourseLibrarySource = "bundled" | "user";

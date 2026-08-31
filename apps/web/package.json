@@ -11,7 +11,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "pnpm build && node --experimental-strip-types --test tests/device-backup.node.mjs tests/rendered-html.node.mjs tests/production-assets.node.mjs tests/adaptive-agenda.node.mjs tests/learning-plan.node.mjs tests/learning.node.mjs tests/learning-presentation.node.mjs tests/ai.node.mjs tests/article-course.node.mjs tests/material-course.node.mjs tests/course.node.mjs tests/course-authoring.node.mjs tests/course-file.node.mjs tests/course-library.node.mjs tests/draft-library.node.mjs tests/i18n.node.mjs tests/language-capabilities.node.mjs tests/language-pack-file.node.mjs tests/learner-backup.node.mjs tests/publish-readiness.node.mjs tests/starter-course-library.node.mjs",
+    "test": "pnpm build && node --experimental-strip-types --test tests/device-backup.node.mjs tests/rendered-html.node.mjs tests/production-assets.node.mjs tests/adaptive-agenda.node.mjs tests/learning-plan.node.mjs tests/learning.node.mjs tests/learning-presentation.node.mjs tests/ai.node.mjs tests/article-course.node.mjs tests/material-course.node.mjs tests/course.node.mjs tests/course-authoring.node.mjs tests/course-file.node.mjs tests/course-library.node.mjs tests/draft-library.node.mjs tests/i18n.node.mjs tests/language-capabilities.node.mjs tests/language-pack-file.node.mjs tests/learner-backup.node.mjs tests/publish-readiness.node.mjs tests/spanish-starter-course.node.mjs tests/starter-course-library.node.mjs",
     "test:e2e": "playwright test",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },

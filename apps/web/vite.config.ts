@@ -61,6 +61,11 @@ export default defineConfig(async () => {
                 maxSize: 350 * 1024,
               },
               {
+                name: "starter-content",
+                test: /packages[\\/]content[\\/]src[\\/]/,
+                priority: 15,
+              },
+              {
                 name: "icons",
                 test: /node_modules[\\/]lucide-react[\\/]/,
                 priority: 10,

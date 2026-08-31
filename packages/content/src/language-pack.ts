@@ -20,6 +20,17 @@ export const builtInLanguagePacks: LanguagePack[] = [
   },
   {
     schemaVersion: 1,
+    id: "es",
+    name: { "zh-CN": "西班牙语", en: "Spanish", native: "Español" },
+    accent: "Es",
+    scripts: [
+      { code: "Latn", name: { "zh-CN": "拉丁字母", en: "Latin alphabet", native: "alfabeto latino" }, direction: "ltr", primary: true },
+    ],
+    readingSystems: [],
+    segmentation: { strategy: "whitespace" },
+  },
+  {
+    schemaVersion: 1,
     id: "ja",
     name: { "zh-CN": "日语", en: "Japanese", native: "日本語" },
     accent: "樱",

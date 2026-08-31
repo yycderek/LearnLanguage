@@ -119,6 +119,30 @@
 - 覆盖版本／提交：0.7.0／待发布提交
 - 结论与修改记录：待填写
 
+## 2026-08-31 西班牙语 0.6.0 首版批次
+
+范围：独立 `es` Language Pack 与 12 课 A1 核心入门课程；共 43 个练习、4 篇短阅读和第 4、8、12 课的 3 个阶段综合任务。
+
+| 检查项 | 状态 | 记录 |
+| --- | --- | --- |
+| Course Pack 结构、引用与双语字段 | 自动校验通过 | Web、移动共享内容和兼容性测试覆盖 12 课、43 个练习、4 篇短阅读与 3 个阶段任务。 |
+| CEFR A1 能力边界 | 来源核对完成 | 依据 Instituto Cervantes A1 目标和交际功能目录组织身份、时间、位置、购物、交通、求助和服务任务；不宣称完整 A1 考试覆盖。 |
+| 重音与倒置问号 | 来源核对完成 | NFC 规范化、重音字符和成对问号练习按 RAE 正字法说明核对。 |
+| 逐条自然度与地区语域 | **母语者签署待完成** | 重点检查点单、问路、`para aquí`／`para llevar` 和中性基础西班牙语的地区适用性。 |
+
+参考资料：
+
+- [Instituto Cervantes：A1/A2 总体目标](https://cvc.cervantes.es/Ensenanza/biblioteca_ele/plan_curricular/niveles/01_objetivos_relacion_a1-a2.htm)
+- [Instituto Cervantes：A1/A2 交际功能目录](https://cvc.cervantes.es/ensenanza/biblioteca_ele/plan_curricular/niveles/05_funciones_inventario_a1-a2.htm)
+- [RAE：标点影响的大小写规则](https://www.rae.es/ortograf%C3%ADa-b%C3%A1sica/uso-de-las-may%C3%BAsculas/la-may%C3%BAscula-condicionada-por-la-puntuaci%C3%B3n)
+
+母语者签署：
+
+- 审校者：待填写
+- 审校日期：待填写
+- 覆盖版本／提交：0.6.0／待发布提交
+- 结论与修改记录：待填写
+
 ## 母语者审校清单
 
 - 逐条检查目标语言、标音、翻译和提示是否相互一致。

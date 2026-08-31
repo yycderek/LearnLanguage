@@ -26,14 +26,15 @@ function reachableStepIds(lesson) {
   return visited;
 }
 
-test("the bundled library contains progressive English, Japanese, and Cantonese zero-beginner courses", () => {
-  assert.deepEqual(bundledStarterLanguageIds, ["en", "ja", "yue-Hant-HK"]);
+test("the bundled library contains progressive English, Japanese, Cantonese, and Spanish zero-beginner courses", () => {
+  assert.deepEqual(bundledStarterLanguageIds, ["en", "ja", "yue-Hant-HK", "es"]);
   const courses = bundledStarterCourses();
-  assert.equal(courses.length, 3);
+  assert.equal(courses.length, 4);
   const expected = {
     en: { version: "0.7.0", lessons: 16, exercises: 60 },
     ja: { version: "0.7.0", lessons: 16, exercises: 60 },
     "yue-Hant-HK": { version: "0.7.0", lessons: 16, exercises: 60 },
+    es: { version: "0.6.0", lessons: 12, exercises: 43 },
   };
 
   for (const course of courses) {
@@ -131,7 +132,7 @@ test("A1 courses include denser vocabulary and short-text information extraction
     const readingExercises = course.exercises.filter((item) => item.id.includes("-read-"));
 
     assert.ok(readingKnowledge.length >= 15, `${course.manifest.languageId} needs denser reading vocabulary`);
-    const expectedReadingCount = 8;
+    const expectedReadingCount = course.manifest.languageId === "es" ? 4 : 8;
     assert.equal(readingTexts.length, expectedReadingCount, `${course.manifest.languageId} has the wrong short-reading count`);
     assert.equal(readingExercises.length, expectedReadingCount, `${course.manifest.languageId} has the wrong information-extraction count`);
 

@@ -4,7 +4,7 @@ Android/iOS 移动学习客户端。使用 Expo SDK 57 和 React Native，复用
 
 ## 当前范围
 
-- 浏览英语、日语、粤语内置课程，并导入任意兼容语种的已发布 Course Pack 与 Language Pack。
+- 浏览英语、日语、粤语、西班牙语内置课程，并导入任意兼容语种的已发布 Course Pack 与 Language Pack。
 - 离线完成选择、排序和文字练习。
 - SQLite 保存个人学习计划、课程进度、复习任务、导入课程与自定义 Language Pack。
 - 中文或英文界面与讲解语言。

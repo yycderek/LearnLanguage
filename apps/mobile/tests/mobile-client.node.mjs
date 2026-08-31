@@ -14,7 +14,7 @@ import { courseAdaptiveAgenda } from "@learn-language/application/adaptive-agend
 
 test("mobile client consumes shared built-in courses and learning records", () => {
   const courses = bundledStarterCourses();
-  assert.equal(courses.length, 3);
+  assert.equal(courses.length, 4);
   const course = courses[0];
   assert.ok(course);
   let progress = startLearning(course, course.lessons[0]?.id, "2026-08-25T00:00:00.000Z");
