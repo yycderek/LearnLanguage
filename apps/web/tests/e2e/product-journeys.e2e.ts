@@ -31,8 +31,11 @@ function observeBrowserProblems(page: Page) {
     if (message.type() === "error") problems.push(`console error: ${message.text()}`);
   });
   page.on("requestfailed", (request) => {
-    if (request.url().startsWith(origin)) {
-      problems.push(`request failed: ${request.method()} ${request.url()} (${request.failure()?.errorText ?? "unknown"})`);
+    const url = request.url();
+    const failure = request.failure()?.errorText ?? "unknown";
+    const isCanceledRscNavigation = failure === "net::ERR_ABORTED" && new URL(url).pathname.endsWith(".rsc");
+    if (url.startsWith(origin) && !isCanceledRscNavigation) {
+      problems.push(`request failed: ${request.method()} ${url} (${failure})`);
     }
   });
   return problems;
