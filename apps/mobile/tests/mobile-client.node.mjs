@@ -42,14 +42,18 @@ test("mobile personal plans produce an adaptive local agenda", () => {
   assert.equal(agenda.items[0]?.lessonId, course.lessons[0]?.id);
 });
 test("mobile source keeps native storage and UI outside engine", async () => {
-  const [app, storage, backup, contentImport] = await Promise.all([
+  const [app, storage, backup, contentImport, pronunciation] = await Promise.all([
     readFile(new URL("../App.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/storage.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/backup.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/content-import.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/pronunciation.ts", import.meta.url), "utf8"),
   ]);
   assert.match(app, /SQLiteProvider/);
   assert.match(app, /evaluateExerciseResponse/);
+  assert.match(app, /createPronunciationRequest/);
+  assert.match(pronunciation, /expo-speech/);
+  assert.match(pronunciation, /request\.languageTag/);
   assert.match(storage, /implements LearningProfileRepository/);
   assert.match(storage, /implements LearningPlanRepository/);
   assert.match(storage, /learning_plans/);

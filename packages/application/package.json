@@ -44,6 +44,10 @@
     "./course-update": {
       "types": "./src/course-update.ts",
       "default": "./src/course-update.ts"
+    },
+    "./pronunciation": {
+      "types": "./src/pronunciation.ts",
+      "default": "./src/pronunciation.ts"
     }
   },
   "dependencies": {

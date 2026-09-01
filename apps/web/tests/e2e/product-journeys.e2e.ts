@@ -282,6 +282,31 @@ test("the installed shell reopens Learn while offline", async ({ page, context }
 });
 
 test("first course start saves an optional personal plan before entering the learning map", async ({ page }) => {
+  await page.addInitScript(() => {
+    const spoken: Array<{ text: string; lang: string; rate: number }> = [];
+    Object.defineProperty(globalThis, "__pronunciationSpoken", { configurable: true, value: spoken });
+    class TestSpeechSynthesisUtterance {
+      text: string;
+      lang = "";
+      rate = 1;
+      onstart: (() => void) | null = null;
+      onend: (() => void) | null = null;
+      onerror: ((event: { error: string }) => void) | null = null;
+      constructor(text: string) { this.text = text; }
+    }
+    Object.defineProperty(globalThis, "SpeechSynthesisUtterance", { configurable: true, value: TestSpeechSynthesisUtterance });
+    Object.defineProperty(globalThis, "speechSynthesis", {
+      configurable: true,
+      value: {
+        cancel: () => undefined,
+        speak: (utterance: TestSpeechSynthesisUtterance) => {
+          spoken.push({ text: utterance.text, lang: utterance.lang, rate: utterance.rate });
+          utterance.onstart?.();
+          queueMicrotask(() => utterance.onend?.());
+        },
+      },
+    });
+  });
   const problems = observeBrowserProblems(page);
   await page.goto(`${origin}/learn`);
   await dismissFirstUseGuide(page);
@@ -293,6 +318,14 @@ test("first course start saves an optional personal plan before entering the lea
   await page.getByRole("button", { name: "保存计划并开始" }).click();
   await expect(page.getByRole("button", { name: "保存并退出" })).toBeVisible();
   await expect(page.locator(".learner-shell")).toBeVisible();
+  await expect(page.getByRole("button", { name: "朗读" }).first()).toBeEnabled();
+  await page.getByRole("button", { name: "朗读" }).first().click();
+  await page.getByRole("button", { name: "慢速" }).first().click();
+  const spoken = await page.evaluate(() => (globalThis as typeof globalThis & { __pronunciationSpoken: Array<{ text: string; lang: string; rate: number }> }).__pronunciationSpoken);
+  expect(spoken).toHaveLength(2);
+  expect(spoken[0]?.text).toBeTruthy();
+  expect(spoken.map((item) => item.lang)).toEqual(["en", "en"]);
+  expect(spoken.map((item) => item.rate)).toEqual([1, 0.72]);
   await page.getByRole("button", { name: "AI 导师" }).click();
   await expect(page.getByRole("heading", { name: "可选 AI 学习导师" })).toBeVisible();
   await expect(page.getByText("需要先配置个人 AI")).toBeVisible();

@@ -19,6 +19,7 @@ export * from "./adaptive-agenda.js";
 export * from "./product-closure.js";
 export * from "./learning-record.js";
 export * from "./course-update.js";
+export * from "./pronunciation.js";
 
 export interface CourseRepository {
   get(courseId: string): Promise<CoursePack | undefined>;

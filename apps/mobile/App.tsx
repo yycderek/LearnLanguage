@@ -45,10 +45,12 @@ import {
   serializeExerciseResponse,
   type ExerciseResponse,
 } from "@learn-language/application/exercise-response";
+import { createPronunciationRequest, type PronunciationSpeed } from "@learn-language/application/pronunciation";
 import type { CoursePack, Exercise, LanguageDefinition } from "@learn-language/protocol";
 import { exportMobileBackup, importMobileBackup } from "./src/backup";
 import { chooseCoursePackFile, chooseLanguagePackFile, mergeMobileCourses, mergeMobileLanguagePacks } from "./src/content-import";
 import { mobileReviewItems, mobileText, nextLessonIndex, type MobileLocale } from "./src/model";
+import { mobilePronunciationPlayer } from "./src/pronunciation";
 import {
   migrateMobileDatabase,
   SQLiteInstalledCourseRepository,
@@ -470,11 +472,16 @@ function LessonPlayer({
   const [notice, setNotice] = useState("");
   const [guidance, setGuidance] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pronunciation, setPronunciation] = useState<{ utteranceId: string; speed: PronunciationSpeed }>();
+  const [pronunciationNotice, setPronunciationNotice] = useState("");
 
   useEffect(() => {
     setResponse(exercise ? createExerciseResponse(exercise) : undefined);
     setNotice("");
     setGuidance(false);
+    setPronunciation(undefined);
+    setPronunciationNotice("");
+    return () => { void mobilePronunciationPlayer.stop(); };
   }, [exercise?.id, step?.id]);
 
   if (!lesson) return null;
@@ -536,6 +543,29 @@ function LessonPlayer({
     }
   };
 
+  const playPronunciation = async (utteranceId: string, text: string, speed: PronunciationSpeed) => {
+    setPronunciationNotice("");
+    if (pronunciation?.utteranceId === utteranceId && pronunciation.speed === speed) {
+      await mobilePronunciationPlayer.stop();
+      setPronunciation(undefined);
+      return;
+    }
+    try {
+      const request = createPronunciationRequest(text, course.manifest.languageId, speed);
+      await mobilePronunciationPlayer.speak(request, {
+        onStart: () => setPronunciation({ utteranceId, speed }),
+        onDone: () => setPronunciation(undefined),
+        onError: () => {
+          setPronunciation(undefined);
+          setPronunciationNotice(copy(locale, "设备没有可用的目标语音，请检查系统语音设置。iPhone 静音模式下不会播放。", "No matching device voice is available. Check system speech settings; iPhone silent mode mutes speech."));
+        },
+      });
+    } catch {
+      setPronunciation(undefined);
+      setPronunciationNotice(copy(locale, "无法播放这段内容。", "This text could not be spoken."));
+    }
+  };
+
   return (
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
       <View style={styles.playerTop}>
@@ -556,8 +586,13 @@ function LessonPlayer({
           <Text style={styles.utteranceText}>{item.text}</Text>
           {item.reading ? <Text style={styles.utteranceReading}>{Object.values(item.reading)[0]}</Text> : null}
           <Text style={styles.utteranceTranslation}>{mobileText(item.translation, locale)}</Text>
+          <View style={styles.pronunciationActions}>
+            <Button label={pronunciation?.utteranceId === item.id && pronunciation.speed === "normal" ? copy(locale, "停止", "Stop") : copy(locale, "听发音", "Listen")} onPress={() => void playPronunciation(item.id, item.text, "normal")} tone="secondary" />
+            <Button label={pronunciation?.utteranceId === item.id && pronunciation.speed === "slow" ? copy(locale, "停止", "Stop") : copy(locale, "慢速", "Slow")} onPress={() => void playPronunciation(item.id, item.text, "slow")} tone="secondary" />
+          </View>
         </View>
       ))}
+      {pronunciationNotice ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.notice}>{pronunciationNotice}</Text> : null}
       {exercise ? (
         <View style={styles.exerciseCard}>
           <Text style={styles.cardLabel}>{copy(locale, "练习", "PRACTICE")}</Text>
@@ -1044,6 +1079,7 @@ const styles = StyleSheet.create({
   utteranceText: { color: "#fff", fontSize: 22, lineHeight: 30, fontWeight: "800" },
   utteranceReading: { marginTop: 5, color: "#cbd4e2", fontSize: 12 },
   utteranceTranslation: { marginTop: 7, color: "#e4e9f0", fontSize: 13 },
+  pronunciationActions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
   exerciseCard: { gap: 12, padding: 16, borderRadius: 18, backgroundColor: "#fff", borderWidth: 1, borderColor: "#ded9e8" },
   exercisePrompt: { color: "#272b39", fontSize: 18, lineHeight: 25, fontWeight: "800" },
   guidance: { padding: 12, borderRadius: 12, color: "#4f5e57", backgroundColor: "#eaf2ed", fontSize: 12, lineHeight: 18 },

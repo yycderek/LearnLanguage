@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { requestAiFeedback, requestAiTutor, type AiSettings, type AiTutorAnswer } from "@/lib/ai";
 import { ExerciseRenderer } from "@/app/exercise-renderer";
+import { PronunciationControls } from "@/app/pronunciation-button";
 import { displayText, type CoursePack } from "@/lib/course";
 import { IndexedDbEffectQueue } from "@/lib/device-repository";
 import { resolveExerciseCapabilities, type LanguagePack } from "@/lib/language-pack";
@@ -444,7 +445,7 @@ export function LearningPlayer({
           {(knowledge.length > 0 || utterances.length > 0) && (
             <div className="learning-content">
               {knowledge.length > 0 && <div className="knowledge-learning-grid">{knowledge.map((item) => item && <div className="knowledge-learning-card" key={item.id}><span>{item.kind}</span><strong>{item.form}</strong>{(showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.meaning, teachingLocale)}</p>}</div>)}</div>}
-              {utterances.map((item) => item && <div className="utterance-learning-card" key={item.id}><BookOpenCheck size={18} /><div><strong>{item.text}</strong>{item.translation && (showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.translation, teachingLocale)}</p>}</div></div>)}
+              {utterances.map((item) => item && <div className="utterance-learning-card" key={item.id}><BookOpenCheck size={18} /><div className="utterance-learning-copy"><strong>{item.text}</strong>{item.translation && (showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.translation, teachingLocale)}</p>}<PronunciationControls text={item.text} languageId={course.manifest.languageId} locale={locale} /></div></div>)}
             </div>
           )}
 
