@@ -1,4 +1,5 @@
 import type { CoursePack, CourseStep, Exercise, KnowledgeItem, LocalizedText, Utterance } from "@learn-language/protocol";
+import { spanishA1Extension } from "./spanish-a1-extension.ts";
 
 const l = (zh: string, en: string): LocalizedText => ({ "zh-CN": zh, en });
 const target = (value: string): LocalizedText => ({ "zh-CN": value, en: value, native: value });
@@ -254,14 +255,20 @@ export function spanishStarterCourse(): CoursePack {
     { id: "dine-in-takeaway-and-service", title: l("第十二课：堂食、外带和服务场景", "Lesson 12: Dine-in, takeaway, and service encounters"), goalRef: "finish-order-in-spanish", goal: l("能够选择堂食或外带、结束点单并表示感谢。", "Can choose dine-in or takeaway, finish an order, and give thanks."), knowledgeRefs: ["es-here-takeaway", "es-anything-else", "es-nothing-else", "es-thanks", "es-please"], utteranceRefs: ["es-here-or-away", "es-choose-away", "es-finish-order"], recognition: "es-recognize-here-away", guided: "es-order-takeaway", task: "es-role-finish", capstone: { title: l("服务场景结业综合任务", "Service-stage course completion capstone"), exerciseRef: "es-capstone-course", knowledgeRefs: ["es-how-get", "es-not-understand", "es-repeat", "es-slowly", "es-polite-order", "es-quantity", "es-with-without", "es-here-takeaway", "es-thanks"], utteranceRefs: ["es-ask-airport", "es-repeat-slowly", "es-order-coffee", "es-no-sugar", "es-choose-away", "es-finish-order"] } },
   ];
 
+  const extension = spanishA1Extension();
+  knowledge.push(...extension.knowledge);
+  utterances.push(...extension.utterances);
+  exercises.push(...extension.exercises);
+  plans.push(...extension.plans);
+
   return {
     schemaVersion: 2,
     manifest: {
       id: "private.es.cafe-request",
-      version: "0.6.0",
+      version: "0.7.0",
       languageId: "es",
       title: l("西班牙语零基础入门", "Spanish Zero Beginner"),
-      description: l("从字母、重音与基础语法开始，学习问候、身份、时间、位置、购物、交通、求助和服务场景中的 CEFR Can-do A1 核心书面表达。", "Start with letters, accents, and basic grammar, then build CEFR Can-do A1 core written expressions for greetings, identity, time, places, shopping, transport, help, and service encounters."),
+      description: l("从字母、重音与基础语法开始，学习问候、身份、时间、位置、购物、交通、服务、日常作息、家庭、见面安排和健康求助中的 CEFR Can-do A1 核心书面表达。", "Start with letters, accents, and basic grammar, then build CEFR Can-do A1 core written expressions for greetings, identity, time, places, shopping, transport, service, routines, family, meeting arrangements, and basic health help."),
       author: { id: "learn-language", displayName: "LearnLanguage" },
       visibility: "private",
       status: "draft",

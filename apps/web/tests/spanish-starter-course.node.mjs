@@ -23,7 +23,7 @@ test("Spanish ships as a complete generic-runtime Language Pack and Course Pack 
   assert.equal(pack.scripts[0]?.code, "Latn");
   assert.equal(pack.segmentation.strategy, "whitespace");
   assert.equal(pack.adapter, undefined);
-  assert.equal(course.manifest.version, "0.6.0");
+  assert.equal(course.manifest.version, "0.7.0");
   assert.equal(course.manifest.languageAdapter.id, "core.generic");
   assert.equal(validateCourse(JSON.stringify(course)).issues.length, 0);
   const compatibility = assessCourseLanguageCompatibility(course, pack);
@@ -31,7 +31,7 @@ test("Spanish ships as a complete generic-runtime Language Pack and Course Pack 
   assert.ok(compatibility.issues.every((issue) => issue.code === "exercise-capability-fallback"));
 });
 
-test("Spanish 0.6 contains twelve progressive lessons, 43 exercises, four readings, and three checkpoints", () => {
+test("Spanish 0.7 contains sixteen progressive lessons, 60 exercises, eight readings, and four checkpoints", () => {
   const course = bundledStarterCourse("es");
   assert.ok(course);
   assert.deepEqual(course.lessons.map((lesson) => lesson.id), [
@@ -47,15 +47,22 @@ test("Spanish 0.6 contains twelve progressive lessons, 43 exercises, four readin
     "basic-order",
     "quantity-preference-and-agreement",
     "dine-in-takeaway-and-service",
+    "daily-routines",
+    "family-and-possessions",
+    "days-and-arrangements",
+    "health-and-essential-needs",
   ]);
-  assert.equal(course.goals.length, 12);
-  assert.ok(course.knowledge.length >= 52);
-  assert.ok(course.utterances.length >= 28);
-  assert.equal(course.exercises.length, 43);
-  assert.equal(course.utterances.filter((item) => item.id.includes("reading-")).length, 4);
-  assert.equal(course.exercises.filter((item) => item.id.includes("-read-")).length, 4);
-  assert.deepEqual(course.lessons.flatMap((lesson, index) => lesson.steps.some((step) => step.id === "integrated-capstone") ? [index + 1] : []), [4, 8, 12]);
+  assert.equal(course.goals.length, 16);
+  assert.ok(course.knowledge.length >= 72);
+  assert.ok(course.utterances.length >= 40);
+  assert.equal(course.exercises.length, 60);
+  assert.equal(course.utterances.filter((item) => item.id.includes("reading-")).length, 8);
+  assert.equal(course.exercises.filter((item) => item.id.includes("-read-")).length, 8);
+  assert.deepEqual(course.lessons.flatMap((lesson, index) => lesson.steps.some((step) => step.id === "integrated-capstone") ? [index + 1] : []), [4, 8, 12, 16]);
   assert.ok(course.exercises.some((item) => item.id === "es-capstone-course"));
+  assert.ok(course.exercises.some((item) => item.id === "es-capstone-expanded-a1"));
+  assert.ok(course.knowledge.some((item) => item.id === "es-present-routine"));
+  assert.ok(course.knowledge.some((item) => item.id === "es-feel-unwell"));
 });
 
 test("Spanish content preserves accents, paired punctuation, agreement, bilingual teaching, and regional restraint", () => {

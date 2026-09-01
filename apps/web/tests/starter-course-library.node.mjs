@@ -34,7 +34,7 @@ test("the bundled library contains progressive English, Japanese, Cantonese, and
     en: { version: "0.7.0", lessons: 16, exercises: 60 },
     ja: { version: "0.7.0", lessons: 16, exercises: 60 },
     "yue-Hant-HK": { version: "0.7.0", lessons: 16, exercises: 60 },
-    es: { version: "0.6.0", lessons: 12, exercises: 43 },
+    es: { version: "0.7.0", lessons: 16, exercises: 60 },
   };
 
   for (const course of courses) {
@@ -132,7 +132,7 @@ test("A1 courses include denser vocabulary and short-text information extraction
     const readingExercises = course.exercises.filter((item) => item.id.includes("-read-"));
 
     assert.ok(readingKnowledge.length >= 15, `${course.manifest.languageId} needs denser reading vocabulary`);
-    const expectedReadingCount = course.manifest.languageId === "es" ? 4 : 8;
+    const expectedReadingCount = 8;
     assert.equal(readingTexts.length, expectedReadingCount, `${course.manifest.languageId} has the wrong short-reading count`);
     assert.equal(readingExercises.length, expectedReadingCount, `${course.manifest.languageId} has the wrong information-extraction count`);
 
