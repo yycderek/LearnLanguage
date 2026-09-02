@@ -155,6 +155,7 @@ import { extractMaterialFile, fetchMaterialUrl, MAX_MATERIALS, type CourseMateri
 import { applyCourseAuthoringEnhancement, requestCourseAuthoringEnhancement } from "@/lib/course-ai";
 import { clearStudioWorkingCopy, loadStudioWorkingCopy, saveStudioWorkingCopy } from "@/lib/studio-working-copy";
 import { runDeviceSync, type DeviceSyncSettings } from "@/lib/sync";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import {
   displayText,
   forkPublishedCourse,
@@ -393,6 +394,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [editorSection, setEditorSection] = useState<EditorSection>("overview");
   const [selectedStudioLessonId, setSelectedStudioLessonId] = useState("cafe-request");
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiReturnView, setAiReturnView] = useState<"settings">();
   const [aiSettings, setAiSettings] = useState<AiSettings>(defaultAiSettings);
   const [aiConfigured, setAiConfigured] = useState(false);
   const [aiConnection, setAiConnection] = useState<{ state: "idle" | "testing" | "success" | "error"; message?: string }>({ state: "idle" });
@@ -418,7 +420,18 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [deviceBackupCandidate, setDeviceBackupCandidate] = useState<DeviceBackup>();
   const [deviceBackupPreview, setDeviceBackupPreview] = useState<DeviceBackupPreview>();
   const [deviceBackupBusy, setDeviceBackupBusy] = useState(false);
+  const languageDialogRef = useDialogFocus<HTMLElement>(languageOpen, () => setLanguageOpen(false));
+  const aiDialogRef = useDialogFocus<HTMLElement>(aiOpen, closeAiSettings);
   const t = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
+
+  function closeAiSettings() {
+    setAiOpen(false);
+    if (aiReturnView === "settings") {
+      setLearningView("settings");
+      setAiReturnView(undefined);
+      window.setTimeout(() => document.querySelector<HTMLElement>("[data-ai-settings-trigger]")?.focus({ preventScroll: true }), 0);
+    }
+  }
 
   const stats = useMemo(
     () => [
@@ -1300,7 +1313,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     if (aiSettings.apiKey.trim()) sessionStorage.setItem(AI_SESSION_KEY, aiSettings.apiKey.trim());
     else sessionStorage.removeItem(AI_SESSION_KEY);
     setAiConfigured(aiIsReady(aiSettings));
-    setAiOpen(false);
+    closeAiSettings();
     setNotice(t(`${providerLabels[aiSettings.provider][0]} 配置已保存；密钥将在关闭标签页后清除`, `${providerLabels[aiSettings.provider][1]} settings saved; the key will be cleared when this tab closes`));
   }
 
@@ -1777,8 +1790,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     onSync={() => void performDeviceSync()}
     onResolveSync={(resolution) => void performDeviceSync(resolution)}
     settingsMode={settingsMode}
-    onOpenSettings={() => setLearningView("settings")}
-    onOpenAi={() => { setStudioStarted(true); setLearningView("studio"); setAiOpen(true); }}
+    onOpenSettings={() => { setNotice(t("设置仅保存在当前设备；可随时导出完整备份", "Settings stay on this device; export a complete backup anytime")); setLearningView("settings"); }}
+    onOpenAi={() => { setAiReturnView("settings"); setStudioStarted(true); setLearningView("studio"); setAiOpen(true); }}
     onResetCurrentCourse={() => void resetCurrentCourseLearning()}
     onClearAllData={() => void deleteAllLocalData()}
     onExportDiagnostics={() => void exportStorageDiagnostics()}
@@ -1864,10 +1877,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
             <h1>{displayText(course.manifest.title, teachingLocale)}</h1>
           </div>
           <div className="top-actions">
-            <div className="locale-selectors studio-locale-selectors"><label className="teaching-language-select"><Languages size={16} /><span>{t("界面与讲解", "Interface & instruction")}</span><select value={appLocale} onChange={(event) => changeAppLocale(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
+            <div className="locale-selectors studio-locale-selectors"><label className="teaching-language-select"><Languages size={16} /><span>{t("界面与讲解", "Interface & instruction")}</span><select aria-label={t("界面与讲解语言", "Interface and instruction language")} value={appLocale} onChange={(event) => changeAppLocale(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
             <button className="outline-button help-button" onClick={() => openProductGuide("studio")}><CircleHelp size={17} />{t("使用帮助", "Guide")}</button>
             <button className="outline-button" onClick={openArticleImporter}><FileText size={17} />{t("素材生成课程", "Materials to course")}</button>
-            <button className="ai-button" onClick={() => setAiOpen(true)}><Bot size={17} />{t("AI 设置", "AI settings")}<span className={`ai-state ${aiConfigured ? "configured" : ""}`} /></button>
+            <button className="ai-button" onClick={() => { setAiReturnView(undefined); setAiOpen(true); }}><Bot size={17} />{t("AI 设置", "AI settings")}<span className={`ai-state ${aiConfigured ? "configured" : ""}`} /></button>
             {course.manifest.status === "published" ? <><button className="outline-button" onClick={installCurrentCourse}><GraduationCap size={17} />{t("安装到学习空间", "Install in Learn")}</button><button className="save-button" onClick={forkCurrentCourse}><RotateCcw size={17} />{t("创建派生草稿", "Create derived draft")}</button></> : <><button className="outline-button" onClick={publishCurrentCourse} disabled={publishing}>{publishing ? t("正在发布…", "Publishing…") : t("校验并发布", "Validate and publish")}</button><button className="save-button" onClick={saveDraft} disabled={saving}><Save size={17} />{saving ? t("正在保存…", "Saving…") : t("保存草稿", "Save draft")}</button></>}
           </div>
         </header>
@@ -2064,7 +2077,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
 
       {languageOpen && (
         <div className="modal-backdrop" role="presentation">
-          <section className="ai-dialog language-dialog" role="dialog" aria-modal="true" aria-labelledby="language-dialog-title">
+          <section ref={languageDialogRef} tabIndex={-1} className="ai-dialog language-dialog" role="dialog" aria-modal="true" aria-labelledby="language-dialog-title">
             <div className="dialog-heading"><div className="dialog-icon"><Languages size={20} /></div><div><span className="kicker">LANGUAGE PACK</span><h2 id="language-dialog-title">{t("添加目标语言", "Add target language")}</h2></div><button className="icon-button" onClick={() => setLanguageOpen(false)} aria-label={t("关闭添加语言", "Close add language")}><X size={18} /></button></div>
             <div className="dialog-tabs"><button className={languageMode === "quick" ? "active" : ""} onClick={() => { setLanguageMode("quick"); setLanguageError(""); }}>{t("快速创建", "Quick create")}</button><button className={languageMode === "import" ? "active" : ""} onClick={() => { setLanguageMode("import"); setLanguageError(""); }}><Upload size={14} />{t("导入 JSON", "Import JSON")}</button></div>
             <div className="dialog-body">
@@ -2091,8 +2104,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
 
       {aiOpen && (
         <div className="modal-backdrop" role="presentation">
-          <section className="ai-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-dialog-title">
-            <div className="dialog-heading"><div className="dialog-icon"><Settings2 size={20} /></div><div><span className="kicker">PERSONAL AI</span><h2 id="ai-dialog-title">{t("选择你使用的 AI", "Choose your AI")}</h2></div><button className="icon-button" onClick={() => setAiOpen(false)} aria-label={t("关闭 AI 设置", "Close AI settings")}><X size={18} /></button></div>
+          <section ref={aiDialogRef} tabIndex={-1} className="ai-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-dialog-title">
+            <div className="dialog-heading"><div className="dialog-icon"><Settings2 size={20} /></div><div><span className="kicker">PERSONAL AI</span><h2 id="ai-dialog-title">{t("选择你使用的 AI", "Choose your AI")}</h2></div><button className="icon-button" onClick={closeAiSettings} aria-label={t("关闭 AI 设置", "Close AI settings")}><X size={18} /></button></div>
             <div className="dialog-body">
               <label><span>{t("AI 服务商", "AI provider")}</span><select value={aiSettings.provider} onChange={(event) => setAiSettings((current) => ({ ...current, provider: event.target.value as AiProvider }))}>{Object.entries(providerLabels).map(([value, labels]) => <option key={value} value={value}>{t(...labels)}</option>)}</select></label>
               <label><span>{t("模型 ID", "Model ID")}</span><input value={aiSettings.model} onChange={(event) => setAiSettings((current) => ({ ...current, model: event.target.value }))} placeholder={t("例如：你账户中可用的模型名称", "For example: a model available to your account")} /></label>
@@ -2101,7 +2114,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
               {aiConnection.state !== "idle" && <div className={`ai-connection-status ${aiConnection.state}`}>{aiConnection.message}</div>}
               <div className="privacy-note"><ShieldCheck size={17} /><p>{t("服务商、模型和地址保存在当前设备；密钥只保留在当前标签页会话中。官方服务请求经过 LearnLanguage 转发但不会保存密钥，兼容服务直接连接你填写的地址。", "Provider, model, and endpoint stay on this device; the key stays only in this tab session. Official requests are relayed without saving the key, while compatible services connect directly to your endpoint.")}</p></div>
             </div>
-            <div className="dialog-footer ai-dialog-actions"><button className="text-button" onClick={() => setAiOpen(false)}>{t("取消", "Cancel")}</button><button className="outline-button" onClick={testCurrentAi} disabled={aiConnection.state === "testing"}>{aiConnection.state === "testing" ? t("正在测试…", "Testing…") : t("测试连接", "Test connection")}</button><button className="primary-button" onClick={saveAiSettings}>{t("保存设置", "Save settings")}</button></div>
+            <div className="dialog-footer ai-dialog-actions"><button className="text-button" onClick={closeAiSettings}>{t("取消", "Cancel")}</button><button className="outline-button" onClick={testCurrentAi} disabled={aiConnection.state === "testing"}>{aiConnection.state === "testing" ? t("正在测试…", "Testing…") : t("测试连接", "Test connection")}</button><button className="primary-button" onClick={saveAiSettings}>{t("保存设置", "Save settings")}</button></div>
           </section>
         </div>
       )}

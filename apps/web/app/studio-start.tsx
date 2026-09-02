@@ -31,7 +31,7 @@ export function StudioStart({
     <section className="studio-start-page">
       <header className="studio-start-topbar">
         <div className="studio-start-brand"><span><Languages size={20} /></span><div><strong>LearnLanguage</strong><small>Course Studio</small></div></div>
-        <div><a href="/learn"><GraduationCap size={15} />{c("进入学习空间", "Open Learn")}</a><label><span>{c("界面与讲解", "Interface & instruction")}</span><select value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
+        <div><a href="/learn"><GraduationCap size={15} />{c("进入学习空间", "Open Learn")}</a><label><span>{c("界面与讲解", "Interface & instruction")}</span><select aria-label={c("界面与讲解语言", "Interface and instruction language")} value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
       </header>
 
       <div className="studio-start-content">

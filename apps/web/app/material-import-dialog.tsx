@@ -6,6 +6,7 @@ import { analyzeCourseMaterial, MAX_MATERIAL_CHARACTERS } from "@/lib/material-c
 import { MAX_MATERIALS, type CourseMaterial, type MaterialKind } from "@/lib/material-import";
 import { languageName, type LanguagePack } from "@/lib/language-pack";
 import { uiText, type AppLocale } from "@/lib/i18n";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 export type MaterialImportForm = {
   languageId: string;
@@ -39,10 +40,11 @@ export function MaterialImportDialog({
 }) {
   const t = (chinese: string, english: string) => uiText(locale, chinese, english);
   const totalCharacters = materials.reduce((total, item) => total + item.text.length, 0) + form.text.length;
+  const dialogRef = useDialogFocus<HTMLElement>(true, onClose);
 
   return (
     <div className="modal-backdrop" role="presentation">
-      <section className="ai-dialog article-dialog material-dialog" role="dialog" aria-modal="true" aria-labelledby="article-dialog-title">
+      <section ref={dialogRef} tabIndex={-1} className="ai-dialog article-dialog material-dialog" role="dialog" aria-modal="true" aria-labelledby="article-dialog-title">
         <div className="dialog-heading"><div className="dialog-icon"><FileText size={20} /></div><div><span className="kicker">MATERIAL TO COURSE</span><h2 id="article-dialog-title">{t("导入素材生成课程草稿", "Create a course draft from materials")}</h2></div><button className="icon-button" onClick={onClose} aria-label={t("关闭素材导入", "Close material import")}><X size={18} /></button></div>
         <div className="dialog-body">
           <div className="form-grid two-column">

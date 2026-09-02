@@ -178,7 +178,7 @@ export function CourseLibrary({
       <header className="course-library-topbar">
         {settingsMode || installedCount > 0 ? <button onClick={onBack}><ArrowLeft size={17} />{c("返回学习首页", "Back to learning home")}</button> : <span className="course-library-back-placeholder" aria-hidden="true" />}
         <div className="course-library-title"><span>{settingsMode ? "SETTINGS & LOCAL DATA" : "LANGUAGE LEARNING LIBRARY"}</span><strong>{settingsMode ? c("设置中心", "Settings center") : c("学习课程库", "Learning library")}</strong></div>
-        <div className="course-library-tools">{!settingsMode && <button onClick={onOpenSettings}><Settings2 size={15} />{c("设置", "Settings")}</button>}<button onClick={onOpenHelp}><CircleHelp size={15} />{c("使用帮助", "Guide")}</button><label><span>{c("界面与讲解", "Interface & instruction")}</span><select value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
+        <div className="course-library-tools">{!settingsMode && <button onClick={onOpenSettings}><Settings2 size={15} />{c("设置", "Settings")}</button>}<button onClick={onOpenHelp}><CircleHelp size={15} />{c("使用帮助", "Guide")}</button><label><span>{c("界面与讲解", "Interface & instruction")}</span><select aria-label={c("界面与讲解语言", "Interface and instruction language")} value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
       </header>
 
       <section className="course-library-hero">
@@ -241,9 +241,10 @@ export function CourseLibrary({
 
       {settingsMode && <section className="settings-center-overview" aria-labelledby="settings-center-title">
         <header><div><span className="kicker">LOCAL-FIRST CONTROL CENTER</span><h1 id="settings-center-title">{c("设置与本地数据", "Settings and local data")}</h1><p>{c("一个入口管理界面语言、个人 AI、离线存储、备份、同步和数据删除。无需账户。", "Manage interface language, Personal AI, offline storage, backup, sync, and deletion in one place. No account required.")}</p></div><ShieldCheck size={30} /></header>
+        <p className="settings-center-notice" role="status" aria-live="polite"><ShieldCheck size={15} />{notice}</p>
         <div className="settings-center-grid">
           <article><Languages size={19} /><div><strong>{c("界面与讲解语言", "Interface & instruction language")}</strong><small>{c("界面和教学讲解保持一致", "Interface and teaching explanations stay aligned")}</small></div><select aria-label={c("设置界面与讲解语言", "Set interface and instruction language")} value={locale} onChange={(event) => onLocaleChange(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></article>
-          <article><Settings2 size={19} /><div><strong>{c("个人 AI", "Personal AI")}</strong><small>{c("服务商和模型保存在设备；密钥仅在当前标签页", "Provider and model stay on device; keys stay in this tab")}</small></div><button onClick={onOpenAi}>{c("配置 AI", "Configure AI")}</button></article>
+          <article><Settings2 size={19} /><div><strong>{c("个人 AI", "Personal AI")}</strong><small>{c("服务商和模型保存在设备；密钥仅在当前标签页", "Provider and model stay on device; keys stay in this tab")}</small></div><button data-ai-settings-trigger onClick={onOpenAi}>{c("配置 AI", "Configure AI")}</button></article>
           <article><ShieldCheck size={19} /><div><strong>{c("离线与存储保护", "Offline and storage protection")}</strong><small>{storageState === "persistent" ? c("本地数据已请求持久保存", "Persistent local storage is enabled") : c("学习与课程数据保存在当前浏览器", "Learning and course data stay in this browser")}</small></div><button onClick={() => void protectLocalStorage()} disabled={storageState !== "temporary"}>{storageState === "persistent" ? c("已保护", "Protected") : c("保护本地数据", "Protect data")}</button></article>
         </div>
         <PronunciationSettings targets={pronunciationTargets} preferences={pronunciationPreferences} locale={locale} onChange={onPronunciationPreferenceChange} />

@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, readme, userGuide, studio, studioStart, materialImportDialog, productGuide, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, deviceBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
+  const [page, learnPage, studioPage, readme, userGuide, studio, studioStart, materialImportDialog, productGuide, dialogFocus, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, deviceBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
@@ -15,6 +15,7 @@ test("build contains the visual course studio and language pack workflow", async
     readFile(new URL("app/studio-start.tsx", root), "utf8"),
     readFile(new URL("app/material-import-dialog.tsx", root), "utf8"),
     readFile(new URL("app/product-guide.tsx", root), "utf8"),
+    readFile(new URL("lib/use-dialog-focus.ts", root), "utf8"),
     readFile(new URL("app/draft-manager.tsx", root), "utf8"),
     readFile(new URL("app/language-pack-manager.tsx", root), "utf8"),
     readFile(new URL("app/learning-player.tsx", root), "utf8"),
@@ -330,7 +331,10 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(productGuide, /AI 可以不设置/);
   assert.match(productGuide, /保存、预览、发布、安装是四个不同动作/);
   assert.match(productGuide, /aria-modal="true"/);
-  assert.match(productGuide, /event\.key === "Escape"/);
+  assert.match(productGuide, /useDialogFocus/);
+  assert.match(dialogFocus, /event\.key === "Escape"/);
+  assert.match(dialogFocus, /event\.key !== "Tab"/);
+  assert.match(dialogFocus, /previousFocus\.focus/);
   assert.match(css, /studio-shell/);
   assert.match(css, /visual-editor/);
   assert.match(css, /learner-shell/);

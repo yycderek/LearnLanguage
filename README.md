@@ -61,6 +61,7 @@ pnpm --dir apps/mobile test
 
 - [版本变更记录](CHANGELOG.md)
 - [Web/PWA 产品验收](docs/WEB_ACCEPTANCE.md)
+- [Web 无障碍自动审计](docs/ACCESSIBILITY_AUDIT.md)
 - [移动端安装与开发](docs/MOBILE_INSTALL.md)
 - [移动端真机验收清单](docs/MOBILE_ACCEPTANCE.md)
 - [完整使用手册](docs/USER_GUIDE.md)

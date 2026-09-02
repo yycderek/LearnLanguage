@@ -192,7 +192,7 @@ test("Personal AI connection settings keep credentials session-only", async ({ p
   await dialog.getByRole("button", { name: "测试连接" }).click();
   await expect(dialog.getByText("连接成功，可以用于开放题反馈和课节内 AI 导师。")).toBeVisible();
   await dialog.getByRole("button", { name: "保存设置" }).click();
-  await expect(page.getByText("OpenAI 配置已保存；密钥将在关闭标签页后清除")).toBeVisible();
+  await expect(page.locator(".settings-center-notice")).toHaveText(/OpenAI 配置已保存；密钥将在关闭标签页后清除/);
 
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem("learn-language-ai-key-session-v1"))).toBe("acceptance-secret");
   await expect.poll(() => readDevicePreference(page, "ai")).toMatchObject({ provider: "openai", model: "acceptance-model", apiKey: "" });

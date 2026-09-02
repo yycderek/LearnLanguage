@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import {
   ArrowLeft,
   ArrowRight,
@@ -115,11 +116,11 @@ export function ProductGuide({
   const steps = useMemo(() => audience === "learn" ? learnSteps : studioSteps, [audience]);
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
   const step = (steps[stepIndex] ?? steps[0])!;
+  const dialogRef = useDialogFocus<HTMLElement>(open, onClose);
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
       if (event.key === "ArrowLeft") setStepIndex((current) => Math.max(0, current - 1));
       if (event.key === "ArrowRight") setStepIndex((current) => Math.min(steps.length - 1, current + 1));
     };
@@ -133,7 +134,7 @@ export function ProductGuide({
 
   return (
     <div className="product-guide-backdrop" role="presentation">
-      <section className="product-guide-dialog" role="dialog" aria-modal="true" aria-labelledby="product-guide-title">
+      <section ref={dialogRef} tabIndex={-1} className="product-guide-dialog" role="dialog" aria-modal="true" aria-labelledby="product-guide-title">
         <header className="product-guide-header">
           <div className="product-guide-mark"><StepIcon size={24} /></div>
           <div><span>{c(...step.eyebrow)}</span><h2 id="product-guide-title">{c(...step.title)}</h2></div>
