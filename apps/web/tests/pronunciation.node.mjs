@@ -7,29 +7,33 @@ class FakeUtterance {
   constructor(text) { this.text = text; }
   lang = "";
   rate = 1;
+  voice = null;
   onstart = null;
   onend = null;
   onerror = null;
 }
 
-test("Web pronunciation maps a platform-neutral request to SpeechSynthesis", () => {
+test("Web pronunciation maps a platform-neutral request to SpeechSynthesis", async () => {
   const calls = [];
+  const voices = [{ voiceURI: "voice-es", name: "Spanish", lang: "es-ES", default: true, localService: true }];
   const controller = {
     cancel: () => calls.push("cancel"),
+    getVoices: () => voices,
     speak: (utterance) => {
-      calls.push({ text: utterance.text, lang: utterance.lang, rate: utterance.rate });
+      calls.push({ text: utterance.text, lang: utterance.lang, rate: utterance.rate, voice: utterance.voice?.voiceURI });
       utterance.onstart?.();
       utterance.onend?.();
     },
   };
   const player = createWebPronunciationPlayer(controller, (text) => new FakeUtterance(text));
   const events = [];
-  player.speak(createPronunciationRequest("¿Dónde está la farmacia?", "es", "slow"), {
+  player.speak(createPronunciationRequest("¿Dónde está la farmacia?", "es", "slow", "voice-es"), {
     onStart: () => events.push("start"),
     onDone: () => events.push("done"),
   });
   assert.equal(player.isSupported(), true);
-  assert.deepEqual(calls, ["cancel", { text: "¿Dónde está la farmacia?", lang: "es", rate: 0.72 }]);
+  assert.deepEqual(calls, ["cancel", { text: "¿Dónde está la farmacia?", lang: "es", rate: 0.72, voice: "voice-es" }]);
+  assert.deepEqual(await player.voices(), [{ id: "voice-es", name: "Spanish", languageTag: "es-ES", default: true, localService: true }]);
   assert.deepEqual(events, ["start", "done"]);
 });
 

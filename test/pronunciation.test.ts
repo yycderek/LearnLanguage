@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_PRONUNCIATION_TEXT_LENGTH,
   createPronunciationRequest,
+  matchingPronunciationVoices,
+  normalizePronunciationPreferences,
+  pronunciationPreference,
+  setPronunciationPreference,
   type PronunciationPlayer,
 } from "@learn-language/application";
 
@@ -29,6 +33,7 @@ describe("pronunciation application boundary", () => {
     const calls: string[] = [];
     const player: PronunciationPlayer = {
       isSupported: () => true,
+      voices: async () => [],
       speak: async (request, events) => {
         calls.push(`${request.languageTag}:${request.text}`);
         events?.onStart?.();
@@ -44,5 +49,30 @@ describe("pronunciation application boundary", () => {
     await player.stop();
     expect(calls).toEqual(["es:Hola.", "stop"]);
     expect(events).toEqual(["start", "done"]);
+  });
+
+  it("matches exact and base-language voices without language-specific branches", () => {
+    const voices = [
+      { id: "en-gb", name: "British", languageTag: "en-GB", default: false, localService: true },
+      { id: "ja", name: "Japanese", languageTag: "ja-JP", default: true, localService: true },
+      { id: "en-us", name: "American", languageTag: "en-US", default: true, localService: false },
+    ];
+    expect(matchingPronunciationVoices(voices, "en-US").map((voice) => voice.id)).toEqual(["en-us", "en-gb"]);
+    expect(matchingPronunciationVoices(voices, "ja").map((voice) => voice.id)).toEqual(["ja"]);
+  });
+
+  it("normalizes and updates per-language pronunciation preferences", () => {
+    const normalized = normalizePronunciationPreferences({
+      en: { speed: "slow", voiceId: " voice-en " },
+      ja: { speed: "unexpected" },
+      invalid: null,
+    });
+    expect(normalized).toEqual({ en: { speed: "slow", voiceId: "voice-en" }, ja: { speed: "normal" } });
+    expect(pronunciationPreference(normalized, "es")).toEqual({ speed: "normal" });
+    expect(setPronunciationPreference(normalized, "es", { speed: "slow", voiceId: "" })).toEqual({
+      ...normalized,
+      es: { speed: "slow" },
+    });
+    expect(createPronunciationRequest("Hola", "es", "normal", " es-voice ")).toMatchObject({ voiceId: "es-voice" });
   });
 });

@@ -8,6 +8,7 @@ import type { LearningPlan, LearningPlanRepository } from "@learn-language/appli
 import type { CoursePack, LanguageDefinition } from "@learn-language/protocol";
 import type { SQLiteDatabase } from "expo-sqlite";
 import type { MobileLocale } from "./model";
+import { normalizePronunciationPreferences, type PronunciationPreferences } from "@learn-language/application/pronunciation";
 
 const DATABASE_VERSION = 3;
 
@@ -200,6 +201,22 @@ export class SQLitePreferenceRepository {
        ON CONFLICT(preference_key) DO UPDATE SET preference_value = excluded.preference_value`,
       "onboarding-complete",
       "true",
+    );
+  }
+
+  async pronunciationPreferences(): Promise<PronunciationPreferences> {
+    const row = await this.db.getFirstAsync<{ preference_value: string }>("SELECT preference_value FROM app_preferences WHERE preference_key = ?", "pronunciation-preferences-v1");
+    if (!row) return {};
+    try { return normalizePronunciationPreferences(JSON.parse(row.preference_value)); }
+    catch { return {}; }
+  }
+
+  async setPronunciationPreferences(preferences: PronunciationPreferences): Promise<void> {
+    await this.db.runAsync(
+      `INSERT INTO app_preferences(preference_key, preference_value) VALUES (?, ?)
+       ON CONFLICT(preference_key) DO UPDATE SET preference_value = excluded.preference_value`,
+      "pronunciation-preferences-v1",
+      JSON.stringify(preferences),
     );
   }
 }

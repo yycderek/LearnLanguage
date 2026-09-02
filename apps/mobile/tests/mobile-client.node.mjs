@@ -54,6 +54,8 @@ test("mobile source keeps native storage and UI outside engine", async () => {
   assert.match(app, /createPronunciationRequest/);
   assert.match(pronunciation, /expo-speech/);
   assert.match(pronunciation, /request\.languageTag/);
+  assert.match(pronunciation, /getAvailableVoicesAsync/);
+  assert.match(pronunciation, /request\.voiceId/);
   assert.match(storage, /implements LearningProfileRepository/);
   assert.match(storage, /implements LearningPlanRepository/);
   assert.match(storage, /learning_plans/);
@@ -78,6 +80,7 @@ test("mobile source keeps native storage and UI outside engine", async () => {
   assert.match(app, /accessibilityRole="progressbar"/);
   assert.match(app, /Could not save progress/);
   assert.match(storage, /onboarding-complete/);
+  assert.match(storage, /pronunciation-preferences-v1/);
   assert.match(backup, /不是有效的 JSON/);
   assert.match(app, /courseAdaptiveAgenda/);
   assert.doesNotMatch(app, /IndexedDB|localStorage|document\./);

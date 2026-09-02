@@ -45,7 +45,16 @@ import {
   serializeExerciseResponse,
   type ExerciseResponse,
 } from "@learn-language/application/exercise-response";
-import { createPronunciationRequest, type PronunciationSpeed } from "@learn-language/application/pronunciation";
+import {
+  createPronunciationRequest,
+  matchingPronunciationVoices,
+  pronunciationPreference,
+  setPronunciationPreference,
+  type PronunciationPreference,
+  type PronunciationPreferences,
+  type PronunciationSpeed,
+  type PronunciationVoice,
+} from "@learn-language/application/pronunciation";
 import type { CoursePack, Exercise, LanguageDefinition } from "@learn-language/protocol";
 import { exportMobileBackup, importMobileBackup } from "./src/backup";
 import { chooseCoursePackFile, chooseLanguagePackFile, mergeMobileCourses, mergeMobileLanguagePacks } from "./src/content-import";
@@ -458,12 +467,14 @@ function LessonPlayer({
   progress,
   onSave,
   onClose,
+  speechPreference = { speed: "normal" },
 }: {
   locale: MobileLocale;
   course: CoursePack;
   progress: LearningProgress;
   onSave: (progress: LearningProgress) => Promise<void>;
   onClose: () => void;
+  speechPreference?: PronunciationPreference;
 }) {
   const lesson = course.lessons.find((item) => item.id === progress.lessonId);
   const step = lesson?.steps.find((item) => item.id === progress.currentStepId);
@@ -551,7 +562,7 @@ function LessonPlayer({
       return;
     }
     try {
-      const request = createPronunciationRequest(text, course.manifest.languageId, speed);
+      const request = createPronunciationRequest(text, course.manifest.languageId, speed, speechPreference.voiceId);
       await mobilePronunciationPlayer.speak(request, {
         onStart: () => setPronunciation({ utteranceId, speed }),
         onDone: () => setPronunciation(undefined),
@@ -565,6 +576,8 @@ function LessonPlayer({
       setPronunciationNotice(copy(locale, "无法播放这段内容。", "This text could not be spoken."));
     }
   };
+  const preferredPronunciationSpeed = speechPreference.speed;
+  const alternatePronunciationSpeed: PronunciationSpeed = preferredPronunciationSpeed === "normal" ? "slow" : "normal";
 
   return (
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
@@ -587,8 +600,8 @@ function LessonPlayer({
           {item.reading ? <Text style={styles.utteranceReading}>{Object.values(item.reading)[0]}</Text> : null}
           <Text style={styles.utteranceTranslation}>{mobileText(item.translation, locale)}</Text>
           <View style={styles.pronunciationActions}>
-            <Button label={pronunciation?.utteranceId === item.id && pronunciation.speed === "normal" ? copy(locale, "停止", "Stop") : copy(locale, "听发音", "Listen")} onPress={() => void playPronunciation(item.id, item.text, "normal")} tone="secondary" />
-            <Button label={pronunciation?.utteranceId === item.id && pronunciation.speed === "slow" ? copy(locale, "停止", "Stop") : copy(locale, "慢速", "Slow")} onPress={() => void playPronunciation(item.id, item.text, "slow")} tone="secondary" />
+            <Button label={pronunciation?.utteranceId === item.id && pronunciation.speed === preferredPronunciationSpeed ? copy(locale, "停止", "Stop") : copy(locale, "听发音", "Listen")} onPress={() => void playPronunciation(item.id, item.text, preferredPronunciationSpeed)} tone="secondary" />
+            <Button label={pronunciation?.utteranceId === item.id && pronunciation.speed === alternatePronunciationSpeed ? copy(locale, "停止", "Stop") : alternatePronunciationSpeed === "slow" ? copy(locale, "慢速", "Slow") : copy(locale, "正常语速", "Normal")} onPress={() => void playPronunciation(item.id, item.text, alternatePronunciationSpeed)} tone="secondary" />
           </View>
         </View>
       ))}
@@ -647,6 +660,108 @@ function Reviews({
   );
 }
 
+function MobilePronunciationSettings({
+  locale,
+  courses,
+  preferences,
+  onChange,
+}: {
+  locale: MobileLocale;
+  courses: readonly CoursePack[];
+  preferences: PronunciationPreferences;
+  onChange: (languageId: string, preference: PronunciationPreference) => void;
+}) {
+  const [voices, setVoices] = useState<readonly PronunciationVoice[]>([]);
+  const [voicesLoading, setVoicesLoading] = useState(true);
+  const [expandedLanguage, setExpandedLanguage] = useState("");
+  const [previewing, setPreviewing] = useState("");
+  const [notice, setNotice] = useState("");
+  const targets = courses.reduce<Array<{ languageId: string; label: string; sampleText: string }>>((result, course) => {
+    const languageId = course.manifest.languageId;
+    if (!result.some((target) => target.languageId === languageId)) {
+      result.push({ languageId, label: mobileText(course.manifest.title, locale), sampleText: course.utterances[0]?.text ?? languageId });
+    }
+    return result;
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void mobilePronunciationPlayer.voices().then((available) => {
+      if (active) {
+        setVoices(available);
+        setVoicesLoading(false);
+      }
+    }).catch(() => {
+      if (active) {
+        setVoicesLoading(false);
+        setNotice(copy(locale, "无法读取系统声音列表；仍可使用系统自动选择。", "Could not read system voices; system default remains available."));
+      }
+    });
+    return () => {
+      active = false;
+      void mobilePronunciationPlayer.stop();
+    };
+  }, [locale]);
+
+  const preview = async (languageId: string, sampleText: string) => {
+    const preference = pronunciationPreference(preferences, languageId);
+    setNotice("");
+    if (previewing === languageId) {
+      await mobilePronunciationPlayer.stop();
+      setPreviewing("");
+      return;
+    }
+    await mobilePronunciationPlayer.speak(createPronunciationRequest(sampleText, languageId, preference.speed, preference.voiceId), {
+      onStart: () => setPreviewing(languageId),
+      onDone: () => setPreviewing(""),
+      onError: () => {
+        setPreviewing("");
+        setNotice(copy(locale, "试听失败。请检查系统语音设置；iPhone 静音模式下不会播放。", "Preview failed. Check system speech settings; iPhone silent mode mutes speech."));
+      },
+    });
+  };
+
+  return (
+    <View style={styles.settingsCard}>
+      <Text style={styles.settingsTitle}>{copy(locale, "发音与系统语音", "Pronunciation and system voices")}</Text>
+      <Text style={styles.settingsText}>{copy(locale, "按语种选择设备声音和默认语速。声音由手机系统提供，设置保存在本机。", "Choose a device voice and default speed per language. Voices come from the phone and settings stay locally.")}</Text>
+      {targets.map((target) => {
+        const preference = pronunciationPreference(preferences, target.languageId);
+        const matching = matchingPronunciationVoices(voices, target.languageId);
+        const otherVoices = voices.filter((voice) => !matching.some((candidate) => candidate.id === voice.id));
+        const selected = voices.find((voice) => voice.id === preference.voiceId);
+        const stale = Boolean(preference.voiceId && !selected);
+        const expanded = expandedLanguage === target.languageId;
+        return (
+          <View key={target.languageId} style={styles.voiceLanguageCard}>
+            <Text style={styles.installedName}>{target.label}</Text>
+            <Text style={styles.installedMeta}>{target.languageId} · {selected?.name ?? copy(locale, "系统自动选择", "System default")}</Text>
+            <View style={styles.actionRow}>
+              <Button label={expanded ? copy(locale, "收起声音", "Hide voices") : copy(locale, "选择声音", "Choose voice")} onPress={() => setExpandedLanguage(expanded ? "" : target.languageId)} tone="secondary" />
+              <Button label={previewing === target.languageId ? copy(locale, "停止试听", "Stop preview") : copy(locale, "试听", "Preview")} onPress={() => void preview(target.languageId, target.sampleText)} tone="secondary" />
+            </View>
+            <Text style={styles.voiceSectionLabel}>{copy(locale, "默认语速", "Default speed")}</Text>
+            <View style={styles.actionRow}>
+              <Button label={copy(locale, "正常", "Normal")} onPress={() => onChange(target.languageId, { ...preference, speed: "normal" })} tone={preference.speed === "normal" ? "primary" : "secondary"} />
+              <Button label={copy(locale, "慢速", "Slow")} onPress={() => onChange(target.languageId, { ...preference, speed: "slow" })} tone={preference.speed === "slow" ? "primary" : "secondary"} />
+            </View>
+            {expanded ? <View style={styles.voiceOptions}>
+              <Pressable accessibilityRole="button" accessibilityState={{ selected: !preference.voiceId }} style={[styles.voiceOption, !preference.voiceId && styles.voiceOptionSelected]} onPress={() => onChange(target.languageId, { speed: preference.speed })}><Text style={styles.voiceOptionText}>{copy(locale, "系统自动选择", "System default")}</Text></Pressable>
+              {matching.length > 0 ? <Text style={styles.voiceSectionLabel}>{copy(locale, "匹配当前语种", "Matching language")}</Text> : null}
+              {matching.map((voice) => <Pressable key={voice.id} accessibilityRole="button" accessibilityState={{ selected: preference.voiceId === voice.id }} style={[styles.voiceOption, preference.voiceId === voice.id && styles.voiceOptionSelected]} onPress={() => onChange(target.languageId, { ...preference, voiceId: voice.id })}><Text style={styles.voiceOptionText}>{voice.name}</Text><Text style={styles.installedMeta}>{voice.languageTag}</Text></Pressable>)}
+              {otherVoices.length > 0 ? <Text style={styles.voiceSectionLabel}>{copy(locale, "其他设备声音", "Other device voices")}</Text> : null}
+              {otherVoices.map((voice) => <Pressable key={voice.id} accessibilityRole="button" accessibilityState={{ selected: preference.voiceId === voice.id }} style={[styles.voiceOption, preference.voiceId === voice.id && styles.voiceOptionSelected]} onPress={() => onChange(target.languageId, { ...preference, voiceId: voice.id })}><Text style={styles.voiceOptionText}>{voice.name}</Text><Text style={styles.installedMeta}>{voice.languageTag}</Text></Pressable>)}
+            </View> : null}
+            {!voicesLoading && matching.length === 0 ? <Text style={styles.voiceDiagnostic}>{copy(locale, "未检测到标签匹配的声音。可使用系统自动选择，或手动试听其他设备声音；若播放失败，请安装该语言的系统语音包。", "No voice tag matches this language. Use system default or preview another device voice; install the language speech pack if playback fails.")}</Text> : null}
+            {stale ? <Text style={styles.voiceDiagnostic}>{copy(locale, "原声音已不可用，已回退为系统自动选择。", "The saved voice is unavailable; system default is used.")}</Text> : null}
+          </View>
+        );
+      })}
+      {notice ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
+    </View>
+  );
+}
+
 function Settings({
   locale,
   records,
@@ -662,6 +777,8 @@ function Settings({
   planRepository,
   courseRepository,
   languagePackRepository,
+  pronunciationPreferences,
+  onPronunciationPreference,
 }: {
   locale: MobileLocale;
   records: Record<string, CourseLearningRecord>;
@@ -677,6 +794,8 @@ function Settings({
   planRepository: SQLiteLearningPlanRepository;
   courseRepository: SQLiteInstalledCourseRepository;
   languagePackRepository: SQLiteLanguagePackRepository;
+  pronunciationPreferences: PronunciationPreferences;
+  onPronunciationPreference: (languageId: string, preference: PronunciationPreference) => void;
 }) {
   const [notice, setNotice] = useState("");
   const run = async (work: () => Promise<void>) => {
@@ -797,6 +916,7 @@ function Settings({
         </View>
         <Button label={copy(locale, "重新查看使用引导", "View getting-started guide")} onPress={onShowOnboarding} tone="secondary" />
       </View>
+      <MobilePronunciationSettings locale={locale} courses={courses} preferences={pronunciationPreferences} onChange={onPronunciationPreference} />
       <View style={styles.settingsCard}>
         <Text style={styles.settingsTitle}>{copy(locale, "导入课程与语言", "Import courses and languages")}</Text>
         <Text style={styles.settingsText}>{copy(locale, "从 Web Studio 导出的已发布 Course Pack 可直接导入。新语种课程请先导入对应 Language Pack。导入后可完全离线学习。", "Import published Course Packs exported by Web Studio. For a new language, import its Language Pack first. Imported content works fully offline.")}</Text>
@@ -849,6 +969,7 @@ function MobileApp() {
   const [plans, setPlans] = useState<Record<string, LearningPlan>>({});
   const [installedCourses, setInstalledCourses] = useState<readonly CoursePack[]>([]);
   const [customLanguagePacks, setCustomLanguagePacks] = useState<readonly LanguageDefinition[]>([]);
+  const [pronunciationPreferences, setPronunciationPreferences] = useState<PronunciationPreferences>({});
   const [progress, setProgress] = useState<LearningProgress>();
   const [ready, setReady] = useState(false);
   const [startupError, setStartupError] = useState("");
@@ -874,13 +995,14 @@ function MobileApp() {
     setReady(false);
     setStartupError("");
     try {
-      const [loadedRecords, loadedPlans, loadedCourses, loadedPacks, storedLocale, completed] = await Promise.all([
+      const [loadedRecords, loadedPlans, loadedCourses, loadedPacks, storedLocale, completed, storedPronunciationPreferences] = await Promise.all([
         profileRepository.list(),
         planService.list(),
         courseRepository.list(),
         languagePackRepository.list(),
         preferences.locale(),
         preferences.onboardingComplete(),
+        preferences.pronunciationPreferences(),
       ]);
       setRecords(Object.fromEntries(loadedRecords.map((record) => [record.courseId, record])));
       setPlans(Object.fromEntries(loadedPlans.map((plan) => [plan.courseId, plan])));
@@ -888,6 +1010,7 @@ function MobileApp() {
       setCustomLanguagePacks(loadedPacks);
       setLocale(storedLocale);
       setOnboardingComplete(completed);
+      setPronunciationPreferences(storedPronunciationPreferences);
     } catch (error) {
       setStartupError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -961,7 +1084,7 @@ function MobileApp() {
 
   let content;
   if (screen.kind === "lesson" && activeCourse && progress) {
-    content = <LessonPlayer locale={locale} course={activeCourse} progress={progress} onClose={() => setScreen({ kind: "course", courseId: activeCourse.manifest.id })} onSave={async (next) => { const record = records[activeCourse.manifest.id] ?? createCourseLearningRecord(activeCourse, next.updatedAt); const nextRecord = updateCourseLearningRecord(record, next); await saveRecord(nextRecord); setProgress(next); }} />;
+    content = <LessonPlayer locale={locale} course={activeCourse} progress={progress} speechPreference={pronunciationPreference(pronunciationPreferences, activeCourse.manifest.languageId)} onClose={() => setScreen({ kind: "course", courseId: activeCourse.manifest.id })} onSave={async (next) => { const record = records[activeCourse.manifest.id] ?? createCourseLearningRecord(activeCourse, next.updatedAt); const nextRecord = updateCourseLearningRecord(record, next); await saveRecord(nextRecord); setProgress(next); }} />;
   } else if (screen.kind === "course" && activeCourse) {
     content = <CourseDetail locale={locale} course={activeCourse} record={records[activeCourse.manifest.id]} plan={plans[activeCourse.manifest.id]} onBack={() => setScreen({ kind: "home" })} onPlan={() => setScreen({ kind: "plan", courseId: activeCourse.manifest.id })} onReviews={() => setScreen({ kind: "reviews" })} onLesson={(lessonId) => void openLesson(activeCourse, lessonId)} />;
   } else if (screen.kind === "plan" && activeCourse) {
@@ -969,7 +1092,7 @@ function MobileApp() {
   } else if (screen.kind === "reviews") {
     content = <Reviews locale={locale} records={records} courses={courses} onUpdate={saveRecord} />;
   } else if (screen.kind === "settings") {
-    content = <Settings locale={locale} records={records} plans={plans} courses={courses} languagePacks={languagePacks} customCourses={installedCourses} customLanguagePacks={customLanguagePacks} profileRepository={profileRepository} planRepository={planRepository} courseRepository={courseRepository} languagePackRepository={languagePackRepository} onReload={reload} onShowOnboarding={() => setOnboardingComplete(false)} onLocale={async (nextLocale) => { await preferences.setLocale(nextLocale); setLocale(nextLocale); }} />;
+    content = <Settings locale={locale} records={records} plans={plans} courses={courses} languagePacks={languagePacks} customCourses={installedCourses} customLanguagePacks={customLanguagePacks} profileRepository={profileRepository} planRepository={planRepository} courseRepository={courseRepository} languagePackRepository={languagePackRepository} pronunciationPreferences={pronunciationPreferences} onPronunciationPreference={(languageId, preference) => setPronunciationPreferences((current) => { const next = setPronunciationPreference(current, languageId, preference); void preferences.setPronunciationPreferences(next).catch(() => Alert.alert(copy(locale, "保存失败", "Save failed"), copy(locale, "发音偏好未能保存到本机。", "Pronunciation preferences could not be saved locally."))); return next; })} onReload={reload} onShowOnboarding={() => setOnboardingComplete(false)} onLocale={async (nextLocale) => { await preferences.setLocale(nextLocale); setLocale(nextLocale); }} />;
   } else {
     content = <Home locale={locale} records={records} plans={plans} courses={courses} languagePacks={languagePacks} onCourse={(courseId) => setScreen({ kind: "course", courseId })} />;
   }
@@ -1109,6 +1232,13 @@ const styles = StyleSheet.create({
   settingsCard: { gap: 11, padding: 17, borderRadius: 18, backgroundColor: "#fff", borderWidth: 1, borderColor: "#ded9e8" },
   settingsTitle: { color: "#272b39", fontSize: 17, fontWeight: "800" },
   settingsText: { color: "#716c78", fontSize: 12, lineHeight: 18 },
+  voiceLanguageCard: { gap: 9, paddingTop: 13, borderTopWidth: 1, borderTopColor: "#eeeaf1" },
+  voiceSectionLabel: { color: "#716c78", fontSize: 11, fontWeight: "700" },
+  voiceOptions: { gap: 7 },
+  voiceOption: { gap: 2, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: "#d8d2e5", backgroundColor: "#f8f6fb" },
+  voiceOptionSelected: { borderColor: "#5a48d6", backgroundColor: "#ece8ff" },
+  voiceOptionText: { color: "#33303d", fontSize: 12, fontWeight: "700" },
+  voiceDiagnostic: { color: "#776b48", fontSize: 11, lineHeight: 17 },
   installedRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10, paddingTop: 11, borderTopWidth: 1, borderTopColor: "#eeeaf1" },
   installedCopy: { flex: 1 },
   installedName: { color: "#282c39", fontSize: 13, fontWeight: "800" },

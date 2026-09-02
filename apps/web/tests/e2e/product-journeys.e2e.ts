@@ -283,12 +283,13 @@ test("the installed shell reopens Learn while offline", async ({ page, context }
 
 test("first course start saves an optional personal plan before entering the learning map", async ({ page }) => {
   await page.addInitScript(() => {
-    const spoken: Array<{ text: string; lang: string; rate: number }> = [];
+    const spoken: Array<{ text: string; lang: string; rate: number; voice?: string }> = [];
     Object.defineProperty(globalThis, "__pronunciationSpoken", { configurable: true, value: spoken });
     class TestSpeechSynthesisUtterance {
       text: string;
       lang = "";
       rate = 1;
+      voice: { voiceURI: string } | null = null;
       onstart: (() => void) | null = null;
       onend: (() => void) | null = null;
       onerror: ((event: { error: string }) => void) | null = null;
@@ -299,8 +300,11 @@ test("first course start saves an optional personal plan before entering the lea
       configurable: true,
       value: {
         cancel: () => undefined,
+        getVoices: () => [{ voiceURI: "voice-en", name: "Test English", lang: "en-US", default: true, localService: true }],
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
         speak: (utterance: TestSpeechSynthesisUtterance) => {
-          spoken.push({ text: utterance.text, lang: utterance.lang, rate: utterance.rate });
+          spoken.push({ text: utterance.text, lang: utterance.lang, rate: utterance.rate, ...(utterance.voice ? { voice: utterance.voice.voiceURI } : {}) });
           utterance.onstart?.();
           queueMicrotask(() => utterance.onend?.());
         },
@@ -311,6 +315,16 @@ test("first course start saves an optional personal plan before entering the lea
   await page.goto(`${origin}/learn`);
   await dismissFirstUseGuide(page);
 
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  const englishVoiceSettings = page.locator(".pronunciation-settings-panel article").filter({ hasText: "英语" });
+  await expect(englishVoiceSettings).toBeVisible();
+  await englishVoiceSettings.locator("select").nth(0).selectOption("voice-en");
+  await englishVoiceSettings.locator("select").nth(1).selectOption("slow");
+  await englishVoiceSettings.getByRole("button", { name: "试听" }).click();
+  await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __pronunciationSpoken: unknown[] }).__pronunciationSpoken.length)).toBe(1);
+  await page.evaluate(() => { (globalThis as typeof globalThis & { __pronunciationSpoken: unknown[] }).__pronunciationSpoken.length = 0; });
+  await page.getByRole("button", { name: "返回学习首页" }).click();
+
   await page.getByRole("button", { name: "一键开始学习" }).first().click();
   await expect(page.getByRole("heading", { name: "你为什么学习这门语言？" })).toBeVisible();
   await page.getByRole("button", { name: "跳过评估，从第一课开始" }).click();
@@ -320,12 +334,13 @@ test("first course start saves an optional personal plan before entering the lea
   await expect(page.locator(".learner-shell")).toBeVisible();
   await expect(page.getByRole("button", { name: "朗读" }).first()).toBeEnabled();
   await page.getByRole("button", { name: "朗读" }).first().click();
-  await page.getByRole("button", { name: "慢速" }).first().click();
-  const spoken = await page.evaluate(() => (globalThis as typeof globalThis & { __pronunciationSpoken: Array<{ text: string; lang: string; rate: number }> }).__pronunciationSpoken);
+  await page.getByRole("button", { name: "正常语速" }).first().click();
+  const spoken = await page.evaluate(() => (globalThis as typeof globalThis & { __pronunciationSpoken: Array<{ text: string; lang: string; rate: number; voice?: string }> }).__pronunciationSpoken);
   expect(spoken).toHaveLength(2);
   expect(spoken[0]?.text).toBeTruthy();
   expect(spoken.map((item) => item.lang)).toEqual(["en", "en"]);
-  expect(spoken.map((item) => item.rate)).toEqual([1, 0.72]);
+  expect(spoken.map((item) => item.rate)).toEqual([0.72, 1]);
+  expect(spoken.map((item) => item.voice)).toEqual(["voice-en", "voice-en"]);
   await page.getByRole("button", { name: "AI 导师" }).click();
   await expect(page.getByRole("heading", { name: "可选 AI 学习导师" })).toBeVisible();
   await expect(page.getByText("需要先配置个人 AI")).toBeVisible();

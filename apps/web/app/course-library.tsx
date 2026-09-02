@@ -26,8 +26,10 @@ import { displayText } from "@/lib/course";
 import type { CourseLibraryEntry, CourseUpdateIssue } from "@/lib/course-library";
 import type { DeviceBackupPreview } from "@/lib/device-backup";
 import { uiText, type AppLocale } from "@/lib/i18n";
+import { PronunciationSettings } from "@/app/pronunciation-settings";
 import { languageName, type LanguagePack } from "@/lib/language-pack";
 import type { DeviceSyncSettings } from "@/lib/sync";
+import type { PronunciationPreference, PronunciationPreferences } from "@learn-language/application/pronunciation";
 
 const issueLabels: Record<CourseUpdateIssue, [string, string]> = {
   "not-newer": ["目录版本不比已安装版本新", "The catalog version is not newer"],
@@ -95,6 +97,8 @@ export function CourseLibrary({
   onClearAllData,
   onExportDiagnostics,
   onRebuildStorage,
+  pronunciationPreferences,
+  onPronunciationPreferenceChange,
 }: {
   entries: CourseLibraryEntry[];
   languagePacks: LanguagePack[];
@@ -134,6 +138,8 @@ export function CourseLibrary({
   onClearAllData: () => void;
   onExportDiagnostics: () => void;
   onRebuildStorage: () => void;
+  pronunciationPreferences: PronunciationPreferences;
+  onPronunciationPreferenceChange: (languageId: string, preference: PronunciationPreference) => void;
 }) {
   const [filter, setFilter] = useState<"all" | "installed">("all");
   const [storageState, setStorageState] = useState<"checking" | "persistent" | "temporary" | "unsupported">("checking");
@@ -155,6 +161,17 @@ export function CourseLibrary({
   const installedCount = entries.filter((entry) => entry.status !== "available").length;
   const readyCourseCount = entries.filter((entry) => entry.source === "bundled").length;
   const visibleEntries = filter === "installed" ? entries.filter((entry) => entry.status !== "available") : entries;
+  const pronunciationTargets = entries.reduce<Array<{ languageId: string; label: string; sampleText: string }>>((targets, entry) => {
+    const languageId = entry.course.manifest.languageId;
+    if (targets.some((target) => target.languageId === languageId)) return targets;
+    const pack = languagePacks.find((candidate) => candidate.id === languageId);
+    targets.push({
+      languageId,
+      label: pack ? languageName(pack, locale) : languageId,
+      sampleText: entry.course.utterances[0]?.text ?? languageId,
+    });
+    return targets;
+  }, []);
 
   return (
     <main className={"course-library-shell " + (settingsMode ? "settings-mode" : "")}>
@@ -229,6 +246,7 @@ export function CourseLibrary({
           <article><Settings2 size={19} /><div><strong>{c("个人 AI", "Personal AI")}</strong><small>{c("服务商和模型保存在设备；密钥仅在当前标签页", "Provider and model stay on device; keys stay in this tab")}</small></div><button onClick={onOpenAi}>{c("配置 AI", "Configure AI")}</button></article>
           <article><ShieldCheck size={19} /><div><strong>{c("离线与存储保护", "Offline and storage protection")}</strong><small>{storageState === "persistent" ? c("本地数据已请求持久保存", "Persistent local storage is enabled") : c("学习与课程数据保存在当前浏览器", "Learning and course data stay in this browser")}</small></div><button onClick={() => void protectLocalStorage()} disabled={storageState !== "temporary"}>{storageState === "persistent" ? c("已保护", "Protected") : c("保护本地数据", "Protect data")}</button></article>
         </div>
+        <PronunciationSettings targets={pronunciationTargets} preferences={pronunciationPreferences} locale={locale} onChange={onPronunciationPreferenceChange} />
         <section className="settings-danger-zone">
           <div><strong>{c("数据安全与恢复", "Data safety and recovery")}</strong><p>{c("危险操作会先显示影响范围并再次确认。建议先在下方导出完整设备备份。", "Destructive actions preview their impact and ask again. Export a complete device backup below first.")}</p></div>
           <div className="settings-danger-actions">

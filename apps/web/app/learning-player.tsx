@@ -30,6 +30,7 @@ import { resolveExerciseCapabilities, type LanguagePack } from "@/lib/language-p
 import { dateLocale, uiText, type AppLocale } from "@/lib/i18n";
 import { buildLearnerStages, type LearnerStageId } from "@/lib/learning-presentation";
 import type { EvaluationSource } from "@learn-language/protocol";
+import type { PronunciationPreference } from "@learn-language/application/pronunciation";
 import {
   createExerciseResponse,
   evaluateExerciseResponse,
@@ -107,6 +108,7 @@ export function LearningPlayer({
   locale = "zh-CN",
   preview = false,
   aiSettings,
+  pronunciationPreference,
   onConfigureAi,
   onProgress,
   onExit,
@@ -117,6 +119,7 @@ export function LearningPlayer({
   locale?: AppLocale;
   preview?: boolean;
   aiSettings?: AiSettings;
+  pronunciationPreference?: PronunciationPreference;
   onConfigureAi?: () => void;
   onProgress: (progress: LearningProgress) => void;
   onExit: () => void;
@@ -445,7 +448,7 @@ export function LearningPlayer({
           {(knowledge.length > 0 || utterances.length > 0) && (
             <div className="learning-content">
               {knowledge.length > 0 && <div className="knowledge-learning-grid">{knowledge.map((item) => item && <div className="knowledge-learning-card" key={item.id}><span>{item.kind}</span><strong>{item.form}</strong>{(showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.meaning, teachingLocale)}</p>}</div>)}</div>}
-              {utterances.map((item) => item && <div className="utterance-learning-card" key={item.id}><BookOpenCheck size={18} /><div className="utterance-learning-copy"><strong>{item.text}</strong>{item.translation && (showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.translation, teachingLocale)}</p>}<PronunciationControls text={item.text} languageId={course.manifest.languageId} locale={locale} /></div></div>)}
+              {utterances.map((item) => item && <div className="utterance-learning-card" key={item.id}><BookOpenCheck size={18} /><div className="utterance-learning-copy"><strong>{item.text}</strong>{item.translation && (showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.translation, teachingLocale)}</p>}<PronunciationControls text={item.text} languageId={course.manifest.languageId} locale={locale} preference={pronunciationPreference} /></div></div>)}
             </div>
           )}
 

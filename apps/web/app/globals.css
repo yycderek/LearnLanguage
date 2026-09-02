@@ -1628,6 +1628,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .settings-center-grid article small { color: var(--muted); line-height: 1.4; }
 .settings-center-grid article button,
 .settings-center-grid article select { grid-column: 1 / -1; min-height: 36px; border: 1px solid #d9e0e6; border-radius: 8px; background: #f8fafb; }
+.pronunciation-settings-panel { padding: 18px; display: grid; gap: 12px; border: 1px solid #dfe5ea; border-radius: 14px; background: #fff; }
+.pronunciation-settings-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.pronunciation-settings-panel > header > div { display: flex; align-items: center; gap: 11px; }
+.pronunciation-settings-panel > header svg { color: var(--primary); }
+.pronunciation-settings-panel > header p { margin: 0; display: grid; gap: 3px; }
+.pronunciation-settings-panel > header small, .pronunciation-settings-panel > header > span { color: var(--muted); }
+.pronunciation-settings-panel article { padding: 14px; display: grid; grid-template-columns: minmax(130px, 1fr) minmax(180px, 2fr) minmax(120px, 1fr) auto; align-items: end; gap: 10px; border: 1px solid #e4e8ec; border-radius: 11px; background: #f8fafb; }
+.pronunciation-settings-panel article > div, .pronunciation-settings-panel article label { display: grid; gap: 5px; }
+.pronunciation-settings-panel article small, .pronunciation-settings-panel article label span { color: var(--muted); font-size: 11px; }
+.pronunciation-settings-panel select, .pronunciation-settings-panel button { min-height: 38px; border: 1px solid #d3dae1; border-radius: 8px; background: #fff; }
+.pronunciation-settings-panel button { padding: 0 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: var(--primary); font-weight: 750; cursor: pointer; }
+.pronunciation-settings-panel button:disabled { cursor: not-allowed; opacity: .5; }
+.voice-diagnostic { grid-column: 1 / -1; margin: 0; color: #756b51; font-size: 11px; line-height: 1.5; }
 .settings-danger-zone { padding: 17px; display: flex; justify-content: space-between; align-items: center; gap: 18px; border: 1px solid #ead7d3; border-radius: 12px; background: #fffaf8; }
 .settings-danger-zone p { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .settings-danger-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
@@ -1666,6 +1679,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (max-width: 900px) {
   .settings-center-overview { margin-left: 18px; margin-right: 18px; }
   .settings-center-grid { grid-template-columns: 1fr; }
+  .pronunciation-settings-panel article { grid-template-columns: 1fr 1fr; }
   .settings-danger-zone,
   .course-completion-card { grid-template-columns: 1fr; flex-direction: column; align-items: stretch; }
   .settings-danger-actions { justify-content: flex-start; }
@@ -1675,6 +1689,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .settings-center-overview { margin: 14px 12px; }
   .settings-center-overview > header { padding: 18px; }
   .settings-center-overview > header svg { display: none; }
+  .pronunciation-settings-panel > header { align-items: flex-start; flex-direction: column; }
+  .pronunciation-settings-panel article { grid-template-columns: 1fr; }
   .settings-danger-actions { display: grid; }
   .course-completion-card,
   .weak-knowledge-panel { margin: 0 12px 12px; }
