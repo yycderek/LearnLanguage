@@ -46,6 +46,7 @@ async function dismissFirstUseGuide(page: Page) {
   await expect(close).toBeVisible();
   await close.click();
   await expect(close).toBeHidden();
+  await expect.poll(() => readDevicePreference(page, "product-guide-seen-v1")).toBe(true);
 }
 
 async function readStudioWorkingCopy(page: Page) {
