@@ -15,6 +15,7 @@ export type CourseLibrarySource = "bundled" | "user";
 export type CourseLibraryStatus = "available" | "installed" | "update-available" | "update-blocked";
 export { assessCourseUpdate, compareCourseVersions, upgradeCourseLearningRecord };
 export type { CourseUpdateAssessment };
+export type { CourseUpdateIssue } from "@learn-language/application/course-update";
 
 export interface CourseLibraryEntry {
   id: string;

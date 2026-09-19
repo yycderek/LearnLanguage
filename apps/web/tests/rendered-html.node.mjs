@@ -5,17 +5,19 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, readme, userGuide, studio, studioStart, materialImportDialog, productGuide, dialogFocus, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, deviceBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
+  const [page, learnPage, studioPage, readme, userGuide, studio, contentEditor, studioStart, materialImportDialog, productGuide, dialogFocus, learnRoute, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, deviceBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
     readFile(new URL("../../README.md", root), "utf8"),
     readFile(new URL("../../docs/USER_GUIDE.md", root), "utf8"),
     readFile(new URL("app/course-studio.tsx", root), "utf8"),
+    readFile(new URL("app/studio/course-content-editor.tsx", root), "utf8"),
     readFile(new URL("app/studio-start.tsx", root), "utf8"),
     readFile(new URL("app/material-import-dialog.tsx", root), "utf8"),
     readFile(new URL("app/product-guide.tsx", root), "utf8"),
     readFile(new URL("lib/use-dialog-focus.ts", root), "utf8"),
+    readFile(new URL("lib/learn-route.ts", root), "utf8"),
     readFile(new URL("app/draft-manager.tsx", root), "utf8"),
     readFile(new URL("app/language-pack-manager.tsx", root), "utf8"),
     readFile(new URL("app/learning-player.tsx", root), "utf8"),
@@ -58,11 +60,12 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(userGuide, /完整设备备份/);
   assert.match(userGuide, /AI 与隐私/);
   assert.match(studio, /课程编辑器/);
+  assert.match(studio, /<CourseContentEditor/);
   assert.match(studio, /可视化/);
   assert.match(studio, /基本信息/);
-  assert.match(studio, /添加知识点/);
-  assert.match(studio, /添加例句/);
-  assert.match(studio, /添加练习/);
+  assert.match(contentEditor, /添加知识点/);
+  assert.match(contentEditor, /添加例句/);
+  assert.match(contentEditor, /添加练习/);
   assert.match(studio, /添加课节/);
   assert.match(studio, /selectedStudioLessonId/);
   assert.match(studio, /课程课节顺序/);
@@ -86,6 +89,10 @@ test("build contains the visual course studio and language pack workflow", async
   assert.doesNotMatch(studio, /语音区域代码/);
   assert.match(studio, /AI 设置/);
   assert.match(studio, /PRODUCT_GUIDE_SEEN_KEY/);
+  assert.match(studio, /readLearnRoute/);
+  assert.match(studio, /window\.history\.replaceState/);
+  assert.match(learnRoute, /restorableViews/);
+  assert.match(learnRoute, /writeLearnRoute/);
   assert.match(studio, /使用帮助/);
   assert.match(studio, /ProductGuide/);
   assert.match(studio, /测试连接/);
@@ -147,8 +154,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /confirmCourseTrust/);
   assert.match(studio, /performDeviceSync/);
   assert.match(studio, /verifyPublishedCourseIntegrity/);
-  assert.match(studio, /所需语言能力/);
-  assert.match(studio, /能力不足时/);
+  assert.match(contentEditor, /所需语言能力/);
+  assert.match(contentEditor, /能力不足时/);
   assert.match(studio, /APP_LOCALE_PREFERENCE_KEY/);
   assert.match(studio, /resolveStoredAppLocale/);
   assert.match(studio, /Course content editor/);
@@ -201,8 +208,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(renderer, /multiple-choice/);
   assert.match(renderer, /ordering-list/);
   assert.match(renderer, /role-task-banner/);
-  assert.match(studio, /正确选项序号（逗号分隔）/);
-  assert.match(studio, /按上方行顺序/);
+  assert.match(contentEditor, /正确选项序号（逗号分隔）/);
+  assert.match(contentEditor, /按上方行顺序/);
   assert.match(dashboard, /今日复习/);
   assert.match(dashboard, /课程目录/);
   assert.match(dashboard, /Full course outline/);
@@ -325,8 +332,8 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(nextConfig, /freshDocumentHeaders/);
   assert.match(nextConfig, /"\/learn", "\/studio"/);
   assert.match(nextConfig, /Cache-Control", value: "no-store, max-age=0/);
-  assert.match(productGuide, /学习和课程设计是两个独立空间/);
-  assert.match(productGuide, /可选设置学习目标与节奏/);
+  assert.match(productGuide, /先走完你的第一段学习路线/);
+  assert.match(productGuide, /计划和基础检查都可以跳过/);
   assert.match(productGuide, /入学评估只推荐起点/);
   assert.match(productGuide, /AI 可以不设置/);
   assert.match(productGuide, /保存、预览、发布、安装是四个不同动作/);

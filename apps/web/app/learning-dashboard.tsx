@@ -109,6 +109,8 @@ export function LearningDashboard({
   const focusGoal = focusLesson?.canDoGoalRefs
     .map((goalId) => course.goals.find((goal) => goal.id === goalId))
     .find(Boolean);
+  const completedMilestones = completedLessons.length;
+  const nextMilestone = Math.min(completedMilestones + 1, course.lessons.length);
   const planStartingLesson = learningPlan ? course.lessons.find((lesson) => lesson.id === learningPlan.startingLessonId) : undefined;
   const planMotivation = learningPlan ? ({
     travel: c("旅行交流", "Travel"),
@@ -248,6 +250,26 @@ export function LearningDashboard({
           <article><span><Route size={19} /></span><div><small>{c("课程进度", "Course progress")}</small><strong>{completedLessons.length} / {course.lessons.length} {c("课", "lessons")}</strong></div><em>{percent}%</em></article>
           <article><span><Check size={19} /></span><div><small>{c("已完成课节", "Completed lessons")}</small><strong>{c(`${completedLessons.length} 个里程碑`, `${completedLessons.length} milestones`)}</strong></div><em>{c("稳定前进", "Steady progress")}</em></article>
           <article><span><RotateCcw size={19} /></span><div><small>{c("今日复习", "Reviews today")}</small><strong>{c(`${due.length} 个知识点`, `${due.length} knowledge items`)}</strong></div>{(due.length > 0 || upcoming.length > 0) && <button onClick={() => onStartReview(due.length > 0 ? due : upcoming)}>{due.length > 0 ? c("先复习", "Review first") : c("查看复习卡", "View cards")}</button>}</article>
+        </section>
+
+        <section className="learning-journey-card" aria-labelledby="learning-journey-title">
+          <div className="learning-journey-heading">
+            <span><Route size={21} /></span>
+            <div><h2 id="learning-journey-title">{c("你的学习路线", "Your learning trail")}</h2><p>{c(`已通过 ${completedMilestones} 个里程碑；下一站是第 ${nextMilestone} 课。`, `${completedMilestones} milestones complete; next stop is lesson ${nextMilestone}.`)}</p></div>
+            <strong>{percent}%</strong>
+          </div>
+          <ol className="learning-journey-map">
+            {course.lessons.map((lesson, index) => {
+              const completed = record?.completedLessonIds.includes(lesson.id) === true;
+              const active = lesson.id === focusLesson?.id;
+              const unlocked = lessonIsUnlocked(course, record, index);
+              return <li key={lesson.id} className={completed ? "complete" : active ? "active" : unlocked ? "ready" : "locked"}>
+                <span aria-hidden="true">{completed ? <Check size={15} /> : unlocked ? index + 1 : <LockKeyhole size={13} />}</span>
+                <strong>{displayText(lesson.title, teachingLocale)}</strong>
+                <small>{completed ? c("已通过", "Complete") : active ? c("进行中", "In progress") : unlocked ? c("下一站", "Next") : c("待解锁", "Locked")}</small>
+              </li>;
+            })}
+          </ol>
         </section>
 
         {focusLesson && (

@@ -11,7 +11,6 @@ import {
   CircleHelp,
   DatabaseBackup,
   GraduationCap,
-  Library,
   PencilRuler,
   Repeat2,
   ShieldCheck,
@@ -44,22 +43,12 @@ const sharedDataStep: GuideStep = {
 const learnSteps: GuideStep[] = [
   {
     eyebrow: ["欢迎使用", "WELCOME"],
-    title: ["学习和课程设计是两个独立空间", "Learning and course creation are separate spaces"],
-    description: ["Learn 用于正式学习并保存进度；Studio 用于创建、预览和发布课程。Studio 预览不会写入真实学习档案。", "Learn saves real progress. Studio creates, previews, and publishes courses; Studio previews never change your real learning profile."],
+    title: ["先走完你的第一段学习路线", "Take your first learning step"],
+    description: ["选择一门课程，设置计划或直接开始第一课。完成课节会点亮路线，复习会在需要时出现。", "Choose a course, set a plan or start lesson one. Completing lessons lights your trail, and reviews appear when useful."],
     icon: GraduationCap,
     items: [
-      { icon: GraduationCap, title: ["Learn 学习空间", "Learn space"], body: ["选择课程，可选设置学习目标与节奏，然后完成课节、查看掌握度并按计划复习。", "Choose a course, optionally set a goal and pace, then complete lessons, track mastery, and review on schedule."] },
-      { icon: PencilRuler, title: ["Studio 创作空间", "Studio space"], body: ["使用模板编辑课程内容，预览后发布，再安装到 Learn。", "Edit with templates, preview, publish, then install the course in Learn."] },
-    ],
-  },
-  {
-    eyebrow: ["开始学习", "START LEARNING"],
-    title: ["选择课程，再决定是否设置个人计划", "Choose a course, then optionally set a personal plan"],
-    description: ["首次开始一门课程时，可以设置学习目标与每周节奏，并选择是否参加基础检查；已有学习记录会直接继续。课程、计划和进度都保存在当前浏览器。", "When starting a course for the first time, you can set a goal and weekly pace and choose whether to take a foundation check. Existing learners resume directly. Course data, plans, and progress stay in this browser."],
-    icon: Library,
-    items: [
-      { icon: Library, title: ["1. 选择课程", "1. Choose a course"], body: ["在课程库点击“一键开始学习”；首次使用可先设置目标、节奏和课程起点，也可以直接跳过。", "Choose Start learning in the library. On first use, set a goal, pace, and starting lesson—or skip setup."] },
-      { icon: BookOpen, title: ["2. 按顺序学习", "2. Follow the path"], body: ["完成一课会解锁下一课；已完成课程可以随时重新学习。", "Completing a lesson unlocks the next one, and completed lessons can be revisited anytime."] },
+      { icon: GraduationCap, title: ["从课程开始", "Start with a course"], body: ["课程库中选择“一键开始学习”；计划和基础检查都可以跳过。", "Choose Start learning in the library; both plan setup and the foundation check are optional."] },
+      { icon: BookOpen, title: ["让路线带路", "Follow the trail"], body: ["首页永远显示下一步；完成课程会解锁新节点，而不是制造虚假分数。", "The home page always shows the next step; completion unlocks real route nodes, not artificial scores."] },
     ],
   },
   {

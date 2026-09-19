@@ -428,6 +428,24 @@ test("an author can turn material into a recoverable private visual draft", asyn
   await expect(page.getByText(/已生成 1 个单元、.*4 个练习/)).toBeVisible();
   await page.getByRole("button", { name: "例句" }).click();
   await expect(page.getByText("I walk through the old town.")).toBeVisible();
+  await page.getByRole("button", { name: "知识点", exact: true }).click();
+  await page.getByRole("button", { name: "添加知识点", exact: true }).click();
+  await page.getByLabel("目标语形式", { exact: true }).last().fill("studio-reference-check");
+  await page.getByRole("button", { name: "例句", exact: true }).click();
+  await page.getByRole("group", { name: "关联知识点", exact: true }).first().getByRole("button", { name: "studio-reference-check" }).click();
+  await page.getByRole("button", { name: "知识点", exact: true }).click();
+  await page.getByRole("button", { name: /^删除知识点/ }).last().click();
+  await page.getByRole("button", { name: "例句", exact: true }).click();
+  await expect(page.getByRole("button", { name: "studio-reference-check" })).toHaveCount(0);
+  await page.getByRole("button", { name: "练习", exact: true }).click();
+  await page.getByRole("button", { name: "添加练习", exact: true }).click();
+  const addedExercise = page.locator(".edit-card").last();
+  await addedExercise.getByRole("combobox", { name: /^类型/ }).selectOption("multiple-choice");
+  await addedExercise.getByLabel(/任务提示/).fill("Studio extraction regression");
+  await addedExercise.getByLabel(/选项（每行一个）/).fill("First\nSecond\nThird");
+  await addedExercise.getByLabel("正确选项序号（逗号分隔）", { exact: true }).fill("1, 3");
+  await expect(addedExercise.getByLabel("正确选项序号（逗号分隔）", { exact: true })).toHaveValue("1, 3");
+
   await page.getByRole("button", { name: "课节流程" }).click();
   await expect(page.getByRole("heading", { name: "课程单元与课节" })).toBeVisible();
   await expect(page.getByRole("region", { name: "课程单元" })).toBeVisible();
@@ -439,6 +457,11 @@ test("an author can turn material into a recoverable private visual draft", asyn
   await page.reload();
   const savedAfterReload = await readStudioWorkingCopy(page) as { course?: { manifest?: { title?: Record<string, string> } } };
   expect(savedAfterReload.course?.manifest?.title?.["zh-CN"]).toBe("城市散步");
+  await page.getByRole("button", { name: "练习", exact: true }).click();
+  const restoredExercise = page.locator(".edit-card").last();
+  await expect(restoredExercise.getByLabel(/任务提示/)).toHaveValue("Studio extraction regression");
+  await expect(restoredExercise.getByLabel("正确选项序号（逗号分隔）", { exact: true })).toHaveValue("1, 3");
+
   await expect(page.getByRole("heading", { name: "城市散步", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "课节流程" }).click();
   await expect(page.getByRole("heading", { name: "课程单元与课节" })).toBeVisible();

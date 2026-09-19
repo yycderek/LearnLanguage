@@ -14,7 +14,7 @@ export function OfflineReady() {
   const [installed, setInstalled] = useState(false);
   const [updateReady, setUpdateReady] = useState(false);
   const [installDismissed, setInstallDismissed] = useState(false);
-  const registrationRef = useRef<ServiceWorkerRegistration>();
+  const registrationRef = useRef<ServiceWorkerRegistration | undefined>(undefined);
   const reloadForUpdate = useRef(false);
 
   useEffect(() => {
