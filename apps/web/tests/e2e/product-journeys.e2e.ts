@@ -428,14 +428,30 @@ test("an author can turn material into a recoverable private visual draft", asyn
 
   await expect(page.getByText(/已生成 1 个单元、.*4 个练习/)).toBeVisible();
   await page.getByRole("button", { name: "例句" }).click();
-  await expect(page.getByText("I walk through the old town.")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: /^目标语例句/ }).first()).toHaveValue("I walk through the old town.");
   await page.getByRole("button", { name: "知识点", exact: true }).click();
   await page.getByRole("button", { name: "添加知识点", exact: true }).click();
   await page.getByLabel("目标语形式", { exact: true }).last().fill("studio-reference-check");
   await page.getByRole("button", { name: "例句", exact: true }).click();
   await page.getByRole("group", { name: "关联知识点", exact: true }).first().getByRole("button", { name: "studio-reference-check" }).click();
   await page.getByRole("button", { name: "知识点", exact: true }).click();
-  await page.getByRole("button", { name: /^删除知识点/ }).last().click();
+  await page.getByRole("searchbox", { name: "搜索当前内容" }).fill("studio-reference-check");
+  await expect(page.locator(".edit-card")).toHaveCount(1);
+  const toggle = page.locator(".edit-card-heading button[aria-expanded]");
+  await toggle.click();
+  await expect(page.getByLabel("目标语形式", { exact: true })).toBeHidden();
+  await toggle.click();
+  page.once("dialog", (dialog) => { expect(dialog.message()).toContain("1 处引用"); void dialog.accept(); });
+  await page.getByRole("button", { name: /^删除知识点/ }).click();
+  await page.getByRole("button", { name: "撤销删除", exact: true }).click();
+  await expect(page.getByLabel("目标语形式", { exact: true })).toHaveValue("studio-reference-check");
+  await page.getByRole("button", { name: "例句", exact: true }).click();
+  const references = page.getByRole("group", { name: "关联知识点", exact: true }).first();
+  await references.getByRole("searchbox", { name: "筛选：关联知识点", exact: true }).fill("studio-reference-check");
+  await expect(references.getByRole("button", { name: "studio-reference-check" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "知识点", exact: true }).click();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: /^删除知识点/ }).click();
   await page.getByRole("button", { name: "例句", exact: true }).click();
   await expect(page.getByRole("button", { name: "studio-reference-check" })).toHaveCount(0);
   await page.getByRole("button", { name: "练习", exact: true }).click();
@@ -446,6 +462,11 @@ test("an author can turn material into a recoverable private visual draft", asyn
   await addedExercise.getByLabel(/选项（每行一个）/).fill("First\nSecond\nThird");
   await addedExercise.getByLabel("正确选项序号（逗号分隔）", { exact: true }).fill("1, 3");
   await expect(addedExercise.getByLabel("正确选项序号（逗号分隔）", { exact: true })).toHaveValue("1, 3");
+  await page.getByRole("searchbox", { name: "搜索当前内容" }).fill("Studio extraction");
+  await expect(page.locator(".edit-card")).toHaveCount(1);
+  await page.locator(".edit-card").getByLabel(/任务提示/).fill("Studio extraction regression updated");
+  await expect(page.getByRole("group", { name: "练习使用的例句", exact: true }).getByRole("button")).toHaveCount(3);
+  await page.locator(".visual-editor").screenshot({ path: testInfo.outputPath("content-search.png") });
 
   await page.getByRole("button", { name: "课节流程" }).click();
   await expect(page.getByRole("heading", { name: "课程单元与课节" })).toBeVisible();
@@ -458,10 +479,12 @@ test("an author can turn material into a recoverable private visual draft", asyn
   await page.getByRole("button", { name: "添加步骤", exact: true }).click();
   const steps = page.locator(".visual-editor details");
   await expect(steps).toHaveCount(2);
-  await steps.last().locator("summary").click();
+  await expect(steps.last()).toHaveAttribute("open", "");
+  await expect(steps.last().getByLabel(/^显示标题/)).toBeFocused();
   await steps.last().getByLabel(/^显示标题/).fill("新增学习步骤");
   await steps.last().getByRole("button", { name: "上移步骤 2", exact: true }).click();
   await expect(steps.first().locator("summary")).toContainText("新增学习步骤");
+  await expect(steps.first()).toHaveAttribute("open", "");
   await expect(page.locator(".lesson-sequence button[aria-pressed='true']")).toContainText("流程编辑回归");
 
 
@@ -473,7 +496,7 @@ test("an author can turn material into a recoverable private visual draft", asyn
   expect(savedAfterReload.course?.manifest?.title?.["zh-CN"]).toBe("城市散步");
   await page.getByRole("button", { name: "练习", exact: true }).click();
   const restoredExercise = page.locator(".edit-card").last();
-  await expect(restoredExercise.getByLabel(/任务提示/)).toHaveValue("Studio extraction regression");
+  await expect(restoredExercise.getByLabel(/任务提示/)).toHaveValue("Studio extraction regression updated");
   await expect(restoredExercise.getByLabel("正确选项序号（逗号分隔）", { exact: true })).toHaveValue("1, 3");
 
   await expect(page.getByRole("heading", { name: "城市散步", level: 1 })).toBeVisible();

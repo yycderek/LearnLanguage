@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, Copy, Plus, Trash2 } from "lucide-react";
 import { displayText, type CoursePack, type LessonPhase } from "@/lib/course";
 import { uiText, type AppLocale } from "@/lib/i18n";
@@ -19,6 +20,8 @@ type CourseFlowEditorProps = {
 };
 
 export function CourseFlowEditor({ course, locale, selectedUnitId, selectedStudioLessonId, setSelectedUnitId, setSelectedStudioLessonId, editCourse, setNotice }: CourseFlowEditorProps) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const pendingFocus = useRef<string | undefined>(undefined);
   const appLocale = locale;
   const teachingLocale = locale;
   const t = (zh: string, en: string) => uiText(locale, zh, en);
@@ -98,11 +101,17 @@ export function CourseFlowEditor({ course, locale, selectedUnitId, selectedStudi
   function addStep() {
     editCourse((next) => {
       const lesson = selectedDraftLesson(next);
-      if (lesson) appendLessonStep(lesson, appLocale, t("新学习步骤", "New learning step"));
+      if (lesson) {
+        const id = appendLessonStep(lesson, appLocale, t("新学习步骤", "New learning step"));
+        const key = lesson.id + ":" + id;
+        pendingFocus.current = key;
+        setExpanded((previous) => ({ ...previous, [key]: true }));
+      }
     });
   }
 
   function moveStep(index: number, offset: -1 | 1) {
+    setExpanded((previous) => ({ ...previous, ...Object.fromEntries(flow.map((step, position) => { const key = selectedStudioLesson.id + ":" + step.id; return [key, previous[key] ?? position === 0]; })) }));
     editCourse((next) => {
       const lesson = selectedDraftLesson(next);
       if (lesson) moveLessonStep(lesson, index, offset);
@@ -144,21 +153,21 @@ export function CourseFlowEditor({ course, locale, selectedUnitId, selectedStudi
                         <div className="form-grid two-column lesson-fields">
                           <label><span>{t("课节名称", "Lesson title")} ({teachingLocale === "en" ? "English" : "中文"})</span><input value={selectedStudioLesson.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.title[teachingLocale] = event.target.value; })} /></label>
                           <label><span>{t("所属单元", "Unit")}</span><select value={(course.units ?? []).find((unit) => unit.lessonRefs.includes(selectedStudioLesson.id))?.id ?? ""} onChange={(event) => setLessonUnit(selectedStudioLesson.id, event.target.value)}>{(course.units ?? []).map((unit) => <option key={unit.id} value={unit.id}>{displayText(unit.title, teachingLocale)}</option>)}</select></label>
-                          <ReferencePicker label={t("本课学习目标", "Learning goals for this lesson")} options={goalOptions} selected={selectedStudioLesson.canDoGoalRefs} emptyLabel={t("暂无能力目标，可在 JSON 进阶模式补充", "No can-do goals yet; add them in advanced JSON mode")} onChange={(ids) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.canDoGoalRefs = ids; })} />
+                          <ReferencePicker locale={locale} label={t("本课学习目标", "Learning goals for this lesson")} options={goalOptions} selected={selectedStudioLesson.canDoGoalRefs} emptyLabel={t("暂无能力目标，可在 JSON 进阶模式补充", "No can-do goals yet; add them in advanced JSON mode")} onChange={(ids) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.canDoGoalRefs = ids; })} />
                         </div>
                       </div>}
                       <div className={styles.stepsHeading}><h4 className={styles.sectionTitle}>{t("学习步骤", "Learning steps")} · {flow.length}</h4><button type="button" className="outline-button" onClick={addStep} disabled={!selectedStudioLesson}><Plus size={15} />{t("添加步骤", "Add step")}</button></div>
 <div className="item-stack compact">
                         {flow.map((step, index) => (
-                          <details className={styles.step} key={step.id} open={index === 0}>
+                          <details className={styles.step} key={selectedStudioLesson.id + ":" + step.id} open={expanded[selectedStudioLesson.id + ":" + step.id] ?? index === 0} onToggle={(event) => { const open = event.currentTarget.open; const key = selectedStudioLesson.id + ":" + step.id; setExpanded((previous) => previous[key] === open ? previous : { ...previous, [key]: open }); }}>
 <summary><span className={styles.stepIndex}>{String(index + 1).padStart(2, "0")}</span><strong>{displayText(step.title, teachingLocale) || t("未命名步骤", "Untitled step")}</strong><span className={styles.stepHint}>{t("展开编辑", "Edit details")}</span><ChevronDown className={styles.chevron} size={18} aria-hidden="true" /></summary>
 <div className={styles.stepBody}>
                             <div className="form-grid two-column">
                               <label><span>{t("阶段", "Phase")}</span><select value={step.phase} onChange={(event) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].phase = event.target.value as LessonPhase; })}><option value="diagnostic">{t("诊断", "Diagnostic")}</option><option value="preteach">{t("预教", "Pre-teaching")}</option><option value="supported-input">{t("支持性输入", "Supported input")}</option><option value="comprehension">{t("独立理解", "Comprehension")}</option><option value="guided-output">{t("引导输出", "Guided output")}</option><option value="independent-task">{t("独立任务", "Independent task")}</option><option value="feedback-retry">{t("反馈重试", "Feedback retry")}</option><option value="delayed-transfer">{t("延迟迁移", "Delayed transfer")}</option></select></label>
-                              <label><span>{t("显示标题", "Display title")} ({teachingLocale === "en" ? "English" : "中文"})</span><input value={step.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].title[teachingLocale] = event.target.value; })} /></label>
-                              <ReferencePicker label={t("本步骤知识点", "Knowledge in this step")} options={knowledgeOptions} selected={step.knowledgeRefs} emptyLabel={t("暂无知识点", "No knowledge yet")} onChange={(ids) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].knowledgeRefs = ids; })} />
-                              <ReferencePicker label={t("本步骤例句", "Utterances in this step")} options={utteranceOptions} selected={step.utteranceRefs} emptyLabel={t("暂无例句", "No utterances yet")} onChange={(ids) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].utteranceRefs = ids; })} />
-                              <ReferencePicker label={t("本步骤练习", "Exercises in this step")} options={exerciseOptions} selected={step.exerciseRefs} emptyLabel={t("暂无练习", "No exercises yet")} onChange={(ids) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].exerciseRefs = ids; })} />
+                              <label><span>{t("显示标题", "Display title")} ({teachingLocale === "en" ? "English" : "中文"})</span><input ref={(element) => { const key = selectedStudioLesson.id + ":" + step.id; if (element && pendingFocus.current === key) { element.focus(); pendingFocus.current = undefined; } }} value={step.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].title[teachingLocale] = event.target.value; })} /></label>
+                              <ReferencePicker locale={locale} label={t("本步骤知识点", "Knowledge in this step")} options={knowledgeOptions} selected={step.knowledgeRefs} emptyLabel={t("暂无知识点", "No knowledge yet")} onChange={(ids) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].knowledgeRefs = ids; })} />
+                              <ReferencePicker locale={locale} label={t("本步骤例句", "Utterances in this step")} options={utteranceOptions} selected={step.utteranceRefs} emptyLabel={t("暂无例句", "No utterances yet")} onChange={(ids) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].utteranceRefs = ids; })} />
+                              <ReferencePicker locale={locale} label={t("本步骤练习", "Exercises in this step")} options={exerciseOptions} selected={step.exerciseRefs} emptyLabel={t("暂无练习", "No exercises yet")} onChange={(ids) => editCourse((next) => { const lesson = selectedDraftLesson(next); if (lesson) lesson.steps[index].exerciseRefs = ids; })} />
                             </div>
                             <div className="step-actions"><button type="button" onClick={() => moveStep(index, -1)} disabled={index === 0} aria-label={t("上移步骤 " + (index + 1), "Move step " + (index + 1) + " up")}><ArrowUp size={14} /></button><button type="button" onClick={() => moveStep(index, 1)} disabled={index === flow.length - 1} aria-label={t("下移步骤 " + (index + 1), "Move step " + (index + 1) + " down")}><ArrowDown size={14} /></button><button type="button" className="danger" onClick={() => removeStep(index)} disabled={flow.length <= 1} aria-label={t("删除步骤 " + (index + 1), "Delete step " + (index + 1))}><Trash2 size={14} /></button></div>
                           </div></details>
