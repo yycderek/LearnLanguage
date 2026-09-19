@@ -410,7 +410,7 @@ test("a non-technical author can create a new language, save a draft, and previe
   expect(problems).toEqual([]);
 });
 
-test("an author can turn material into a recoverable private visual draft", async ({ page }) => {
+test("an author can turn material into a recoverable private visual draft", async ({ page }, testInfo) => {
   const problems = observeBrowserProblems(page);
   await page.goto(origin + "/studio");
   await dismissFirstUseGuide(page);
@@ -451,6 +451,19 @@ test("an author can turn material into a recoverable private visual draft", asyn
   await expect(page.getByRole("heading", { name: "课程单元与课节" })).toBeVisible();
   await expect(page.getByRole("region", { name: "课程单元" })).toBeVisible();
   await expect(page.getByText("课节 ID")).toHaveCount(0);
+  await page.getByRole("button", { name: "添加单元", exact: true }).click();
+  await page.getByRole("button", { name: "添加课节", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: /^所属单元/ })).toHaveValue("unit-2");
+  await page.getByLabel(/^课节名称/).fill("流程编辑回归");
+  await page.getByRole("button", { name: "添加步骤", exact: true }).click();
+  const steps = page.locator(".visual-editor details");
+  await expect(steps).toHaveCount(2);
+  await steps.last().locator("summary").click();
+  await steps.last().getByLabel(/^显示标题/).fill("新增学习步骤");
+  await steps.last().getByRole("button", { name: "上移步骤 2", exact: true }).click();
+  await expect(steps.first().locator("summary")).toContainText("新增学习步骤");
+  await expect(page.locator(".lesson-sequence button[aria-pressed='true']")).toContainText("流程编辑回归");
+
 
   await expect(page.locator(".autosave-state.saved")).toContainText("修改已自动保存", { timeout: 5000 });
   const savedBeforeReload = await readStudioWorkingCopy(page) as { course?: { manifest?: { title?: Record<string, string> } } };
@@ -466,6 +479,10 @@ test("an author can turn material into a recoverable private visual draft", asyn
   await expect(page.getByRole("heading", { name: "城市散步", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "课节流程" }).click();
   await expect(page.getByRole("heading", { name: "课程单元与课节" })).toBeVisible();
+  await page.getByRole("button", { name: /流程编辑回归/ }).click();
+  await expect(page.getByLabel(/^课节名称/)).toHaveValue("流程编辑回归");
+  await expect(page.locator(".visual-editor details summary").first()).toContainText("新增学习步骤");
+  await page.locator(".visual-editor").screenshot({ path: testInfo.outputPath("flow-editor.png") });
   await expectResponsiveDocument(page);
   expect(problems).toEqual([]);
 });

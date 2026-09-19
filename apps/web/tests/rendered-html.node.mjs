@@ -5,13 +5,14 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("build contains the visual course studio and language pack workflow", async () => {
-  const [page, learnPage, studioPage, readme, userGuide, studio, contentEditor, studioStart, materialImportDialog, productGuide, dialogFocus, learnRoute, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, deviceBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
+  const [page, learnPage, studioPage, readme, userGuide, studio, flowEditor, contentEditor, studioStart, materialImportDialog, productGuide, dialogFocus, learnRoute, draftManager, languagePackManager, player, renderer, dashboard, courseLibraryPage, reviewPlayer, css, languagePack, languagePackFile, starterLibrary, courseLibrary, courseFile, draftLibrary, learnerBackup, deviceBackup, learning, courseAuthoring, courseTemplates, publishReadiness, deviceSync, deviceRepository, applicationWorkspace, applicationAuthoring, languageRuntime, ai, aiRoute, worker, nextConfig] = await Promise.all([
     readFile(new URL("app/page.tsx", root), "utf8"),
     readFile(new URL("app/learn/page.tsx", root), "utf8"),
     readFile(new URL("app/studio/page.tsx", root), "utf8"),
     readFile(new URL("../../README.md", root), "utf8"),
     readFile(new URL("../../docs/USER_GUIDE.md", root), "utf8"),
     readFile(new URL("app/course-studio.tsx", root), "utf8"),
+    readFile(new URL("app/studio/course-flow-editor.tsx", root), "utf8"),
     readFile(new URL("app/studio/course-content-editor.tsx", root), "utf8"),
     readFile(new URL("app/studio-start.tsx", root), "utf8"),
     readFile(new URL("app/material-import-dialog.tsx", root), "utf8"),
@@ -66,12 +67,12 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(contentEditor, /添加知识点/);
   assert.match(contentEditor, /添加例句/);
   assert.match(contentEditor, /添加练习/);
-  assert.match(studio, /添加课节/);
+  assert.match(flowEditor, /添加课节/);
   assert.match(studio, /selectedStudioLessonId/);
-  assert.match(studio, /课程课节顺序/);
-  assert.match(studio, /moveLessonStep/);
-  assert.match(studio, /课程单元与课节/);
-  assert.match(studio, /ReferencePicker/);
+  assert.match(flowEditor, /课程课节顺序/);
+  assert.match(flowEditor, /moveLessonStep/);
+  assert.match(flowEditor, /课程单元与课节/);
+  assert.match(flowEditor, /ReferencePicker/);
   assert.match(studio, /素材生成课程/);
   assert.doesNotMatch(studio, /课节 ID/);
   assert.doesNotMatch(studio, /关联知识点（逗号分隔）/);
@@ -150,7 +151,7 @@ test("build contains the visual course studio and language pack workflow", async
   assert.match(studio, /课程内容许可证/);
   assert.match(studio, /发布检查清单/);
   assert.match(studio, /从课程模板开始/);
-  assert.match(studio, /duplicateLesson/);
+  assert.match(flowEditor, /duplicateLesson/);
   assert.match(studio, /confirmCourseTrust/);
   assert.match(studio, /performDeviceSync/);
   assert.match(studio, /verifyPublishedCourseIntegrity/);
