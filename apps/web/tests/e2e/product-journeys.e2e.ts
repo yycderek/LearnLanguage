@@ -381,7 +381,7 @@ test("interface language follows the learner into the separate Studio space", as
   expect(problems).toEqual([]);
 });
 
-test("a non-technical author can create a new language, save a draft, and preview it", async ({ page }) => {
+test("a non-technical author can create a new language, save a draft, and preview it", async ({ page }, testInfo) => {
   const problems = observeBrowserProblems(page);
   await page.goto(`${origin}/studio`);
   await dismissFirstUseGuide(page);
@@ -402,6 +402,23 @@ test("a non-technical author can create a new language, save a draft, and previe
   await expect(page.getByRole("heading", { name: "意大利语咖啡店点单", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText(/已保存到当前设备 · 修订 1/)).toBeVisible();
+  await page.getByLabel(/^课程名称/).fill("");
+  await page.getByRole("button", { name: "处理：当前应用语言的标题与简介完整", exact: true }).click();
+  await expect(page.getByLabel(/^课程名称/)).toBeFocused();
+  await page.getByLabel(/^课程名称/).fill("意大利语咖啡店点单");
+  await page.getByRole("button", { name: "处理：已选择课程内容许可证", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: /^课程内容许可证/ })).toBeFocused();
+  await page.getByRole("combobox", { name: /^课程内容许可证/ }).selectOption("CC-BY-4.0");
+  await page.getByRole("button", { name: "查看发布检查", exact: true }).click();
+  await expect(page.locator("#studio-publish-checklist")).toBeFocused();
+  await page.locator("#studio-publish-checklist").screenshot({ path: testInfo.outputPath("publish-checks.png") });
+  await page.getByRole("button", { name: "校验并发布", exact: true }).click();
+  await expect(page.getByText("此版本已发布，只读。创建私人草稿后可继续编辑，原发布版本保持不变。", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "JSON", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "课程包 JSON", exact: true })).toHaveAttribute("readonly", "");
+  await page.getByRole("button", { name: "编辑此课程的副本", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "课程包 JSON", exact: true })).not.toHaveAttribute("readonly", "");
+
 
   await page.getByRole("button", { name: "预览学习流程" }).click();
   await expect(page.getByText("STUDIO PREVIEW", { exact: true })).toBeVisible();

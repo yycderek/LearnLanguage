@@ -61,6 +61,7 @@ import { LanguagePackManager } from "@/app/language-pack-manager";
 import { ReviewPlayer } from "@/app/review-player";
 import { ProductGuide, type ProductGuideAudience } from "@/app/product-guide";
 import { CourseContentEditor } from "@/app/studio/course-content-editor";
+import editorStyles from "@/app/studio/editor-tools.module.css";
 import { CourseFlowEditor } from "@/app/studio/course-flow-editor";
 import { StudioStart } from "@/app/studio-start";
 import { testAiConnection, type AiProvider, type AiSettings } from "@/lib/ai";
@@ -315,6 +316,13 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     : "选择、创建或导入目标语言后开始设计课程");
   const [editorMode, setEditorMode] = useState<"visual" | "json">("visual");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [editorFocus, setEditorFocus] = useState<{ id: string; request: number }>();
+  useEffect(() => {
+    if (!editorFocus) return;
+    const target = document.getElementById(editorFocus.id);
+    target?.focus();
+    target?.scrollIntoView({ block: "center", behavior: "instant" });
+  }, [editorFocus]);
   const [hydrated, setHydrated] = useState(false);
   const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [articleOpen, setArticleOpen] = useState(false);
@@ -538,6 +546,25 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   function closeProductGuide() {
     setGuideOpen(false);
     void putDeviceValue("preferences", PRODUCT_GUIDE_SEEN_KEY, true).catch(() => undefined);
+  }
+
+  function resolvePublishCheck(id: string) {
+    let target = "studio-publish-checklist";
+    setEditorMode("visual");
+    setEditorSection("overview");
+    if (id === "identity") {
+      setShowAdvanced(true);
+      target = course.manifest.id.trim() ? "studio-course-version" : "studio-course-id";
+    } else if (id === "localization") {
+      target = course.manifest.title[appLocale]?.trim() ? "studio-course-description" : "studio-course-title";
+    } else if (id === "license") target = "studio-course-license";
+    else if (id === "author" && course.manifest.author.id.trim()) target = "studio-course-author";
+    else if (id === "language") { setLanguageOpen(true); return; }
+    else if (id === "practice" || (id === "flow" && course.goals.length > 0)) {
+      setEditorSection(id === "practice" && course.exercises.length === 0 ? "exercises" : "flow");
+      target = "studio-visual-editor";
+    } else if (id !== "summary") { setEditorMode("json"); target = "studio-course-json"; }
+    setEditorFocus((previous) => ({ id: target, request: (previous?.request ?? 0) + 1 }));
   }
 
   function commitCourse(next: CoursePack, message = t("可视化修改已同步到课程包", "Visual changes synced to the Course Pack")) {
@@ -1686,26 +1713,31 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
               </div>
             </div>
 
+            {course.manifest.status === "published" ? (
+              <div className={editorStyles.undo}><span>{t("此版本已发布，只读。创建私人草稿后可继续编辑，原发布版本保持不变。", "This published version is read-only. Create a private draft to edit; the published version stays unchanged.")}</span><button type="button" onClick={forkCurrentCourse}>{t("编辑此课程的副本", "Edit a copy of this course")}</button></div>
+            ) : (
+              <div className={editorStyles.publishSummary}><span>{canPublish(publishReadiness) ? t("发布检查通过；保存草稿不会自动发布。", "Publishing checks passed. Saving a draft does not publish it.") : t("还有 " + publishReadiness.filter((check) => check.status === "blocked").length + " 项待完善；草稿仍可保存。", publishReadiness.filter((check) => check.status === "blocked").length + " items need attention. You can still save the draft.")}</span><button type="button" onClick={() => resolvePublishCheck("summary")}>{t("查看发布检查", "Review publishing checks")}</button></div>
+            )}
             {editorMode === "visual" ? (
               <>
                 <div className="section-tabs">
                   {sectionLabels.map(([id, chinese, english]) => <button key={id} className={editorSection === id ? "active" : ""} onClick={() => setEditorSection(id)}>{t(chinese, english)}</button>)}
                 </div>
-                <div className="visual-editor">
+                <div className="visual-editor" id="studio-visual-editor" tabIndex={-1}>
                   {editorSection === "overview" && (
                     <div className="form-section">
                       <div className="section-intro"><div><h3>{t("课程基本信息", "Course overview")}</h3><p>{t(`界面与课程内容已统一为${appLocale === "en" ? "英文" : "中文"}；切换右上角语言可维护另一版本。`, `The interface and course content are both using ${appLocale === "en" ? "English" : "Chinese"}. Use the Language selector to maintain the other version.`)}</p></div></div>
                       {course.manifest.status !== "published" && <div className="template-strip"><div><LayoutTemplate size={17} /><span><strong>{t("从课程模板开始", "Start from a course template")}</strong><small>{t("模板只创建可编辑内容，不会覆盖已保存草稿", "Templates create editable content and do not overwrite saved drafts")}</small></span></div><aside>{courseTemplates.map((template) => <button key={template.id} type="button" onClick={() => applyCourseTemplate(template.id)} title={t(template.descriptionZh, template.descriptionEn)}>{t(template.zh, template.en)}</button>)}</aside></div>}
                       <div className="form-grid two-column">
-                        {showAdvanced && <label><span>{t("课程 ID", "Course ID")}</span><input value={course.manifest.id} onChange={(event) => editCourse((next) => { next.manifest.id = event.target.value; })} /></label>}
-                        {showAdvanced && <label><span>{t("版本", "Version")}</span><input value={course.manifest.version} onChange={(event) => editCourse((next) => { next.manifest.version = event.target.value; })} /></label>}
-                        <label className="wide"><span>{t("课程名称", "Course title")}（{teachingLocale === "en" ? "English" : "中文"}）</span><input value={course.manifest.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.manifest.title[teachingLocale] = event.target.value; })} /></label>
-                        <label className="wide"><span>{t("课程简介", "Course description")}（{teachingLocale === "en" ? "English" : "中文"}）</span><textarea value={course.manifest.description[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.manifest.description[teachingLocale] = event.target.value; })} /></label>
+                        {showAdvanced && <label><span>{t("课程 ID", "Course ID")}</span><input id="studio-course-id" value={course.manifest.id} onChange={(event) => editCourse((next) => { next.manifest.id = event.target.value; })} /></label>}
+                        {showAdvanced && <label><span>{t("版本", "Version")}</span><input id="studio-course-version" value={course.manifest.version} onChange={(event) => editCourse((next) => { next.manifest.version = event.target.value; })} /></label>}
+                        <label className="wide"><span>{t("课程名称", "Course title")}（{teachingLocale === "en" ? "English" : "中文"}）</span><input id="studio-course-title" value={course.manifest.title[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.manifest.title[teachingLocale] = event.target.value; })} /></label>
+                        <label className="wide"><span>{t("课程简介", "Course description")}（{teachingLocale === "en" ? "English" : "中文"}）</span><textarea id="studio-course-description" value={course.manifest.description[teachingLocale] ?? ""} onChange={(event) => editCourse((next) => { next.manifest.description[teachingLocale] = event.target.value; })} /></label>
                         {showAdvanced && <label><span>{t("状态", "Status")}</span><input value={course.manifest.status === "published" ? t("已发布 · 只读", "Published · read-only") : t("草稿", "Draft")} readOnly /></label>}
-                        <label><span>{t("作者显示名", "Author display name")}</span><input value={course.manifest.author.displayName} onChange={(event) => editCourse((next) => { next.manifest.author.displayName = event.target.value; })} /></label>
-                        <label><span>{t("课程内容许可证", "Course content license")}</span><select value={course.manifest.license?.id ?? ""} onChange={(event) => editCourse((next) => { const id = event.target.value; if (id) next.manifest.license = { id }; else delete next.manifest.license; })}><option value="">{t("发布前必须选择", "Required before publishing")}</option><option value="CC-BY-4.0">CC BY 4.0</option><option value="CC-BY-SA-4.0">CC BY-SA 4.0</option><option value="CC0-1.0">CC0 1.0</option><option value="ARR">{t("保留所有权利", "All rights reserved")}</option></select></label>
+                        <label><span>{t("作者显示名", "Author display name")}</span><input id="studio-course-author" value={course.manifest.author.displayName} onChange={(event) => editCourse((next) => { next.manifest.author.displayName = event.target.value; })} /></label>
+                        <label><span>{t("课程内容许可证", "Course content license")}</span><select id="studio-course-license" value={course.manifest.license?.id ?? ""} onChange={(event) => editCourse((next) => { const id = event.target.value; if (id) next.manifest.license = { id }; else delete next.manifest.license; })}><option value="">{t("发布前必须选择", "Required before publishing")}</option><option value="CC-BY-4.0">CC BY 4.0</option><option value="CC-BY-SA-4.0">CC BY-SA 4.0</option><option value="CC0-1.0">CC0 1.0</option><option value="ARR">{t("保留所有权利", "All rights reserved")}</option></select></label>
                       </div>
-                      {course.manifest.status !== "published" && <section className="publish-checklist"><header><div><ClipboardCheck size={18} /><span><strong>{t("发布检查清单", "Publishing checklist")}</strong><small>{t("阻塞项全部完成后才可发布；建议项不会阻止发布", "Complete every blocker before publishing; recommendations do not block publishing")}</small></span></div><em className={canPublish(publishReadiness) ? "ready" : "blocked"}>{canPublish(publishReadiness) ? t("可以发布", "Ready") : t("需要完善", "Needs work")}</em></header><div>{publishReadiness.map((check) => <p className={check.status} key={check.id}>{check.status === "pass" ? <Check size={14} /> : <TriangleAlert size={14} />}<span>{t(check.zh, check.en)}</span></p>)}</div></section>}
+                      {course.manifest.status !== "published" && <section className="publish-checklist" id="studio-publish-checklist" tabIndex={-1}><header><div><ClipboardCheck size={18} /><span><strong>{t("发布检查清单", "Publishing checklist")}</strong><small>{t("阻塞项全部完成后才可发布；建议项不会阻止发布", "Complete every blocker before publishing; recommendations do not block publishing")}</small></span></div><em className={canPublish(publishReadiness) ? "ready" : "blocked"}>{canPublish(publishReadiness) ? t("可以发布", "Ready") : t("需要完善", "Needs work")}</em></header><div>{publishReadiness.map((check) => <p className={check.status} key={check.id}>{check.status === "pass" ? <Check size={14} /> : <TriangleAlert size={14} />}<span>{t(check.zh, check.en)}</span>{check.status !== "pass" && <button className={editorStyles.checkAction} type="button" onClick={() => resolvePublishCheck(check.id)} aria-label={t("处理：", "Resolve: ") + t(check.zh, check.en)}>{t("去完善", "Resolve")}<ChevronRight size={14} /></button>}</p>)}</div></section>}
                     </div>
                   )}
 
@@ -1728,7 +1760,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
             ) : (
               <>
                 <div className="editor-toolbar"><div><FileJson size={16} /><span>{course.manifest.id}.json</span></div><span>{t(`${source.split("\n").length} 行`, `${source.split("\n").length} lines`)}</span></div>
-                <textarea className="json-source" aria-label={t("课程包 JSON", "Course Pack JSON")} value={source} onChange={(event) => setSource(event.target.value)} spellCheck={false} />
+                <textarea id="studio-course-json" readOnly={course.manifest.status === "published"} className="json-source" aria-label={t("课程包 JSON", "Course Pack JSON")} value={source} onChange={(event) => setSource(event.target.value)} spellCheck={false} />
                 <div className="editor-footer"><button className="primary-button" onClick={importSource}><Braces size={16} />{t("校验并预览", "Validate and preview")}</button><span>{t("支持任何符合 Course Pack v2 的语言内容", "Supports content in any language that follows Course Pack v2")}</span></div>
               </>
             )}

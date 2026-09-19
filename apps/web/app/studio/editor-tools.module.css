@@ -13,3 +13,8 @@
 :global(.form-grid[hidden]) { display: none; }
 .referenceSearch { display: grid; gap: 6px; margin-bottom: 12px; }
 @media (max-width: 720px) { .toggle span:last-child { max-width: 16ch; } .toolbar button, .undo button { min-height: 44px; } }
+.publishSummary { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.6; }
+.publishSummary button, .checkAction { min-height: 40px; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--primary); background: white; cursor: pointer; font-size: 13px; }
+.checkAction { margin-left: auto; flex-shrink: 0; }
+:global(.publish-checklist p) { flex-wrap: wrap; }
+:global(#studio-publish-checklist:focus-visible), :global(#studio-visual-editor:focus-visible) { outline: 2px solid var(--primary); outline-offset: -2px; }
