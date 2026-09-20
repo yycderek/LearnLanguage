@@ -445,7 +445,7 @@ export function LearningPlayer({
         <article className="learning-card">
           <div className="learning-heading"><span className="phase-badge">{c(...learnerStageNames[learnerStages[activeStageIndex]?.id ?? "learn"])} · {phaseNames[currentStep.phase] ? c(...phaseNames[currentStep.phase]) : currentStep.phase}</span><h1>{displayText(currentStep.title, teachingLocale)}</h1><p>{exercise ? displayText(exercise.prompt, teachingLocale) : c("阅读并理解下面的课程内容，然后继续。", "Read and understand the lesson content, then continue.")}</p></div>
 
-          {(knowledge.length > 0 || utterances.length > 0) && (
+          {(currentStep.phase !== "diagnostic" || !exercise || showSupport || feedback?.kind === "success" || feedback?.kind === "review") && (knowledge.length > 0 || utterances.length > 0) && (
             <div className="learning-content">
               {knowledge.length > 0 && <div className="knowledge-learning-grid">{knowledge.map((item) => item && <div className="knowledge-learning-card" key={item.id}><span>{item.kind}</span><strong>{item.form}</strong>{(showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.meaning, teachingLocale)}</p>}</div>)}</div>}
               {utterances.map((item) => item && <div className="utterance-learning-card" key={item.id}><BookOpenCheck size={18} /><div className="utterance-learning-copy"><strong>{item.text}</strong>{item.translation && (showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.translation, teachingLocale)}</p>}<PronunciationControls text={item.text} languageId={course.manifest.languageId} locale={locale} preference={pronunciationPreference} /></div></div>)}

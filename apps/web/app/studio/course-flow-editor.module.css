@@ -1,4 +1,4 @@
-.editor { min-width: 0; }
+.editor { min-width: 0; --muted: #586579; }
 .editor .sectionTitle { margin: 28px 0 12px; color: var(--ink); font-size: 15px; font-weight: 700; }
 .editor :global(.section-intro) { align-items: flex-start; gap: 16px; }
 .editor :global(.section-intro p) { max-width: 65ch; font-size: 14px; line-height: 1.6; }

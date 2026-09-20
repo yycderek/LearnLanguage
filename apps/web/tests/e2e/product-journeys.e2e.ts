@@ -331,6 +331,10 @@ test("first course start saves an optional personal plan before entering the lea
   await page.getByRole("button", { name: "跳过评估，从第一课开始" }).click();
   await expect(page.getByRole("heading", { name: "你的第一周路线已经准备好" })).toBeVisible();
   await page.getByRole("button", { name: "保存计划并开始" }).click();
+  await expect(page.locator(".learning-content")).toHaveCount(0);
+  await page.getByRole("button", { name: "查看提示", exact: true }).click();
+  await expect(page.locator(".learning-content")).toBeVisible();
+
   await expect(page.getByRole("button", { name: "保存并退出" })).toBeVisible();
   await expect(page.locator(".learner-shell")).toBeVisible();
   await expect(page.getByRole("button", { name: "朗读" }).first()).toBeEnabled();
