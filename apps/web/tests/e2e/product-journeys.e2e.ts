@@ -418,6 +418,15 @@ test("a non-technical author can create a new language, save a draft, and previe
   await page.locator("#studio-publish-checklist").screenshot({ path: testInfo.outputPath("publish-checks.png") });
   await page.getByRole("button", { name: "校验并发布", exact: true }).click();
   await expect(page.getByText("此版本已发布，只读。创建私人草稿后可继续编辑，原发布版本保持不变。", { exact: true })).toBeVisible();
+  await expect(page.getByLabel(/^课程名称/)).toHaveAttribute("readonly", "");
+  await expect(page.getByLabel(/^课程内容许可证/)).toBeDisabled();
+  await page.getByRole("button", { name: "知识点", exact: true }).click();
+  await expect(page.getByRole("button", { name: "知识点", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "添加知识点", exact: true })).toBeDisabled();
+  await expect(page.getByLabel("搜索当前内容", { exact: true })).toBeEditable();
+  await page.getByRole("button", { name: "课节流程", exact: true }).click();
+  await expect(page.getByRole("button", { name: "添加课节", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "复制当前课节", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "JSON", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "课程包 JSON", exact: true })).toHaveAttribute("readonly", "");
   await page.getByRole("button", { name: "编辑此课程的副本", exact: true }).click();

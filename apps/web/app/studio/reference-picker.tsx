@@ -7,6 +7,7 @@ import { Check } from "lucide-react";
 
 export function ReferencePicker({
   locale,
+  disabled = false,
   label,
   options,
   selected,
@@ -14,6 +15,7 @@ export function ReferencePicker({
   onChange,
 }: {
   locale: AppLocale;
+  disabled?: boolean;
   label: string;
   options: Array<{ id: string; label: string }>;
   selected: string[];
@@ -33,6 +35,7 @@ export function ReferencePicker({
         return (
           <button
             type="button"
+            disabled={disabled}
             key={option.id}
             className={active ? "selected" : ""}
             aria-pressed={active}

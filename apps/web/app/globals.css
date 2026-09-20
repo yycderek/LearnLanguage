@@ -1798,3 +1798,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   :where(button:not(:disabled), a[href]):active,
   .learning-journey-map li:not(.locked):hover > span { transform: none; }
 }
+
+/* Published courses remain readable and selectable, without editable affordances. */
+.editor-panel input[readonly], .editor-panel textarea[readonly] { background-color: var(--surface-page); }
+.editor-panel button:disabled, .editor-panel select:disabled { cursor: not-allowed; opacity: .65; }
