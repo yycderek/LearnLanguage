@@ -1,5 +1,7 @@
 "use client";
 
+import { LanguageSearch, useLanguageSearch } from "@/app/language-search";
+
 import {
   ArrowLeft,
   BookOpen,
@@ -40,6 +42,7 @@ export function LanguagePackManager({
   onExport: (pack: LanguagePack) => void;
   onDelete: (pack: LanguagePack) => void;
 }) {
+  const languageSearch = useLanguageSearch(packs);
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
   const customCount = packs.filter((pack) => !builtInIds.has(pack.id)).length;
 
@@ -62,8 +65,9 @@ export function LanguagePackManager({
         <p><ShieldCheck size={14} />{notice}</p>
       </section>
 
+      <LanguageSearch locale={locale} {...languageSearch} count={languageSearch.filtered.length} />
       <section className="language-library-grid">
-        {packs.map((pack) => {
+        {languageSearch.filtered.map((pack) => {
           const builtIn = builtInIds.has(pack.id);
           const usage = usageFor(pack.id);
           const primaryScript = pack.scripts.find((script) => script.primary) ?? pack.scripts[0];

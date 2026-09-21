@@ -1,5 +1,7 @@
 "use client";
 
+import { LanguageSearch, useLanguageSearch } from "@/app/language-search";
+
 import { BookOpen, FileText, FileUp, GraduationCap, Languages, Plus, Sparkles } from "lucide-react";
 import { uiText, type AppLocale } from "@/lib/i18n";
 import { languageName, type LanguagePack } from "@/lib/language-pack";
@@ -25,6 +27,7 @@ export function StudioStart({
   onUseLanguage: (pack: LanguagePack) => void;
   onOpenDrafts: () => void;
 }) {
+  const languageSearch = useLanguageSearch(packs);
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
 
   return (
@@ -68,7 +71,8 @@ export function StudioStart({
 
         <section className="studio-ready-languages">
           <div><span><Sparkles size={17} /></span><div><strong>{c("从现有语言示例开始", "Start from an available language example")}</strong><p>{c("这些只是现成示例，不代表平台只支持这些语言。", "These are ready-made examples, not the limit of languages the platform supports.")}</p></div></div>
-          <aside>{packs.map((pack) => <button key={pack.id} onClick={() => onUseLanguage(pack)}><span>{pack.accent ?? pack.id.slice(0, 2).toUpperCase()}</span><strong>{languageName(pack, locale)}</strong><small>{languageName(pack, "native")}</small></button>)}</aside>
+          <LanguageSearch locale={locale} {...languageSearch} count={languageSearch.filtered.length} />
+          <aside>{languageSearch.filtered.map((pack) => <button key={pack.id} onClick={() => onUseLanguage(pack)}><span>{pack.accent ?? pack.id.slice(0, 2).toUpperCase()}</span><strong>{languageName(pack, locale)}</strong><small>{languageName(pack, "native")}</small></button>)}</aside>
         </section>
       </div>
     </section>

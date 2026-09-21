@@ -1836,3 +1836,25 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .flow-panel.studio-disclosure > summary { padding: 18px; }
 .flow-panel.studio-disclosure > .panel-heading { display: none; }
 @media (max-width: 720px) { .studio-disclosure > summary { min-height: 44px; } }
+
+/* Studio secondary tools and language discovery */
+.studio-tools { position: relative; }
+.studio-tools summary { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; font-size: 14px; cursor: pointer; list-style: none; }
+.studio-tools summary::-webkit-details-marker { display: none; }
+.studio-tools[open] summary { background: var(--primary-soft); color: var(--primary); }
+.studio-tools-content { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; width: 300px; max-width: calc(100vw - 58px); display: grid; gap: 12px; padding: 16px; background: white; border: 1px solid var(--line); border-radius: 12px; }
+.studio-tools-content label { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px; }
+.studio-tools-content select { min-height: 44px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); font-size: 16px; }
+.studio-tools-content button { justify-content: flex-start; }
+.studio-tools-content button span { margin-left: auto; font-size: 12px; color: var(--muted); }
+.language-search, .studio-ready-languages > .language-search { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.language-search label { display: grid; gap: 6px; min-width: 0; flex: 1 1 180px; font-size: 13px; }
+.language-search input { width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: white; font-size: 16px; }
+.language-search button { min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--primary); cursor: pointer; }
+.language-search > span, .studio-ready-languages > .language-search > span { display: block; flex: 0 0 100%; width: auto; height: auto; background: transparent; color: var(--muted); font-size: 13px; }
+.sidebar > .language-search { color: #e1e8ef; }
+.sidebar > .language-search > span { color: #b4c2d0; }
+.studio-ready-languages { flex-wrap: wrap; }
+.studio-ready-languages > .language-search { flex-basis: 100%; }
+.studio-ready-languages aside { flex-wrap: wrap; }
+@media (max-width: 720px) { .sidebar > .language-search { display: none; } .studio-tools-content { left: 0; right: auto; } }

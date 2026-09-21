@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { StudioTools } from "@/app/studio/studio-tools";
+import { LanguageSearch, useLanguageSearch } from "@/app/language-search";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -27,11 +29,9 @@ import type { SyncConflict } from "@learn-language/protocol";
 import { assessCourseLanguageCompatibility, languageAdapterPin, type LanguageCompatibilityReport } from "@learn-language/language-runtime";
 import {
   BookOpen,
-  Bot,
   Braces,
   Check,
   ChevronRight,
-  CircleHelp,
   ClipboardCheck,
   Clock3,
   FileJson,
@@ -305,6 +305,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const [studioStarted, setStudioStarted] = useState(space === "learn");
   const [language, setLanguage] = useState("");
   const [languagePacks, setLanguagePacks] = useState<LanguagePack[]>(builtInLanguagePacks);
+  const languageSearch = useLanguageSearch(languagePacks);
   const [source, setSource] = useState(() => JSON.stringify(sampleCourse("und", "Target language"), null, 2));
   const [course, setCourse] = useState<CoursePack>(() => sampleCourse("und", "Target language"));
   const [issues, setIssues] = useState<ImportIssue[]>([]);
@@ -1654,9 +1655,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
           <button className="nav-item" onClick={() => setLearningView("languages")}><Languages size={18} /><span>{t("语言包管理", "Language Packs")}</span><em>{languagePacks.length}</em></button>
         </nav>
         <div className="section-label">{t("目标语言", "Target language")}</div>
+        <LanguageSearch locale={appLocale} {...languageSearch} count={languageSearch.filtered.length} />
         <div className="language-list">
-          {languagePacks.map((item) => (
-            <button key={item.id} className={`language-button ${language === item.id ? "selected" : ""}`} onClick={() => loadLanguage(item)}>
+          {languageSearch.filtered.map((item) => (
+            <button aria-pressed={language === item.id} key={item.id} className={`language-button ${language === item.id ? "selected" : ""}`} onClick={() => loadLanguage(item)}>
               <span className="language-glyph">{item.accent}</span>
               <span><strong>{languageName(item, "native")}</strong><small>{languageName(item, uiLocale)}</small></span>
               {language === item.id && <Check size={16} />}
@@ -1686,10 +1688,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
             <h1>{displayText(course.manifest.title, teachingLocale)}</h1>
           </div>
           <div className="top-actions">
-            <div className="locale-selectors studio-locale-selectors"><label className="teaching-language-select"><Languages size={16} /><span>{t("界面与讲解", "Interface & instruction")}</span><select aria-label={t("界面与讲解语言", "Interface and instruction language")} value={appLocale} onChange={(event) => changeAppLocale(event.target.value as AppLocale)}><option value="zh-CN">中文</option><option value="en">English</option></select></label></div>
-            <button className="outline-button help-button" onClick={() => openProductGuide("studio")}><CircleHelp size={17} />{t("使用帮助", "Guide")}</button>
+            <StudioTools locale={appLocale} aiConfigured={aiConfigured} onLocaleChange={changeAppLocale} onGuide={() => openProductGuide("studio")} onAI={() => { setAiReturnView(undefined); setAiOpen(true); }} />
             <button className="outline-button" onClick={openArticleImporter}><FileText size={17} />{t("素材生成课程", "Materials to course")}</button>
-            <button className="ai-button" onClick={() => { setAiReturnView(undefined); setAiOpen(true); }}><Bot size={17} />{t("AI 设置", "AI settings")}<span className={`ai-state ${aiConfigured ? "configured" : ""}`} /></button>
             {course.manifest.status === "published" ? <><button className="outline-button" onClick={installCurrentCourse}><GraduationCap size={17} />{t("安装到学习空间", "Install in Learn")}</button><button className="save-button" onClick={forkCurrentCourse}><RotateCcw size={17} />{t("创建派生草稿", "Create derived draft")}</button></> : <><button className="outline-button" onClick={publishCurrentCourse} disabled={publishing}>{publishing ? t("正在发布…", "Publishing…") : t("校验并发布", "Validate and publish")}</button><button className="save-button" onClick={saveDraft} disabled={saving}><Save size={17} />{saving ? t("正在保存…", "Saving…") : t("保存草稿", "Save draft")}</button></>}
           </div>
         </header>
@@ -1724,7 +1724,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                 <div className="visual-editor" id="studio-visual-editor" tabIndex={-1}>
                   {editorSection === "overview" && (
                     <div className="form-section">
-                      <div className="section-intro"><div><h3>{t("课程基本信息", "Course overview")}</h3><p>{t(`界面与课程内容已统一为${appLocale === "en" ? "英文" : "中文"}；切换右上角语言可维护另一版本。`, `The interface and course content are both using ${appLocale === "en" ? "English" : "Chinese"}. Use the Language selector to maintain the other version.`)}</p></div></div>
+                      <div className="section-intro"><div><h3>{t("课程基本信息", "Course overview")}</h3><p>{t(`界面与课程内容已统一为${appLocale === "en" ? "英文" : "中文"}；在“工具与设置”中切换语言，可维护另一版本。`, `The interface and course content are both using ${appLocale === "en" ? "English" : "Chinese"}. Change the language in Tools & settings to maintain the other version.`)}</p></div></div>
                       {course.manifest.status !== "published" && <details className="studio-disclosure"><summary>{t("使用课程模板", "Use a course template")}</summary><div className="template-strip"><div><LayoutTemplate size={17} /><span><strong>{t("从课程模板开始", "Start from a course template")}</strong><small>{t("模板只创建可编辑内容，不会覆盖已保存草稿", "Templates create editable content and do not overwrite saved drafts")}</small></span></div><aside>{courseTemplates.map((template) => <button key={template.id} type="button" onClick={() => applyCourseTemplate(template.id)} title={t(template.descriptionZh, template.descriptionEn)}>{t(template.zh, template.en)}</button>)}</aside></div></details>}
                       <div className="form-grid two-column">
                         {showAdvanced && <label><span>{t("课程 ID", "Course ID")}</span><input readOnly={course.manifest.status === "published"} id="studio-course-id" value={course.manifest.id} onChange={(event) => editCourse((next) => { next.manifest.id = event.target.value; })} /></label>}
