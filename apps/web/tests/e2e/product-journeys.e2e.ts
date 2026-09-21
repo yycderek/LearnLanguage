@@ -406,6 +406,14 @@ test("a non-technical author can create a new language, save a draft, and previe
   await expect(page.getByRole("heading", { name: "意大利语咖啡店点单", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText(/已保存到当前设备 · 修订 1/)).toBeVisible();
+  await page.getByLabel(/^课程名称/).fill("LongUnbrokenCourseTitle".repeat(15));
+  await expectResponsiveDocument(page);
+  if (testInfo.project.name.startsWith("mobile")) {
+    for (const name of ["保存草稿", "校验并发布", "可视化", "JSON", "基本信息", "查看发布检查"]) {
+      const box = await page.getByRole("button", { name, exact: true }).boundingBox();
+      expect(box?.height, name).toBeGreaterThanOrEqual(44);
+    }
+  }
   await page.getByLabel(/^课程名称/).fill("");
   await page.getByRole("button", { name: "处理：当前应用语言的标题与简介完整", exact: true }).click();
   await expect(page.getByLabel(/^课程名称/)).toBeFocused();

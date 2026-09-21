@@ -1802,3 +1802,27 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 /* Published courses remain readable and selectable, without editable affordances. */
 .editor-panel input[readonly], .editor-panel textarea[readonly] { background-color: var(--surface-page); }
 .editor-panel button:disabled, .editor-panel select:disabled { cursor: not-allowed; opacity: .65; }
+
+/* Shared authoring scale and resilient content widths. */
+.topbar { flex-wrap: wrap; gap: 16px; }
+.topbar > div, .work-grid > *, .course-info, .course-info > *, .editor-heading > div { min-width: 0; }
+.topbar > div:first-child { flex: 1 1 240px; }
+.topbar h1, .course-info h2, .course-info > p, .selected-lesson-heading strong { overflow-wrap: anywhere; }
+.top-actions { flex-wrap: wrap; }
+.editor-heading { flex-wrap: wrap; gap: 12px; }
+.mode-switch { flex-wrap: wrap; }
+.workspace .form-grid label > span, .workspace .reference-picker legend { font-size: 13px; }
+.workspace .form-grid input, .workspace .form-grid textarea, .workspace .form-grid select { font-size: 14px; }
+.workspace .section-intro p, .course-info > p { font-size: 14px; line-height: 1.6; }
+.workspace .top-actions button, .workspace .mode-switch button, .workspace .section-tabs button,
+.adaptive-agenda-items button, .lesson-directory-row > button { font-size: 14px; }
+@media (max-width: 720px) {
+  .workspace .top-actions { width: 100%; }
+  .workspace .top-actions button, .workspace .editor-panel button,
+  .workspace .form-grid input, .workspace .form-grid select, .workspace .reference-picker button { min-height: 44px; }
+  .workspace .edit-card-heading > button { min-width: 44px; height: auto; }
+  .workspace .form-grid input, .workspace .form-grid textarea, .workspace .form-grid select,
+  .workspace input[type="search"] { font-size: 16px; }
+  .workspace .section-intro p, .course-info > p { font-size: 16px; }
+  .workspace .section-tabs { flex-wrap: wrap; }
+}
