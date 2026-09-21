@@ -131,6 +131,7 @@ import {
   languagePackUsage,
   MAX_LANGUAGE_PACK_FILE_BYTES,
   parseLanguagePackFile,
+  suggestLanguageId,
   serializeLanguagePackFile,
 } from "@/lib/language-pack-file";
 import {
@@ -217,7 +218,7 @@ const defaultLanguageForm: LanguageForm = {
   zhName: "",
   enName: "",
   nativeName: "",
-  accent: "Aa",
+  accent: "",
   scriptCode: "Latn",
   direction: "ltr",
 };
@@ -316,6 +317,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     : "选择、创建或导入目标语言后开始设计课程");
   const [editorMode, setEditorMode] = useState<"visual" | "json">("visual");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [publishChecksOpen, setPublishChecksOpen] = useState(false);
   const [editorFocus, setEditorFocus] = useState<{ id: string; request: number }>();
   useEffect(() => {
     if (!editorFocus) return;
@@ -549,6 +551,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   function resolvePublishCheck(id: string) {
+    setPublishChecksOpen(true);
     let target = "studio-publish-checklist";
     setEditorMode("visual");
     setEditorSection("overview");
@@ -777,11 +780,6 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
 
     const existingRecord = recordsByCourse[selected.manifest.id];
     const existingPlan = plansByCourse[selected.manifest.id];
-    if (!existingRecord && !existingPlan) {
-      setSelectedLessonId(undefined);
-      setLearningView("plan");
-      return;
-    }
 
     const record = existingRecord ?? createCourseLearningRecord(selected);
     const activeLesson = selected.lessons.find((lesson) => record.lessonProgress[lesson.id]?.status === "active");
@@ -1509,13 +1507,13 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     if (languageMode === "quick") {
       json = JSON.stringify({
         schemaVersion: 1,
-        id: languageForm.id.trim(),
+        id: languageForm.id.trim() || suggestLanguageId(languageForm.enName, languagePacks.map((pack) => pack.id)),
         name: {
           "zh-CN": languageForm.zhName.trim(),
           en: languageForm.enName.trim(),
           native: languageForm.nativeName.trim() || languageForm.enName.trim() || languageForm.zhName.trim(),
         },
-        accent: languageForm.accent.trim(),
+        accent: languageForm.accent.trim() || (languageForm.nativeName.trim() || languageForm.enName.trim() || languageForm.zhName.trim()).slice(0, 2),
         scripts: [{ code: languageForm.scriptCode.trim(), name: { "zh-CN": languageForm.scriptCode.trim() }, direction: languageForm.direction, primary: true }],
         readingSystems: [],
         segmentation: { strategy: languageForm.scriptCode === "Latn" ? "whitespace" : "grapheme" },
@@ -1727,7 +1725,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                   {editorSection === "overview" && (
                     <div className="form-section">
                       <div className="section-intro"><div><h3>{t("课程基本信息", "Course overview")}</h3><p>{t(`界面与课程内容已统一为${appLocale === "en" ? "英文" : "中文"}；切换右上角语言可维护另一版本。`, `The interface and course content are both using ${appLocale === "en" ? "English" : "Chinese"}. Use the Language selector to maintain the other version.`)}</p></div></div>
-                      {course.manifest.status !== "published" && <div className="template-strip"><div><LayoutTemplate size={17} /><span><strong>{t("从课程模板开始", "Start from a course template")}</strong><small>{t("模板只创建可编辑内容，不会覆盖已保存草稿", "Templates create editable content and do not overwrite saved drafts")}</small></span></div><aside>{courseTemplates.map((template) => <button key={template.id} type="button" onClick={() => applyCourseTemplate(template.id)} title={t(template.descriptionZh, template.descriptionEn)}>{t(template.zh, template.en)}</button>)}</aside></div>}
+                      {course.manifest.status !== "published" && <details className="studio-disclosure"><summary>{t("使用课程模板", "Use a course template")}</summary><div className="template-strip"><div><LayoutTemplate size={17} /><span><strong>{t("从课程模板开始", "Start from a course template")}</strong><small>{t("模板只创建可编辑内容，不会覆盖已保存草稿", "Templates create editable content and do not overwrite saved drafts")}</small></span></div><aside>{courseTemplates.map((template) => <button key={template.id} type="button" onClick={() => applyCourseTemplate(template.id)} title={t(template.descriptionZh, template.descriptionEn)}>{t(template.zh, template.en)}</button>)}</aside></div></details>}
                       <div className="form-grid two-column">
                         {showAdvanced && <label><span>{t("课程 ID", "Course ID")}</span><input readOnly={course.manifest.status === "published"} id="studio-course-id" value={course.manifest.id} onChange={(event) => editCourse((next) => { next.manifest.id = event.target.value; })} /></label>}
                         {showAdvanced && <label><span>{t("版本", "Version")}</span><input readOnly={course.manifest.status === "published"} id="studio-course-version" value={course.manifest.version} onChange={(event) => editCourse((next) => { next.manifest.version = event.target.value; })} /></label>}
@@ -1737,7 +1735,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                         <label><span>{t("作者显示名", "Author display name")}</span><input readOnly={course.manifest.status === "published"} id="studio-course-author" value={course.manifest.author.displayName} onChange={(event) => editCourse((next) => { next.manifest.author.displayName = event.target.value; })} /></label>
                         <label><span>{t("课程内容许可证", "Course content license")}</span><select disabled={course.manifest.status === "published"} id="studio-course-license" value={course.manifest.license?.id ?? ""} onChange={(event) => editCourse((next) => { const id = event.target.value; if (id) next.manifest.license = { id }; else delete next.manifest.license; })}><option value="">{t("发布前必须选择", "Required before publishing")}</option><option value="CC-BY-4.0">CC BY 4.0</option><option value="CC-BY-SA-4.0">CC BY-SA 4.0</option><option value="CC0-1.0">CC0 1.0</option><option value="ARR">{t("保留所有权利", "All rights reserved")}</option></select></label>
                       </div>
-                      {course.manifest.status !== "published" && <section className="publish-checklist" id="studio-publish-checklist" tabIndex={-1}><header><div><ClipboardCheck size={18} /><span><strong>{t("发布检查清单", "Publishing checklist")}</strong><small>{t("阻塞项全部完成后才可发布；建议项不会阻止发布", "Complete every blocker before publishing; recommendations do not block publishing")}</small></span></div><em className={canPublish(publishReadiness) ? "ready" : "blocked"}>{canPublish(publishReadiness) ? t("可以发布", "Ready") : t("需要完善", "Needs work")}</em></header><div>{publishReadiness.map((check) => <p className={check.status} key={check.id}>{check.status === "pass" ? <Check size={14} /> : <TriangleAlert size={14} />}<span>{t(check.zh, check.en)}</span>{check.status !== "pass" && <button className={editorStyles.checkAction} type="button" onClick={() => resolvePublishCheck(check.id)} aria-label={t("处理：", "Resolve: ") + t(check.zh, check.en)}>{t("去完善", "Resolve")}<ChevronRight size={14} /></button>}</p>)}</div></section>}
+                      {course.manifest.status !== "published" && <details className="studio-disclosure" open={publishChecksOpen} onToggle={(event) => setPublishChecksOpen(event.currentTarget.open)}><summary>{t("发布检查明细", "Publishing check details")}</summary><section className="publish-checklist" id="studio-publish-checklist" tabIndex={-1}><header><div><ClipboardCheck size={18} /><span><strong>{t("发布检查清单", "Publishing checklist")}</strong><small>{t("阻塞项全部完成后才可发布；建议项不会阻止发布", "Complete every blocker before publishing; recommendations do not block publishing")}</small></span></div><em className={canPublish(publishReadiness) ? "ready" : "blocked"}>{canPublish(publishReadiness) ? t("可以发布", "Ready") : t("需要完善", "Needs work")}</em></header><div>{publishReadiness.map((check) => <p className={check.status} key={check.id}>{check.status === "pass" ? <Check size={14} /> : <TriangleAlert size={14} />}<span>{t(check.zh, check.en)}</span>{check.status !== "pass" && <button className={editorStyles.checkAction} type="button" onClick={() => resolvePublishCheck(check.id)} aria-label={t("处理：", "Resolve: ") + t(check.zh, check.en)}>{t("去完善", "Resolve")}<ChevronRight size={14} /></button>}</p>)}</div></section></details>}
                     </div>
                   )}
 
@@ -1787,10 +1785,11 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
                 </div>
               </div>
             </section>
-            <section className="flow-panel panel">
+            <details className="flow-panel panel studio-disclosure">
+              <summary>{t("课程流程预览", "Course flow preview")} · {flow.length}</summary>
               <div className="panel-heading"><div><span className="kicker">LEARNING FLOW</span><h2>{t("课程流程预览", "Course flow preview")}</h2></div><span className="count-badge">{t(`${flow.length} 步`, `${flow.length} steps`)}</span></div>
               <div className="flow-list">{flow.map((step, index) => <div className="flow-step" key={`${step.id}-${index}`}><div className="step-index">{String(index + 1).padStart(2, "0")}</div><div><strong>{displayText(step.title, teachingLocale)}</strong><span>{step.phase}</span></div>{index < flow.length - 1 && <ChevronRight size={15} />}</div>)}</div>
-            </section>
+            </details>
             <section className="history-panel panel">
               <div className="panel-heading"><div><span className="kicker">VERSION HISTORY</span><h2>{t("当前设备的修订", "Revisions on this device")}</h2></div></div>
               {history.length === 0 ? <div className="empty-history"><Clock3 size={20} /><p>{t("保存草稿后，修订记录会保留在这个浏览器中。", "Saved draft revisions will appear here in this browser.")}</p></div> : <div className="history-list">{history.slice(0, 4).map((item) => <button key={`${item.draftId}-${item.revision}`} onClick={() => restore(item)}><span className="revision">v{item.revision}</span><span><strong>{item.title}</strong><small>{new Date(item.updatedAt).toLocaleString(uiLocale === "en" ? "en-US" : "zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</small></span><RotateCcw size={14} /></button>)}</div>}
@@ -1810,13 +1809,19 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
             <div className="dialog-body">
               {languageMode === "quick" ? (
                 <div className="form-grid two-column">
-                  <label><span>{t("语言 ID", "Language ID")}</span><input value={languageForm.id} onChange={(event) => setLanguageForm((current) => ({ ...current, id: event.target.value }))} placeholder={t("例如：fr 或 ar-EG", "For example: fr or ar-EG")} /></label>
-                  <label><span>{t("语言符号", "Language badge")}</span><input value={languageForm.accent} maxLength={2} onChange={(event) => setLanguageForm((current) => ({ ...current, accent: event.target.value }))} placeholder="Fr" /></label>
                   <label><span>{t("中文名称", "Chinese name")}</span><input value={languageForm.zhName} onChange={(event) => setLanguageForm((current) => ({ ...current, zhName: event.target.value }))} placeholder={t("例如：法语", "For example: 法语")} /></label>
                   <label><span>{t("英文名称", "English name")}</span><input value={languageForm.enName} onChange={(event) => setLanguageForm((current) => ({ ...current, enName: event.target.value }))} placeholder={t("例如：French", "For example: French")} /></label>
                   <label><span>{t("本地名称", "Native name")}</span><input value={languageForm.nativeName} onChange={(event) => setLanguageForm((current) => ({ ...current, nativeName: event.target.value }))} placeholder={t("例如：Français", "For example: Français")} /></label>
-                  <label><span>{t("书写系统代码", "Script code")}</span><input value={languageForm.scriptCode} onChange={(event) => setLanguageForm((current) => ({ ...current, scriptCode: event.target.value }))} placeholder="Latn" /></label>
+                  <label><span id="language-script-label">{t("书写系统", "Writing system")}</span><select aria-labelledby="language-script-label" value={languageForm.scriptCode} onChange={(event) => setLanguageForm((current) => ({ ...current, scriptCode: event.target.value, direction: ["Arab", "Hebr"].includes(event.target.value) ? "rtl" : "ltr" }))}>
+                    {[["Latn", "拉丁字母", "Latin alphabet"], ["Hani", "汉字", "Han characters"], ["Cyrl", "西里尔字母", "Cyrillic alphabet"], ["Arab", "阿拉伯字母", "Arabic alphabet"], ["Hebr", "希伯来字母", "Hebrew alphabet"], ["Deva", "天城文", "Devanagari"], ["Grek", "希腊字母", "Greek alphabet"], ["Hang", "谚文", "Hangul"], ["Kana", "日语假名", "Japanese kana"], ["Thai", "泰文", "Thai script"], ["Zyyy", "其他或混合", "Other or mixed"]].map(([code, zh, en]) => <option key={code} value={code}>{t(zh, en)}</option>)}
+                    {!["Latn", "Hani", "Cyrl", "Arab", "Hebr", "Deva", "Grek", "Hang", "Kana", "Thai", "Zyyy"].includes(languageForm.scriptCode) && <option value={languageForm.scriptCode}>{languageForm.scriptCode}</option>}
+                  </select></label>
                   <label><span>{t("书写方向", "Writing direction")}</span><select value={languageForm.direction} onChange={(event) => setLanguageForm((current) => ({ ...current, direction: event.target.value as LanguageDirection }))}><option value="ltr">{t("从左到右", "Left to right")}</option><option value="rtl">{t("从右到左", "Right to left")}</option><option value="ttb">{t("从上到下", "Top to bottom")}</option></select></label>
+                  <details className="studio-disclosure wide"><summary>{t("高级语言设置（可选）", "Advanced language settings (optional)")}</summary><p>{t("标识与符号会自动生成。需要指定标准语言代码或自定义书写系统时，可在此覆盖。", "IDs and badges are generated automatically. Override them here for a specific language code or custom script.")}</p><div className="form-grid two-column">
+                  <label><span>{t("语言 ID", "Language ID")}</span><input value={languageForm.id} onChange={(event) => setLanguageForm((current) => ({ ...current, id: event.target.value }))} placeholder={t("例如：fr 或 ar-EG", "For example: fr or ar-EG")} /></label>
+                  <label><span>{t("语言符号", "Language badge")}</span><input value={languageForm.accent} maxLength={2} onChange={(event) => setLanguageForm((current) => ({ ...current, accent: event.target.value }))} placeholder="Fr" /></label>
+                  <label><span>{t("书写系统代码", "Script code")}</span><input value={languageForm.scriptCode} onChange={(event) => setLanguageForm((current) => ({ ...current, scriptCode: event.target.value }))} placeholder="Latn" /></label>
+                  </div></details>
                 </div>
               ) : (
                 <label className="json-import-field"><span>Language Pack JSON</span><textarea value={languageJson} onChange={(event) => setLanguageJson(event.target.value)} placeholder={'{\n  "schemaVersion": 1,\n  "id": "fr",\n  ...\n}'} spellCheck={false} /></label>

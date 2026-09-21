@@ -119,7 +119,7 @@ test("Studio flow selected text meets the automatic WCAG baseline", async ({ pag
   await dismissFirstUseGuide(page);
   await page.getByRole("button", { name: "设置目标语言" }).click();
   const dialog = page.getByRole("dialog", { name: "添加目标语言" });
-  for (const [name, value] of [["语言 ID", "it"], ["语言符号", "It"], ["中文名称", "意大利语"], ["英文名称", "Italian"], ["本地名称", "Italiano"], ["书写系统代码", "Latn"]]) {
+  for (const [name, value] of [["中文名称", "意大利语"], ["英文名称", "Italian"], ["本地名称", "Italiano"]]) {
     await dialog.getByLabel(name, { exact: true }).fill(value);
   }
   await dialog.getByRole("button", { name: "保存并创建课程" }).click();

@@ -50,3 +50,21 @@ export function languagePackUsage(
 ): LanguagePackUsage {
   return languagePackReferenceUsage(languageId, activeLanguageId, draftLanguageIds, installedLanguageIds);
 }
+
+/** Prefer a recognized language code; custom names get a collision-free private ID. */
+export function suggestLanguageId(englishName: string, existingIds: readonly string[]): string {
+  const name = englishName.trim().toLocaleLowerCase("en");
+  const names = new Intl.DisplayNames(["en"], { type: "language", fallback: "none" });
+  let base = "";
+  for (let first = 97; first <= 122 && !base; first += 1) {
+    for (let second = 97; second <= 122; second += 1) {
+      const code = String.fromCharCode(first, second);
+      if (name && names.of(code)?.toLocaleLowerCase("en") === name) { base = code; break; }
+    }
+  }
+  base ||= "x-" + (name.normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "language");
+  let id = base;
+  let suffix = 2;
+  while (existingIds.some((existing) => existing.toLowerCase() === id.toLowerCase())) id = base + "-x-" + suffix++;
+  return id;
+}

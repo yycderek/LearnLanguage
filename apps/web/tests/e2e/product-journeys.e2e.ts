@@ -282,7 +282,7 @@ test("the installed shell reopens Learn while offline", async ({ page, context }
   }
 });
 
-test("first course start saves an optional personal plan before entering the learning map", async ({ page }) => {
+test("first course starts immediately and a personal plan can be added later", async ({ page }) => {
   await page.addInitScript(() => {
     const spoken: Array<{ text: string; lang: string; rate: number; voice?: string }> = [];
     Object.defineProperty(globalThis, "__pronunciationSpoken", { configurable: true, value: spoken });
@@ -327,10 +327,6 @@ test("first course start saves an optional personal plan before entering the lea
   await page.getByRole("button", { name: "返回学习首页" }).click();
 
   await page.getByRole("button", { name: "一键开始学习" }).first().click();
-  await expect(page.getByRole("heading", { name: "你为什么学习这门语言？" })).toBeVisible();
-  await page.getByRole("button", { name: "跳过评估，从第一课开始" }).click();
-  await expect(page.getByRole("heading", { name: "你的第一周路线已经准备好" })).toBeVisible();
-  await page.getByRole("button", { name: "保存计划并开始" }).click();
   await expect(page.locator(".learning-content")).toHaveCount(0);
   await page.getByRole("button", { name: "查看提示", exact: true }).click();
   await expect(page.locator(".learning-content")).toBeVisible();
@@ -354,7 +350,13 @@ test("first course start saves an optional personal plan before entering the lea
   await page.getByRole("button", { name: "保存并退出" }).click();
 
   await expect(page.getByText("本课学习地图")).toBeVisible();
-  await expect(page.getByText("个人学习计划")).toBeVisible();
+  await expect(page.getByText("还没有个人学习计划", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "设置计划", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "你为什么学习这门语言？" })).toBeVisible();
+  await page.getByRole("button", { name: "跳过评估，从第一课开始" }).click();
+  await page.getByRole("button", { name: "保存计划并开始" }).click();
+  await page.getByRole("button", { name: "保存并退出" }).click();
+  await expect(page.getByText("个人学习计划", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "今天学什么" })).toBeVisible();
   await expect(page.locator(".adaptive-agenda-card")).toContainText("本周实际进度");
   await expect(page.getByRole("navigation", { name: "学习导航" })).toBeVisible();
@@ -393,12 +395,11 @@ test("a non-technical author can create a new language, save a draft, and previe
   await page.getByRole("button", { name: "设置目标语言" }).click();
   const dialog = page.getByRole("dialog", { name: "添加目标语言" });
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel("语言 ID").fill("it");
-  await dialog.getByLabel("语言符号").fill("It");
+  await expect(dialog.getByLabel("语言 ID", { exact: true })).toBeHidden();
+  await dialog.getByLabel("书写系统", { exact: true }).selectOption("Latn");
   await dialog.getByLabel("中文名称").fill("意大利语");
   await dialog.getByLabel("英文名称").fill("Italian");
   await dialog.getByLabel("本地名称").fill("Italiano");
-  await dialog.getByLabel("书写系统代码").fill("Latn");
   await dialog.getByRole("button", { name: "保存并创建课程" }).click();
 
   await expect(page.getByRole("navigation", { name: "工作台导航" })).toBeVisible();
@@ -414,6 +415,7 @@ test("a non-technical author can create a new language, save a draft, and previe
       expect(box?.height, name).toBeGreaterThanOrEqual(44);
     }
   }
+  await page.getByRole("button", { name: "查看发布检查", exact: true }).click();
   await page.getByLabel(/^课程名称/).fill("");
   await page.getByRole("button", { name: "处理：当前应用语言的标题与简介完整", exact: true }).click();
   await expect(page.getByLabel(/^课程名称/)).toBeFocused();
@@ -555,8 +557,6 @@ test("R33 settings center previews destructive actions and resets only the curre
   await dismissFirstUseGuide(page);
 
   await page.getByRole("button", { name: "一键开始学习" }).first().click();
-  await page.getByRole("button", { name: "跳过评估，从第一课开始" }).click();
-  await page.getByRole("button", { name: "保存计划并开始" }).click();
   await page.getByRole("button", { name: "保存并退出" }).click();
   await page.locator("button:visible").filter({ hasText: "设置" }).first().click();
 

@@ -3,6 +3,7 @@ import test from "node:test";
 import { builtInLanguagePacks } from "../lib/language-pack.ts";
 import {
   languagePackFileName,
+  suggestLanguageId,
   languagePackUsage,
   MAX_LANGUAGE_PACK_FILE_BYTES,
   parseLanguagePackFile,
@@ -64,4 +65,11 @@ test("Language Pack filenames cannot escape the download directory", () => {
   pack.id = "../../unsafe language";
   assert.equal(languagePackFileName(pack), "unsafe-language.language-pack.json");
   assert.doesNotMatch(languagePackFileName(pack), /[\\/ ]/u);
+});
+
+test("quick language IDs recognize names and never overwrite an existing pack", () => {
+  assert.equal(suggestLanguageId("Italian", []), "it");
+  assert.equal(suggestLanguageId("Italian", ["IT"]), "it-x-2");
+  assert.equal(suggestLanguageId("My language!", []), "x-my-language");
+  assert.equal(suggestLanguageId("", ["x-language"]), "x-language-x-2");
 });
