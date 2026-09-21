@@ -1817,6 +1817,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .workspace .top-actions button, .workspace .mode-switch button, .workspace .section-tabs button,
 .adaptive-agenda-items button, .lesson-directory-row > button { font-size: 14px; }
 @media (max-width: 720px) {
+  .workspace .topbar > div:first-child { flex: 0 1 auto; width: 100%; }
   .workspace .top-actions { width: 100%; }
   .workspace .top-actions button, .workspace .editor-panel button,
   .workspace .form-grid input, .workspace .form-grid select, .workspace .reference-picker button { min-height: 44px; }

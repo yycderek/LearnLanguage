@@ -407,6 +407,10 @@ test("a non-technical author can create a new language, save a draft, and previe
   await expect(page.getByRole("heading", { name: "意大利语咖啡店点单", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByText(/已保存到当前设备 · 修订 1/)).toBeVisible();
+  if (testInfo.project.name.startsWith("mobile")) {
+    const titleBox = await page.locator(".topbar > div").first().boundingBox();
+    expect(titleBox?.height).toBeLessThan(120);
+  }
   await page.getByLabel(/^课程名称/).fill("LongUnbrokenCourseTitle".repeat(15));
   await expectResponsiveDocument(page);
   if (testInfo.project.name.startsWith("mobile")) {
