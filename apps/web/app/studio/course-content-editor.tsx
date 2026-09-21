@@ -42,10 +42,30 @@ export function CourseContentEditor({ course, editorSection, locale, direction, 
   const [queries, setQueries] = useState<Record<string, string>>({});
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [undo, setUndo] = useState<{ before: CoursePack; after: string }>();
+  const [pages, setPages] = useState<Record<string, number>>({});
   const query = queries[editorSection] ?? "";
-  const matches = (value: unknown) => JSON.stringify(value).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const matches = (value: unknown) => !normalizedQuery || JSON.stringify(value).toLocaleLowerCase().includes(normalizedQuery);
   const items = course[editorSection];
-  const visibleCount = items.filter(matches).length;
+  const matchingIndices = items.map((item, index) => ({ item, index })).filter(({ item }) => matches(item)).map(({ index }) => index);
+  const visibleCount = matchingIndices.length;
+  const pageSize = 25;
+  const pageCount = Math.max(1, Math.ceil(visibleCount / pageSize));
+  const page = Math.min(pages[editorSection] ?? 0, pageCount - 1);
+  const visibleIndices = new Set(matchingIndices.slice(page * pageSize, (page + 1) * pageSize));
+  function changeQuery(value: string) {
+    setQueries((previous) => ({ ...previous, [editorSection]: value }));
+    setPages((previous) => ({ ...previous, [editorSection]: 0 }));
+  }
+  function prepareAdd() {
+    changeQuery("");
+    setPages((previous) => ({ ...previous, [editorSection]: Math.floor(items.length / pageSize) }));
+  }
+  const pagination = pageCount > 1 && <nav className={styles.pagination} aria-label={t("内容分页", "Content pages")}>
+    <button type="button" disabled={page === 0} onClick={() => setPages((previous) => ({ ...previous, [editorSection]: page - 1 }))}>{t("上一页", "Previous page")}</button>
+    <span role="status">{t("第 " + (page + 1) + " / " + pageCount + " 页", "Page " + (page + 1) + " of " + pageCount)}</span>
+    <button type="button" disabled={page === pageCount - 1} onClick={() => setPages((previous) => ({ ...previous, [editorSection]: page + 1 }))}>{t("下一页", "Next page")}</button>
+  </nav>;
   const canUndo = undo && JSON.stringify(course) === undo.after;
   function removeContent(change: (next: CoursePack) => void, references: number) {
     if (course.manifest.status === "published") return;
@@ -60,7 +80,7 @@ export function CourseContentEditor({ course, editorSection, locale, direction, 
   const utteranceOptions = course.utterances.map((item, index) => ({ id: item.id, label: item.text || t("Utterance " + (index + 1), "Utterance " + (index + 1)) }));
 
   function addKnowledge() {
-    setQueries((previous) => ({ ...previous, [editorSection]: "" }));
+    prepareAdd();
     editCourse((next) => next.knowledge.push({
       id: uniqueId("knowledge", next.knowledge.map((item) => item.id)),
       kind: "lexeme",
@@ -83,7 +103,7 @@ export function CourseContentEditor({ course, editorSection, locale, direction, 
   }
 
   function addUtterance() {
-    setQueries((previous) => ({ ...previous, [editorSection]: "" }));
+    prepareAdd();
     editCourse((next) => next.utterances.push({
       id: uniqueId("utterance", next.utterances.map((item) => item.id)),
       text: "",
@@ -105,7 +125,7 @@ export function CourseContentEditor({ course, editorSection, locale, direction, 
   }
 
   function addExercise() {
-    setQueries((previous) => ({ ...previous, [editorSection]: "" }));
+    prepareAdd();
     editCourse((next) => next.exercises.push({
       id: uniqueId("exercise", next.exercises.map((item) => item.id)),
       kind: "role-play",
@@ -155,17 +175,18 @@ export function CourseContentEditor({ course, editorSection, locale, direction, 
   return (
     <>
     <div className={styles.toolbar}>
-      <label><span>{t("搜索当前内容", "Search current content")}</span><input type="search" value={query} onChange={(event) => setQueries((previous) => ({ ...previous, [editorSection]: event.target.value }))} placeholder={t("输入文字或关键词", "Text or keywords")} /></label>
-      <span role="status">{t("显示 " + visibleCount + " / " + items.length + " 项", "Showing " + visibleCount + " of " + items.length)}</span>
-      {query && <button type="button" onClick={() => setQueries((previous) => ({ ...previous, [editorSection]: "" }))}>{t("清除搜索", "Clear search")}</button>}
+      <label><span>{t("搜索当前内容", "Search current content")}</span><input type="search" value={query} onChange={(event) => changeQuery(event.target.value)} placeholder={t("输入文字或关键词", "Text or keywords")} /></label>
+      <span role="status">{t("匹配 " + visibleCount + " / " + items.length + " 项", "Matched " + visibleCount + " of " + items.length)}</span>
+      {query && <button type="button" onClick={() => changeQuery("")}>{t("清除搜索", "Clear search")}</button>}
     </div>
+    {pagination}
     {canUndo && <div className={styles.undo} role="status"><span>{t("内容及引用已移除；继续编辑前可撤销。", "Content and references removed. Undo before the next edit.")}</span><button type="button" onClick={() => { editCourse((next) => Object.assign(next, structuredClone(undo.before))); setUndo(undefined); }}>{t("撤销删除", "Undo deletion")}</button></div>}
     {visibleCount === 0 && <p className={styles.empty}>{query ? t("没有匹配内容，请更换关键词或清除搜索。", "No matches. Try another keyword or clear the search.") : t("还没有内容，使用下方添加按钮开始。", "No content yet. Use the add button below.")}</p>}
     {editorSection === "knowledge" && (
       <div className="form-section">
         <div className="section-intro"><div><h3>{t("知识点", "Knowledge")}</h3><p>{t("维护词汇、语法、字符或文化知识。", "Maintain vocabulary, grammar, script, and pragmatic knowledge.")}</p></div><button className="outline-button" disabled={readOnly} onClick={addKnowledge}><Plus size={15} />{t("添加知识点", "Add knowledge")}</button></div>
         <div className="item-stack">
-          {course.knowledge.map((item, index) => ({ item, index })).filter(({ item }) => matches(item)).map(({ item, index }) => (
+          {course.knowledge.map((item, index) => ({ item, index })).filter(({ index }) => visibleIndices.has(index)).map(({ item, index }) => (
             <article className="edit-card" key={item.id}>
               <div className="edit-card-heading"><button type="button" className={styles.toggle} aria-expanded={!collapsed[item.id]} onClick={() => setCollapsed((previous) => ({ ...previous, [item.id]: !previous[item.id] }))}><ChevronDown size={16} /><span>{t(`知识点 ${index + 1}`, `Knowledge ${index + 1}`)}</span><span>{item.form || t("未命名", "Untitled")}</span></button><button disabled={readOnly} onClick={() => removeKnowledge(index)} aria-label={t(`删除知识点 ${index + 1}`, `Delete knowledge ${index + 1}`)}><Trash2 size={15} /></button></div>
               <div className="form-grid three-column" hidden={collapsed[item.id]}>
@@ -183,7 +204,7 @@ export function CourseContentEditor({ course, editorSection, locale, direction, 
       <div className="form-section">
         <div className="section-intro"><div><h3>{t("例句与表达", "Utterances")}</h3><p>{t("添加学习者会听到、读到和练习的自然表达。", "Add natural expressions learners will read and practise.")}</p></div><button className="outline-button" disabled={readOnly} onClick={addUtterance}><Plus size={15} />{t("添加例句", "Add utterance")}</button></div>
         <div className="item-stack">
-          {course.utterances.map((item, index) => (
+          {course.utterances.map((item, index) => ({ item, index })).filter(({ index }) => visibleIndices.has(index)).map(({ item, index }) => (
             <article className="edit-card" key={item.id}>
               <div className="edit-card-heading"><button type="button" className={styles.toggle} aria-expanded={!collapsed[item.id]} onClick={() => setCollapsed((previous) => ({ ...previous, [item.id]: !previous[item.id] }))}><ChevronDown size={16} /><span>{t(`例句 ${index + 1}`, `Utterance ${index + 1}`)}</span><span>{item.text || t("未命名", "Untitled")}</span></button><button disabled={readOnly} onClick={() => removeUtterance(index)} aria-label={t(`删除例句 ${index + 1}`, `Delete utterance ${index + 1}`)}><Trash2 size={15} /></button></div>
               <div className="form-grid two-column" hidden={collapsed[item.id]}>
@@ -201,7 +222,7 @@ export function CourseContentEditor({ course, editorSection, locale, direction, 
       <div className="form-section">
         <div className="section-intro"><div><h3>{t("练习", "Exercises")}</h3><p>{t("定义理解、产出和角色扮演任务。", "Define comprehension, production, and role-play tasks.")}</p></div><button className="outline-button" disabled={readOnly} onClick={addExercise}><Plus size={15} />{t("添加练习", "Add exercise")}</button></div>
         <div className="item-stack">
-          {course.exercises.map((item, index) => ({ item, index })).filter(({ item }) => matches(item)).map(({ item, index }) => (
+          {course.exercises.map((item, index) => ({ item, index })).filter(({ index }) => visibleIndices.has(index)).map(({ item, index }) => (
             <article className="edit-card" key={item.id}>
               <div className="edit-card-heading"><button type="button" className={styles.toggle} aria-expanded={!collapsed[item.id]} onClick={() => setCollapsed((previous) => ({ ...previous, [item.id]: !previous[item.id] }))}><ChevronDown size={16} /><span>{t(`练习 ${index + 1}`, `Exercise ${index + 1}`)}</span><span>{displayText(item.prompt, teachingLocale) || t("未命名", "Untitled")}</span></button><button disabled={readOnly} onClick={() => removeExercise(index)} aria-label={t(`删除练习 ${index + 1}`, `Delete exercise ${index + 1}`)}><Trash2 size={15} /></button></div>
               <div className="form-grid two-column" hidden={collapsed[item.id]}>

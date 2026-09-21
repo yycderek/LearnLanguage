@@ -601,3 +601,50 @@ test("R33 settings center previews destructive actions and resets only the curre
   expect(counts).toEqual({ courses: 1, records: 0, plans: 0 });
   expect(problems).toEqual([]);
 });
+
+
+test("large drafts keep search, paging, edits and reference selection consistent", async ({ page }, testInfo) => {
+  const draft = sampleCourse("en");
+  draft.manifest.status = "draft";
+  const targetCount = Math.ceil(draft.knowledge.length / 25) * 25;
+  for (let index = draft.knowledge.length; index < targetCount; index += 1) {
+    draft.knowledge.push({ id: "page-knowledge-" + index, kind: "lexeme", form: "Page word " + index, meaning: { "zh-CN": "分页词汇" } });
+  }
+  draft.utterances.push({ id: "page-utterance", text: "Find this distant sentence", translation: { "zh-CN": "分页例句" }, knowledgeRefs: [] });
+  await page.goto(origin + "/studio");
+  await dismissFirstUseGuide(page);
+  await page.getByLabel("选择草稿文件", { exact: true }).setInputFiles({ name: "large-draft.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(draft)) });
+  await page.getByRole("button", { name: "知识点", exact: true }).click();
+  await expect(page.locator(".edit-card")).toHaveCount(25);
+  const pages = page.getByRole("navigation", { name: "内容分页", exact: true });
+  await pages.getByRole("button", { name: "下一页", exact: true }).click();
+  await expect(page.getByLabel("目标语形式", { exact: true }).first()).toHaveValue(draft.knowledge[25].form);
+  await page.getByLabel("目标语形式", { exact: true }).first().fill("Edited page word 25");
+  await page.getByRole("searchbox", { name: "搜索当前内容" }).fill("Edited page word 25");
+  await expect(page.locator(".edit-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "添加知识点", exact: true }).click();
+  await expect(page.getByRole("searchbox", { name: "搜索当前内容" })).toHaveValue("");
+  await expect(page.locator(".edit-card")).toHaveCount(1);
+  await page.getByLabel("目标语形式", { exact: true }).fill("New last-page word");
+  await page.getByRole("button", { name: "删除知识点 " + (targetCount + 1), exact: true }).click();
+  await expect(page.locator(".edit-card")).toHaveCount(25);
+  await page.getByRole("button", { name: "撤销删除", exact: true }).click();
+  await expect(page.getByLabel("目标语形式", { exact: true })).toHaveValue("New last-page word");
+  await page.getByRole("button", { name: "例句", exact: true }).click();
+  await page.getByRole("searchbox", { name: "搜索当前内容" }).fill("Find this distant sentence");
+  await expect(page.locator(".edit-card")).toHaveCount(1);
+  await expect(page.getByRole("textbox", { name: "目标语例句", exact: true })).toHaveValue("Find this distant sentence");
+  const references = page.getByRole("group", { name: "关联知识点", exact: true });
+  await expect(references.locator("button[aria-pressed]")).toHaveCount(20);
+  await references.getByRole("searchbox").fill("New last-page word");
+  await references.getByRole("button", { name: "New last-page word", exact: true }).click();
+  await expect(references.getByRole("button", { name: "New last-page word", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "JSON", exact: true }).click();
+  const saved = JSON.parse(await page.getByRole("textbox", { name: "课程包 JSON", exact: true }).inputValue());
+  expect(saved.knowledge[25].form).toBe("Edited page word 25");
+  expect(saved.utterances.at(-1).knowledgeRefs).toContain(saved.knowledge.at(-1).id);
+  await page.getByRole("button", { name: "可视化", exact: true }).click();
+  await page.getByRole("button", { name: "知识点", exact: true }).click();
+  await expectResponsiveDocument(page);
+  await page.locator(".visual-editor").screenshot({ path: testInfo.outputPath("large-course-pagination.png") });
+});
