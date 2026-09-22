@@ -617,7 +617,13 @@ test("large drafts keep search, paging, edits and reference selection consistent
   await page.getByRole("button", { name: "知识点", exact: true }).click();
   await expect(page.locator(".edit-card")).toHaveCount(25);
   const pages = page.getByRole("navigation", { name: "内容分页", exact: true });
-  await pages.getByRole("button", { name: "下一页", exact: true }).click();
+  const bottomPages = page.getByRole("navigation", { name: "内容分页（底部）", exact: true });
+  await bottomPages.getByRole("button", { name: "下一页", exact: true }).click();
+  await expect(page.locator(".edit-card-heading button[aria-expanded]").first()).toBeFocused();
+  await expect(page.locator(".edit-card").first()).toBeInViewport();
+  await pages.getByRole("combobox", { name: "转到页码", exact: true }).selectOption("0");
+  await expect(page.getByLabel("目标语形式", { exact: true }).first()).toHaveValue(draft.knowledge[0].form);
+  await pages.getByRole("combobox", { name: "转到页码", exact: true }).selectOption("1");
   await expect(page.getByLabel("目标语形式", { exact: true }).first()).toHaveValue(draft.knowledge[25].form);
   await page.getByLabel("目标语形式", { exact: true }).first().fill("Edited page word 25");
   await page.getByRole("searchbox", { name: "搜索当前内容" }).fill("Edited page word 25");
@@ -625,6 +631,8 @@ test("large drafts keep search, paging, edits and reference selection consistent
   await page.getByRole("button", { name: "添加知识点", exact: true }).click();
   await expect(page.getByRole("searchbox", { name: "搜索当前内容" })).toHaveValue("");
   await expect(page.locator(".edit-card")).toHaveCount(1);
+  await expect(page.getByLabel("目标语形式", { exact: true })).toBeFocused();
+  await expect(page.getByLabel("目标语形式", { exact: true })).toBeInViewport();
   await page.getByLabel("目标语形式", { exact: true }).fill("New last-page word");
   await page.getByRole("button", { name: "删除知识点 " + (targetCount + 1), exact: true }).click();
   await expect(page.locator(".edit-card")).toHaveCount(25);

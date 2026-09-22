@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ContentPagination } from "./content-pagination";
 import styles from "./editor-tools.module.css";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { displayText, type CoursePack, type ExerciseKind } from "@/lib/course";
@@ -36,6 +37,8 @@ function localizedOptionLines(options: CoursePack["exercises"][number]["options"
 }
 
 export function CourseContentEditor({ course, editorSection, locale, direction, showAdvanced, editCourse }: CourseContentEditorProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<"first" | "new" | null>(null);
   const teachingLocale = locale;
   const readOnly = course.manifest.status === "published";
   const t = (chinese: string, english: string) => uiText(locale, chinese, english);
@@ -53,19 +56,34 @@ export function CourseContentEditor({ course, editorSection, locale, direction, 
   const pageCount = Math.max(1, Math.ceil(visibleCount / pageSize));
   const page = Math.min(pages[editorSection] ?? 0, pageCount - 1);
   const visibleIndices = new Set(matchingIndices.slice(page * pageSize, (page + 1) * pageSize));
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (!target) return;
+    pendingFocus.current = null;
+    const cards = contentRef.current?.querySelectorAll<HTMLElement>(".edit-card");
+    const card = target === "new" ? cards?.[cards.length - 1] : cards?.[0];
+    if (!card) return;
+    const field = target === "new"
+      ? card.querySelector<HTMLElement>('input:not([type="search"]), textarea')
+      : card.querySelector<HTMLElement>("button[aria-expanded]");
+    const scrollTarget = target === "new" ? field ?? card : card;
+    scrollTarget.scrollIntoView({ block: target === "new" ? "center" : "start", behavior: "instant" });
+    field?.focus({ preventScroll: true });
+  }, [course, page, editorSection]);
+  function changePage(nextPage: number) {
+    pendingFocus.current = "first";
+    setPages((previous) => ({ ...previous, [editorSection]: nextPage }));
+  }
   function changeQuery(value: string) {
     setQueries((previous) => ({ ...previous, [editorSection]: value }));
     setPages((previous) => ({ ...previous, [editorSection]: 0 }));
   }
   function prepareAdd() {
+    pendingFocus.current = "new";
     changeQuery("");
     setPages((previous) => ({ ...previous, [editorSection]: Math.floor(items.length / pageSize) }));
   }
-  const pagination = pageCount > 1 && <nav className={styles.pagination} aria-label={t("内容分页", "Content pages")}>
-    <button type="button" disabled={page === 0} onClick={() => setPages((previous) => ({ ...previous, [editorSection]: page - 1 }))}>{t("上一页", "Previous page")}</button>
-    <span role="status">{t("第 " + (page + 1) + " / " + pageCount + " 页", "Page " + (page + 1) + " of " + pageCount)}</span>
-    <button type="button" disabled={page === pageCount - 1} onClick={() => setPages((previous) => ({ ...previous, [editorSection]: page + 1 }))}>{t("下一页", "Next page")}</button>
-  </nav>;
+  const paginationProps = { locale, page, pageCount, onPageChange: changePage };
   const canUndo = undo && JSON.stringify(course) === undo.after;
   function removeContent(change: (next: CoursePack) => void, references: number) {
     if (course.manifest.status === "published") return;
@@ -173,13 +191,14 @@ export function CourseContentEditor({ course, editorSection, locale, direction, 
   }
 
   return (
-    <>
+    <div ref={contentRef}>
     <div className={styles.toolbar}>
       <label><span>{t("搜索当前内容", "Search current content")}</span><input type="search" value={query} onChange={(event) => changeQuery(event.target.value)} placeholder={t("输入文字或关键词", "Text or keywords")} /></label>
       <span role="status">{t("匹配 " + visibleCount + " / " + items.length + " 项", "Matched " + visibleCount + " of " + items.length)}</span>
       {query && <button type="button" onClick={() => changeQuery("")}>{t("清除搜索", "Clear search")}</button>}
     </div>
-    {pagination}
+    <ContentPagination {...paginationProps} />
+    {pageCount > 1 && <span className={styles.srOnly} role="status">{t("第 " + (page + 1) + " / " + pageCount + " 页", "Page " + (page + 1) + " of " + pageCount)}</span>}
     {canUndo && <div className={styles.undo} role="status"><span>{t("内容及引用已移除；继续编辑前可撤销。", "Content and references removed. Undo before the next edit.")}</span><button type="button" onClick={() => { editCourse((next) => Object.assign(next, structuredClone(undo.before))); setUndo(undefined); }}>{t("撤销删除", "Undo deletion")}</button></div>}
     {visibleCount === 0 && <p className={styles.empty}>{query ? t("没有匹配内容，请更换关键词或清除搜索。", "No matches. Try another keyword or clear the search.") : t("还没有内容，使用下方添加按钮开始。", "No content yet. Use the add button below.")}</p>}
     {editorSection === "knowledge" && (
@@ -244,6 +263,7 @@ export function CourseContentEditor({ course, editorSection, locale, direction, 
       </div>
     )}
 
-    </>
+    <ContentPagination {...paginationProps} bottom />
+    </div>
   );
 }
