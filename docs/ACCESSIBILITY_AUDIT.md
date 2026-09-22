@@ -9,6 +9,7 @@
 - Learn 首次帮助、中文课程入口、英文课程入口和英文设置中心；
 - Studio 首次帮助、语言中立入口、添加目标语言和素材导入；
 - 个人 AI 设置弹窗；
+- Studio 课节流程中选中单元、选中课节的文字对比度；
 - WCAG 2 A、AA、2.1 A、AA 与 2.2 AA 的 axe 可自动判断规则；
 - 弹窗初始焦点、Tab/Shift+Tab 焦点环、Esc 关闭和关闭后的焦点恢复；
 - 移动端隐藏可见标签后，表单控件仍保留可访问名称。
@@ -16,10 +17,14 @@
 运行：
 
 ```bash
+pnpm --dir apps/web exec playwright install chromium
+pnpm --dir apps/web test
 pnpm --dir apps/web test:e2e
 ```
 
 当前门禁不忽略 `color-contrast`，也不为已知问题设置规则豁免。自动扫描发现并修复了课程状态提示、课程目标说明、首次帮助、Studio 侧栏、编辑器标签和同步状态的对比度问题。
+
+工具与设置的键盘展开、Esc/外部点击/焦点离开收起、关闭帮助后的焦点恢复，以及语言筛选，另由 `product-journeys.e2e.ts` 验证。2026-09-21 对工具展开状态进行过桌面和手机视口的补充 axe 检查，未发现所扫描规则的违规；该补充检查不等同于持久化 CI 中的全部扫描范围。
 
 ## 仍需真人验证
 

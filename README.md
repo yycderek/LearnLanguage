@@ -14,14 +14,14 @@ LearnLanguage 是一个可切换语种的语言学习工具。可以直接学习
 ## 我想学习
 
 1. 打开学习空间，选择英语、日语、粤语、西班牙语或已导入的课程。
-2. 点击“一键开始学习”；可以接受推荐起点，也可以自己选择课节。
-3. 完成课程后回到首页，“今天学什么”会安排继续学习和到期复习。
+2. 点击“一键开始学习”，直接进入首课；已有进度时继续未完成内容。
+3. 用“保存并退出”返回学习首页。“今天学什么”会安排继续学习和到期复习；需要调整目标与节奏时，再点击“设置计划”，也可进行可选的基础检查。
 
 ## 我想创建课程
 
-1. 打开课程创作空间，从模板开始，或导入自己的文本和文档。
+1. 打开课程创作空间，选择现有目标语言、创建新语言、导入草稿，或点击“导入素材”。课程模板位于编辑器的“基本信息”中。
 2. 在可视化编辑器中整理单元、课节和练习，然后预览学习流程。
-3. 发布并安装到学习空间；需要分享时导出课程文件。
+3. 点击“查看发布检查”，完成阻塞项后“校验并发布”，再“安装到学习空间”；需要分享时从课程库导出课程文件。发布在本机生成固定版本，不会自动上传到公共课程库。
 
 课程作者不需要编辑 JSON 或技术 ID。新的目标语言可以使用内置语言包，也可以创建或导入自定义 Language Pack。
 
@@ -44,16 +44,24 @@ AI 为可选功能；基础学习和课程编辑无需配置 AI。配置个人 A
 
 ## 本地开发
 
-需要 Node.js 22 或更高版本，以及 pnpm。请从仓库根目录运行：
+需要 Node.js 22.13 或更高版本，以及 pnpm 11.9.0（版本以根目录 `package.json` 的 `packageManager` 为准）。从仓库根目录安装并启动 Web：
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm --dir apps/web dev
+```
+
+启动后打开终端显示的地址，默认是 `http://localhost:3000/learn`；课程编辑器在 `/studio`。端口被占用时以终端输出为准。依赖只在仓库根目录安装，使用根目录的 `pnpm-lock.yaml`。
+
+提交前检查：
+
+```bash
 pnpm check
 pnpm --dir apps/web test
 pnpm --dir apps/web lint
-pnpm --dir apps/mobile typecheck
-pnpm --dir apps/mobile test
 ```
+
+`pnpm check` 已包含移动端类型检查和测试。浏览器端到端测试及 Chromium 安装步骤见 [Web 验收](docs/WEB_ACCEPTANCE.md)；生产运行见[自部署指南](docs/SELF_HOSTING.md)。
 
 客户端代码位于 `apps/web` 和 `apps/mobile`，共享内容与核心能力位于 `packages`。移动端与 Web 复用 Course Pack、Language Pack、应用服务和学习引擎，但界面与本地存储适配器独立。移动端开发说明见[移动端 README](apps/mobile/README.md)。
 

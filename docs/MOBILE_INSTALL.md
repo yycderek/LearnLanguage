@@ -8,7 +8,7 @@ LearnLanguage Mobile 当前是可从源码构建的 Android/iOS MVP，尚未提�
 - iOS 16.4 及以上。
 - 移动端 Learn 空间提供内置与导入课程、个人学习计划、自适应今日安排、练习、学习记录、复习、离线学习和本地备份。
 - 课程例句可用设备系统语音正常或慢速朗读；无需麦克风权限。iOS 实体机需要关闭静音模式。
-- 课程设计与导入继续使用 Web 端 Studio。
+- 课程设计和素材转课程使用 Web Studio；已发布课程与语言包可直接导入移动端。
 - 不要求 LearnLanguage 账户。学习记录保存在设备本地 SQLite 数据库中。
 
 ## 首次启动
@@ -102,13 +102,16 @@ pnpm --dir apps/mobile test
 
 仓库已包含 Expo 项目绑定及 `preview`、`production` 构建配置。配置本身不包含 Android Keystore、Apple Distribution Certificate 或其他签名密钥。
 
-准备生成内部分发包时，先登录具有项目权限的 Expo 账户，再分别启动 Android APK 和 iOS 内部分发构建：
+准备生成内部分发包时，先登录具有项目权限的 Expo 账户。以下命令先从仓库根目录进入 `apps/mobile`，该目录包含 `eas.json` 和 `app.json`；不要直接在仓库根目录发起 EAS 构建。Android 和 iOS 按需要分别执行：
 
 ```bash
+cd apps/mobile
 pnpm dlx eas-cli@latest whoami
 pnpm dlx eas-cli@latest build --platform android --profile preview
 pnpm dlx eas-cli@latest build --platform ios --profile preview
 ```
+
+执行完后可用 `cd ../..` 回到仓库根目录。`whoami` 用于确认账户；若尚未登录，先运行 `pnpm dlx eas-cli@latest login`。
 
 构建完成后，按[移动端真机验收清单](MOBILE_ACCEPTANCE.md)记录设备、系统、构建编号和结果。未执行构建时，不应把源码 bundle 验证描述为签名安装包验收。
 
