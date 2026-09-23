@@ -1858,3 +1858,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .studio-ready-languages > .language-search { flex-basis: 100%; }
 .studio-ready-languages aside { flex-wrap: wrap; }
 @media (max-width: 720px) { .sidebar > .language-search { display: none; } .studio-tools-content { left: 0; right: auto; } }
+
+.draft-revision-list > summary { min-height: 44px; cursor: pointer; gap: 10px; list-style: none; }
+.draft-revision-list > summary::-webkit-details-marker { display: none; }
+.draft-revision-list > summary svg { flex-shrink: 0; transform: rotate(-90deg); }
+.draft-revision-list[open] > summary svg { transform: none; }
+.draft-revision-list > summary em { margin-left: auto; }
+.draft-revision-row button { min-width: 44px; min-height: 44px; }
+.draft-card h2 { overflow-wrap: anywhere; }
+.draft-library-shell input[type="search"] { font-size: 16px; }
+.draft-card header p, .draft-revision-row small { font-size: 13px; line-height: 1.5; }
+.draft-language, .draft-revision-row .revision { font-size: 12px; }
+.draft-delete, .draft-primary-actions button { min-height: 44px; font-size: 14px; }
+.draft-revision-heading { color: var(--ink); font-size: 14px; }
+.draft-revision-row strong { font-size: 13px; }
+.draft-revision-row small { overflow-wrap: anywhere; }

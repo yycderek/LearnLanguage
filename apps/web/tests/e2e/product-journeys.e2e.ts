@@ -704,3 +704,37 @@ test("Studio tools and language filters work by keyboard without losing the draf
   await expect(page.locator(".language-pack-card h2")).toHaveText("日语");
   await expectResponsiveDocument(page);
 });
+
+
+test("draft search includes old titles and revision actions identify their version", async ({ page }, testInfo) => {
+  await page.goto(origin + "/studio");
+  await dismissFirstUseGuide(page);
+  await page.getByRole("searchbox", { name: "筛选目标语言" }).fill("English");
+  await page.locator(".studio-ready-languages aside button").click();
+  await page.getByLabel("课程名称（中文）", { exact: true }).fill("旧的旅行课程");
+  await page.getByRole("button", { name: "保存草稿", exact: true }).click();
+  await expect(page.getByText("已保存到当前设备 · 修订 1", { exact: true })).toBeVisible();
+  await page.getByLabel("课程名称（中文）", { exact: true }).fill("新的旅行课程");
+  await page.getByRole("button", { name: "保存草稿", exact: true }).click();
+  await expect(page.getByText("已保存到当前设备 · 修订 2", { exact: true })).toBeVisible();
+  await page.locator("button:visible").filter({ hasText: /^本地草稿/ }).first().click();
+  await expect(page.locator(".draft-card")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "恢复修订 v1：旧的旅行课程", exact: true })).toBeHidden();
+  const search = page.getByRole("searchbox", { name: "搜索草稿", exact: true });
+  await search.fill("旧的旅行");
+  await expect(page.locator(".draft-card h2")).toHaveText("新的旅行课程");
+  await search.fill("missing-title");
+  await expect(page.getByRole("heading", { name: "没有匹配的草稿" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "还没有本地草稿" })).toHaveCount(0);
+  await page.getByRole("button", { name: "清除搜索", exact: true }).click();
+  await search.fill("en");
+  await page.locator(".draft-revision-heading").focus();
+  await page.keyboard.press("Enter");
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出修订 v1：旧的旅行课程", exact: true }).click();
+  await downloadPromise;
+  await expectResponsiveDocument(page);
+  await page.locator(".draft-card").screenshot({ path: testInfo.outputPath("draft-revisions.png") });
+  await page.getByRole("button", { name: "恢复修订 v1：旧的旅行课程", exact: true }).click();
+  await expect(page.getByLabel("课程名称（中文）", { exact: true })).toHaveValue("旧的旅行课程");
+});

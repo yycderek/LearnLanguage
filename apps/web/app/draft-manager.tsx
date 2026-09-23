@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import styles from "./studio/editor-tools.module.css";
+
 import {
   ArrowLeft,
   Clock3,
+  ChevronDown,
   Download,
   FileJson,
   Languages,
@@ -36,7 +40,12 @@ export function DraftManager({
   onExport: (item: DraftRevision) => void;
 }) {
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
+  const [query, setQuery] = useState("");
   const groups = groupDraftRevisions(history);
+  const normalized = query.trim().toLocaleLowerCase();
+  const visibleGroups = groups.filter((group) => group.revisions.some((item) =>
+    [item.title, item.languageId].join(" ").toLocaleLowerCase().includes(normalized)));
+
   const formatDate = (value: string) => new Date(value).toLocaleString(locale === "en" ? "en-US" : "zh-CN", {
     year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
@@ -60,27 +69,33 @@ export function DraftManager({
         <p><ShieldCheck size={14} />{notice}</p>
       </section>
 
+      {groups.length > 0 && <div className={styles.toolbar}>
+        <label><span>{c("搜索草稿", "Search drafts")}</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={c("课程名称或语言代码", "Course title or language code")} /></label>
+        <span role="status">{c("找到 " + visibleGroups.length + " / " + groups.length + " 份草稿", visibleGroups.length + " of " + groups.length + " drafts")}</span>
+        {query && <button type="button" onClick={() => setQuery("")}>{c("清除搜索", "Clear search")}</button>}
+      </div>}
+      {groups.length > 0 && visibleGroups.length === 0 && <section className="draft-library-empty"><h2>{c("没有匹配的草稿", "No matching drafts")}</h2><p>{c("试试课程名称、以前的名称或语言代码，也可以清除搜索查看全部草稿。", "Try a course title, a previous title, or a language code. Clear the search to see all drafts.")}</p></section>}
       {groups.length === 0 ? (
         <section className="draft-library-empty"><Clock3 size={30} /><h2>{c("还没有本地草稿", "No local drafts yet")}</h2><p>{c("返回课程编辑器保存第一份草稿，或者导入一份未发布的 Course Pack JSON。", "Save your first draft in Course Studio, or import an unpublished Course Pack JSON.")}</p><button onClick={onBack}>{c("创建课程草稿", "Create a course draft")}</button></section>
       ) : (
         <section className="draft-library-grid">
-          {groups.map((group) => (
+          {visibleGroups.map((group) => (
             <article className="draft-card" key={group.draftId}>
               <header>
                 <div><span className="draft-language">{group.latest.languageId}</span><h2>{group.latest.title}</h2><p>{c(`最近保存于 ${formatDate(group.latest.updatedAt)}`, `Last saved ${formatDate(group.latest.updatedAt)}`)}</p></div>
                 <button className="draft-delete" onClick={() => onDelete(group.draftId)} aria-label={c(`删除${group.latest.title}`, `Delete ${group.latest.title}`)}><Trash2 size={15} />{c("删除草稿", "Delete draft")}</button>
               </header>
               <div className="draft-primary-actions"><button className="primary" onClick={() => onRestore(group.latest)}><RotateCcw size={15} />{c("继续编辑", "Continue editing")}</button><button onClick={() => onExport(group.latest)}><Download size={15} />{c("导出最新草稿", "Export latest")}</button></div>
-              <div className="draft-revision-list">
-                <div className="draft-revision-heading"><span>{c("修订记录", "Revision history")}</span><em>{group.revisions.length}</em></div>
+              <details className="draft-revision-list">
+                <summary className="draft-revision-heading"><ChevronDown size={16} /><span>{c("修订记录", "Revision history")}</span><em>{group.revisions.length}</em></summary>
                 {group.revisions.map((item) => (
                   <div className="draft-revision-row" key={`${item.draftId}-${item.revision}`}>
                     <span className="revision">v{item.revision}</span><span><strong>{formatDate(item.updatedAt)}</strong><small>{item.languageId} · Course Pack v2</small></span>
-                    <button onClick={() => onRestore(item)} title={c("恢复这个修订", "Restore this revision")}><RotateCcw size={14} /></button>
-                    <button onClick={() => onExport(item)} title={c("导出这个修订", "Export this revision")}><Download size={14} /></button>
+                    <button onClick={() => onRestore(item)} aria-label={c("恢复修订 v" + item.revision + "：" + item.title, "Restore revision v" + item.revision + ": " + item.title)} title={c("恢复这个修订", "Restore this revision")}><RotateCcw size={14} /></button>
+                    <button onClick={() => onExport(item)} aria-label={c("导出修订 v" + item.revision + "：" + item.title, "Export revision v" + item.revision + ": " + item.title)} title={c("导出这个修订", "Export this revision")}><Download size={14} /></button>
                   </div>
                 ))}
-              </div>
+              </details>
             </article>
           ))}
         </section>

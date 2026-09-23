@@ -194,7 +194,7 @@ export function CourseLibrary({
       </section>
 
       <section className="course-library-toolbar">
-        <div><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>{c("全部课程", "All courses")}</button><button className={filter === "installed" ? "active" : ""} onClick={() => setFilter("installed")}>{c("我的课程", "My courses")}</button></div>
+        <div><button aria-pressed={filter === "all"} className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>{c("全部课程", "All courses")}</button><button aria-pressed={filter === "installed"} className={filter === "installed" ? "active" : ""} onClick={() => setFilter("installed")}>{c("我的课程", "My courses")}</button></div>
         <p role="status" aria-live="polite"><ShieldCheck size={14} />{notice ?? c("选择课程即可开始；课程来源与内容完整性会自动校验", "Choose a course to begin; its source and content integrity are checked automatically")}</p>
       </section>
 
