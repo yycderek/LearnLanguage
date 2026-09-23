@@ -1873,3 +1873,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .draft-revision-heading { color: var(--ink); font-size: 14px; }
 .draft-revision-row strong { font-size: 13px; }
 .draft-revision-row small { overflow-wrap: anywhere; }
+
+.draft-confirm-dialog .dialog-body { padding: 24px; }
+.draft-confirm-dialog h2 { font-size: 20px; line-height: 1.4; }
+.draft-confirm-dialog p { font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.draft-confirm-target { font-weight: 600; }
+.draft-confirm-dialog button { min-height: 44px; font-size: 14px; }
+.draft-confirm-dialog .dialog-footer { flex-wrap: wrap; }

@@ -1207,16 +1207,16 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
 
   async function deleteLocalDraft(targetDraftId: string) {
     const target = history.find((item) => item.draftId === targetDraftId);
-    if (!target) return;
-    const warning = t(`确定删除「${target.title}」的全部本地修订吗？此操作无法撤销。`, `Delete every local revision of “${target.title}”? This cannot be undone.`);
-    if (!window.confirm(warning)) return;
+    if (!target) return false;
     try {
       const nextHistory = await draftApplication.deleteDraft(targetDraftId);
       setHistory(normalizeDraftHistory(nextHistory));
       if (draftId === targetDraftId) setDraftId(undefined);
       setNotice(t(`已删除「${target.title}」的本地草稿；当前编辑内容未被清空`, `Deleted the local draft “${target.title}”; the open editor content was kept`));
+      return true;
     } catch {
-      setNotice(t("草稿删除失败", "The draft could not be deleted"));
+      setNotice(t("草稿删除失败，请重试", "The draft could not be deleted. Try again."));
+      return false;
     }
   }
 
@@ -1617,7 +1617,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     return <>{renderLibraryScreen(true)}{productGuide}</>;
   }
   if (learningView === "drafts") {
-    return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onRestore={restoreFromDraftManager} onDelete={(targetDraftId) => void deleteLocalDraft(targetDraftId)} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />{productGuide}</>;
+    return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} hasUnsavedChanges={studioStarted && !history.some((item) => {
+      if (item.draftId !== draftId) return false;
+      try { return JSON.stringify(JSON.parse(item.payload)) === JSON.stringify(JSON.parse(source)); } catch { return false; }
+    })} onRestore={restoreFromDraftManager} onDelete={deleteLocalDraft} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />{productGuide}</>;
   }
   if (learningView === "languages") {
     return <><LanguagePackManager packs={languagePacks} builtInIds={BUILT_IN_LANGUAGE_IDS} locale={appLocale} notice={notice} usageFor={usageForLanguagePack} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onCreate={() => { setLearningView("studio"); setLanguageOpen(true); }} onImport={(file) => void importLanguagePackFile(file)} onExport={exportLanguagePack} onDelete={(pack) => void deleteLanguagePack(pack)} />{productGuide}</>;
