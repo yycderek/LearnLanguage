@@ -39,30 +39,42 @@ export function DraftManager({
   hasUnsavedChanges: boolean;
   onRestore: (item: DraftRevision) => void;
   onDelete: (draftId: string) => Promise<boolean>;
-  onImport: (file: File) => void;
+  onImport: (file: File) => Promise<boolean>;
   onExport: (item: DraftRevision) => void;
 }) {
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
   const [query, setQuery] = useState("");
-  const [pending, setPending] = useState<{ kind: "delete" | "restore"; item: DraftRevision; count?: number } | null>(null);
+  const [pending, setPending] = useState<{ kind: "delete" | "restore"; item: DraftRevision; count?: number } | { kind: "import"; file: File } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [deleteFailed, setDeleteFailed] = useState(false);
+  const [actionFailed, setActionFailed] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const importButtonRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const dialogRef = useDialogFocus<HTMLElement>(Boolean(pending), () => { if (!busy) setPending(null); });
   function requestRestore(item: DraftRevision) {
     if (hasUnsavedChanges) setPending({ kind: "restore", item });
     else onRestore(item);
   }
+  async function requestImport(file: File) {
+    setActionFailed(false);
+    if (hasUnsavedChanges) {
+      importButtonRef.current?.focus();
+      setPending({ kind: "import", file });
+    } else {
+      setBusy(true);
+      try { await onImport(file); } finally { setBusy(false); }
+    }
+  }
   async function confirmAction() {
     if (!pending || busy) return;
     if (pending.kind === "restore") { setPending(null); onRestore(pending.item); return; }
     setBusy(true);
-    setDeleteFailed(false);
+    setActionFailed(false);
     try {
-      if (await onDelete(pending.item.draftId)) {
+      if (await (pending.kind === "import" ? onImport(pending.file) : onDelete(pending.item.draftId))) {
         setPending(null);
         requestAnimationFrame(() => headingRef.current?.focus());
-      } else { setDeleteFailed(true); }
+      } else { setActionFailed(true); }
     } finally { setBusy(false); }
   }
   const groups = groupDraftRevisions(history);
@@ -89,8 +101,9 @@ export function DraftManager({
       </section>
 
       <section className="draft-library-toolbar">
-        <label><Upload size={14} />{c("导入草稿文件", "Import draft file")}<input type="file" accept=".json,.draft.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) onImport(file); event.target.value = ""; }} /></label>
-        <p><ShieldCheck size={14} />{notice}</p>
+        <button ref={importButtonRef} className="outline-button" disabled={busy} onClick={() => fileRef.current?.click()}><Upload size={14} />{busy && !pending ? c("正在导入…", "Importing…") : c("导入草稿文件", "Import draft file")}</button>
+        <input ref={fileRef} hidden type="file" aria-label={c("选择草稿文件", "Choose draft file")} accept=".json,.draft.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void requestImport(file); }} />
+        <p role="status"><ShieldCheck size={14} />{notice}</p>
       </section>
 
       {groups.length > 0 && <div className={styles.toolbar}>
@@ -107,7 +120,7 @@ export function DraftManager({
             <article className="draft-card" key={group.draftId}>
               <header>
                 <div><span className="draft-language">{group.latest.languageId}</span><h2>{group.latest.title}</h2><p>{c(`最近保存于 ${formatDate(group.latest.updatedAt)}`, `Last saved ${formatDate(group.latest.updatedAt)}`)}</p></div>
-                <button className="draft-delete" onClick={() => { setDeleteFailed(false); setPending({ kind: "delete", item: group.latest, count: group.revisions.length }); }} aria-label={c(`删除${group.latest.title}`, `Delete ${group.latest.title}`)}><Trash2 size={15} />{c("删除草稿", "Delete draft")}</button>
+                <button className="draft-delete" onClick={() => { setActionFailed(false); setPending({ kind: "delete", item: group.latest, count: group.revisions.length }); }} aria-label={c(`删除${group.latest.title}`, `Delete ${group.latest.title}`)}><Trash2 size={15} />{c("删除草稿", "Delete draft")}</button>
               </header>
               <div className="draft-primary-actions"><button className="primary" onClick={() => requestRestore(group.latest)}><RotateCcw size={15} />{c("继续编辑", "Continue editing")}</button><button onClick={() => onExport(group.latest)}><Download size={15} />{c("导出最新草稿", "Export latest")}</button></div>
               <details className="draft-revision-list">
@@ -128,15 +141,16 @@ export function DraftManager({
         <section ref={dialogRef} tabIndex={-1} className="ai-dialog draft-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="draft-confirm-title" aria-describedby="draft-confirm-description" aria-busy={busy}>
           <div className="dialog-body">
             <h2 id="draft-confirm-title">{pending.kind === "delete" ? c("删除这份草稿？", "Delete this draft?") : c("替换未保存的编辑内容？", "Replace unsaved edits?")}</h2>
-            <p className="draft-confirm-target">{pending.item.title}{pending.kind === "restore" && ` · v${pending.item.revision}`}</p>
+            <p className="draft-confirm-target">{pending.kind === "import" ? pending.file.name : pending.item.title}{pending.kind === "restore" && ` · v${pending.item.revision}`}</p>
             <p id="draft-confirm-description">{pending.kind === "delete"
               ? c(`将删除这份草稿的全部 ${pending.count} 个本地修订，无法撤销。当前编辑内容、已发布课程和学习记录会保留。`, `All ${pending.count} local revisions will be permanently deleted. The open editor, published courses, and learning records will be kept.`)
+              : pending.kind === "import" ? c("文件校验通过后会保存为新草稿，并替换当前未保存的编辑内容。若要保留，请取消并返回编辑器保存草稿。", "After validation, the file will be saved as a new draft and replace unsaved editor content. To keep your edits, cancel and return to the editor to save a draft.")
               : c("当前编辑内容尚未保存为修订，恢复后将被替换。若要保留，请取消并返回编辑器保存草稿。", "The current editor content has not been saved as a revision and will be replaced. To keep it, cancel and return to the editor to save a draft.")}</p>
-            {pending.kind === "delete" && deleteFailed && <p role="alert">{notice}</p>}
+            {pending.kind !== "restore" && actionFailed && <p role="alert">{notice}</p>}
           </div>
           <div className="dialog-footer">
             <button className="text-button" disabled={busy} onClick={() => setPending(null)}>{c("取消", "Cancel")}</button>
-            <button className="primary-button" disabled={busy} onClick={() => void confirmAction()}>{busy ? c("正在删除…", "Deleting…") : pending.kind === "delete" ? c("删除全部修订", "Delete all revisions") : c("替换并恢复", "Replace and restore")}</button>
+            <button className="primary-button" disabled={busy} onClick={() => void confirmAction()}>{busy ? (pending.kind === "import" ? c("正在导入…", "Importing…") : c("正在删除…", "Deleting…")) : pending.kind === "delete" ? c("删除全部修订", "Delete all revisions") : pending.kind === "import" ? c("导入并替换", "Import and replace") : c("替换并恢复", "Replace and restore")}</button>
           </div>
         </section>
       </div>}

@@ -1157,7 +1157,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   async function importDraftFile(file: File) {
     if (file.size > MAX_DRAFT_FILE_BYTES) {
       setNotice(t("草稿文件超过 5 MB，已停止导入", "The draft file is larger than 5 MB and was not imported"));
-      return;
+      return false;
     }
     try {
       const parsed = parseDraftFile(await file.text());
@@ -1166,7 +1166,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
           ? t("已发布或已归档课程不能作为草稿导入；发布课程请从课程库安装或在 Studio 创建派生草稿", "Published or archived courses cannot be imported as drafts. Install published courses from Learn, or create a derived draft in Studio.")
           : t(`草稿文件格式无效${parsed.issues?.length ? `：${parsed.issues.length} 个问题` : ""}`, `Invalid draft file${parsed.issues?.length ? `: ${parsed.issues.length} issues` : ""}`);
         setNotice(message);
-        return;
+        return false;
       }
       const nextDraftId = crypto.randomUUID();
       const saved = await draftApplication.saveRevision({
@@ -1182,8 +1182,10 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
       setEditorSection("overview");
       setLearningView("studio");
       setNotice(t(`已导入「${imported.title}」并保存为新的本地草稿`, `Imported “${imported.title}” as a new local draft`));
+      return true;
     } catch {
-      setNotice(t("无法读取草稿文件", "The draft file could not be read"));
+      setNotice(t("草稿导入失败，请检查文件和设备存储后重试", "Draft import failed. Check the file and device storage, then try again."));
+      return false;
     }
   }
 
@@ -1619,8 +1621,13 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   if (learningView === "drafts") {
     return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} hasUnsavedChanges={studioStarted && !history.some((item) => {
       if (item.draftId !== draftId) return false;
-      try { return JSON.stringify(JSON.parse(item.payload)) === JSON.stringify(JSON.parse(source)); } catch { return false; }
-    })} onRestore={restoreFromDraftManager} onDelete={deleteLocalDraft} onImport={(file) => void importDraftFile(file)} onExport={exportDraftRevision} />{productGuide}</>;
+      try {
+        const savedCourse = validateCourse(item.payload).course;
+        if (!savedCourse) return false;
+        ensureCourseUnits(savedCourse, appLocale);
+        return JSON.stringify(savedCourse) === JSON.stringify(JSON.parse(source));
+      } catch { return false; }
+    })} onRestore={restoreFromDraftManager} onDelete={deleteLocalDraft} onImport={importDraftFile} onExport={exportDraftRevision} />{productGuide}</>;
   }
   if (learningView === "languages") {
     return <><LanguagePackManager packs={languagePacks} builtInIds={BUILT_IN_LANGUAGE_IDS} locale={appLocale} notice={notice} usageFor={usageForLanguagePack} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onCreate={() => { setLearningView("studio"); setLanguageOpen(true); }} onImport={(file) => void importLanguagePackFile(file)} onExport={exportLanguagePack} onDelete={(pack) => void deleteLanguagePack(pack)} />{productGuide}</>;
