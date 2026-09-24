@@ -532,7 +532,7 @@ test("an author can turn material into a recoverable private visual draft", asyn
   await expect(page.locator(".lesson-sequence button[aria-pressed='true']")).toContainText("流程编辑回归");
 
 
-  await expect(page.locator(".autosave-state.saved")).toContainText("修改已自动保存", { timeout: 5000 });
+  await expect(page.locator(".autosave-state.saved")).toContainText("工作副本已自动保存", { timeout: 5000 });
   const savedBeforeReload = await readStudioWorkingCopy(page) as { course?: { manifest?: { title?: Record<string, string> } } };
   expect(savedBeforeReload.course?.manifest?.title?.["zh-CN"]).toBe("城市散步");
   await page.reload();
@@ -827,4 +827,74 @@ test("draft import protects unsaved content and reports invalid files", async ({
   await fileInput.setInputFiles({ name: "invalid.json", mimeType: "application/json", buffer: Buffer.from("invalid") });
   await expect(dialog).toBeHidden();
   await expect(page.locator(".draft-library-toolbar [role=status]")).toContainText("草稿文件格式无效");
+});
+
+test("Studio distinguishes working copies from revisions and protects replacements", async ({ page }, testInfo) => {
+  await page.goto(origin + "/studio");
+  await dismissFirstUseGuide(page);
+  await page.getByRole("searchbox", { name: "筛选目标语言" }).fill("English");
+  await page.locator(".studio-ready-languages aside button").click();
+  const title = page.getByLabel("课程名称（中文）", { exact: true });
+  await title.fill("需要保留的内容");
+  await expect(page.locator(".autosave-state")).toHaveText("工作副本已自动保存");
+  await expect(page.locator(".revision-save-state")).toHaveText("当前内容尚未保存为修订");
+  await page.getByRole("button", { name: "保存草稿", exact: true }).click();
+  await expect(page.locator(".revision-save-state")).toHaveText("当前内容已保存为修订 1");
+  await title.fill("未保存的新标题");
+  await expect(page.locator(".revision-save-state")).toHaveText("当前内容尚未保存为修订");
+  await page.getByText("使用课程模板", { exact: true }).click();
+  page.once("dialog", async (dialog) => { expect(dialog.message()).toContain("应用模板"); await dialog.dismiss(); });
+  await page.locator(".template-strip aside button").first().click();
+  await expect(title).toHaveValue("未保存的新标题");
+  // The desktop sidebar exposes language switching; mobile uses the start screen.
+  if (await page.locator(".language-button").first().isVisible()) {
+    page.once("dialog", async (dialog) => { expect(dialog.message()).toContain("载入语言示例"); await dialog.dismiss(); });
+    await page.locator(".language-button").first().click();
+    await expect(title).toHaveValue("未保存的新标题");
+  }
+  await page.locator(".studio-tools summary").click();
+  await page.getByRole("button", { name: "素材生成课程", exact: true }).click();
+  const materials = page.getByRole("dialog", { name: "导入素材生成课程草稿" });
+  await materials.getByLabel("课程标题").fill("新素材课程");
+  await materials.getByLabel("素材正文").fill("I walk through the old town. The market is busy today. I stop for coffee and write a postcard.");
+  await materials.getByLabel(/我确认有权将这些素材用于自己的课程/).check();
+  page.once("dialog", async (dialog) => { expect(dialog.message()).toContain("素材生成课程"); await dialog.dismiss(); });
+  await materials.getByRole("button", { name: "生成可编辑草稿" }).click();
+  await expect(materials.getByLabel("课程标题")).toHaveValue("新素材课程");
+  await materials.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(title).toHaveValue("未保存的新标题");
+  await page.getByRole("button", { name: "JSON", exact: true }).click();
+  await page.getByRole("textbox", { name: "课程包 JSON", exact: true }).fill("{");
+  await expect(page.locator(".autosave-state")).toHaveText("JSON 尚未应用；自动保存仅包含已应用内容");
+  await expectResponsiveDocument(page);
+  await page.locator(".status-strip").screenshot({ path: testInfo.outputPath("save-states.png") });
+});
+
+test("learners keep answers on retry and focus follows the next activity", async ({ page }, testInfo) => {
+  await page.goto(origin + "/learn");
+  await dismissFirstUseGuide(page);
+  await page.getByRole("button", { name: "一键开始学习" }).first().click();
+  const heading = page.locator(".learning-heading h1");
+  await expect(heading).toBeFocused();
+  await page.getByRole("radio").first().click();
+  await page.getByRole("button", { name: "提交答案", exact: true }).click();
+  await page.getByRole("button", { name: "开始学习本课", exact: true }).click();
+  await expect(heading).toBeFocused();
+  for (let i = 0; i < 4 && await page.getByRole("radio").count() === 0; i++) {
+    await page.getByRole("button", { name: "完成并继续", exact: true }).click();
+  }
+  const first = page.getByRole("radio").first();
+  await first.click();
+  await page.getByRole("button", { name: "提交答案", exact: true }).click();
+  await expect(page.locator('[role="status"] .learning-feedback')).toBeVisible();
+  await expectResponsiveDocument(page);
+  await page.locator(".learning-card").screenshot({ path: testInfo.outputPath("learner-feedback.png") });
+  await page.getByRole("button", { name: "根据提示重试", exact: true }).click();
+  await expect(first).toHaveAttribute("aria-checked", "true");
+  await expect(first).toBeFocused();
+  await page.getByRole("radio").nth(1).click();
+  await page.getByRole("button", { name: "提交答案", exact: true }).click();
+  await page.getByRole("button", { name: "继续下一步", exact: true }).click();
+  await expect(heading).toBeFocused();
+  await expect(page.getByRole("radio")).toHaveCount(0);
 });

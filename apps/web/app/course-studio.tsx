@@ -327,6 +327,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     target?.scrollIntoView({ block: "center", behavior: "instant" });
   }, [editorFocus]);
   const [hydrated, setHydrated] = useState(false);
+  const [autoSavedCourse, setAutoSavedCourse] = useState<CoursePack>();
   const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [articleOpen, setArticleOpen] = useState(false);
   const [articleForm, setArticleForm] = useState<MaterialImportForm>({ languageId: "", title: "", text: "", url: "", kind: "article", useAi: false, rightsConfirmed: false });
@@ -366,6 +367,29 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const languageDialogRef = useDialogFocus<HTMLElement>(languageOpen, () => setLanguageOpen(false));
   const aiDialogRef = useDialogFocus<HTMLElement>(aiOpen, closeAiSettings);
   const t = (chinese: string, english: string) => uiText(uiLocale, chinese, english);
+
+  const revisionSnapshots = useMemo(() => history.filter((item) => item.draftId === draftId).sort((a, b) => b.revision - a.revision).map((item) => {
+    const savedCourse = validateCourse(item.payload).course;
+    if (!savedCourse) return { item, content: undefined };
+    ensureCourseUnits(savedCourse, appLocale);
+    return { item, content: JSON.stringify(savedCourse) };
+  }), [history, draftId, appLocale]);
+  const savedRevision = useMemo(() => {
+    try {
+      const content = JSON.stringify(JSON.parse(source));
+      return revisionSnapshots.find((snapshot) => snapshot.content === content)?.item;
+    } catch { return undefined; }
+  }, [revisionSnapshots, source]);
+  const hasUnsavedChanges = studioStarted && !savedRevision;
+  const hasUnappliedJson = useMemo(() => {
+    try { return JSON.stringify(JSON.parse(source)) !== JSON.stringify(course); } catch { return true; }
+  }, [source, course]);
+  function confirmEditorReplacement(action: string) {
+    return !hasUnsavedChanges || window.confirm(t(
+      `${action}会替换当前尚未保存为修订的编辑内容。自动保存的工作副本也会被新内容替换；已保存修订会保留。若要保留当前内容，请取消并先保存草稿。继续吗？`,
+      `${action} replaces edits that have not been saved as a revision, including the auto-saved working copy. Saved revisions will be kept. To keep these edits, cancel and save a draft first. Continue?`,
+    ));
+  }
 
   function closeAiSettings() {
     setAiOpen(false);
@@ -533,12 +557,13 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
 
   useEffect(() => {
     if (!hydrated || space !== "studio" || !studioStarted || course.manifest.status !== "draft") return;
+    let active = true;
     const timeout = window.setTimeout(() => {
       setAutoSaveState("saving");
       const workingDraftId = draftId ?? `working-${course.manifest.id}`;
-      void saveStudioWorkingCopy({ draftId: workingDraftId, updatedAt: new Date().toISOString(), course: cloneCourse(course) }).then(() => setAutoSaveState("saved")).catch(() => setAutoSaveState("error"));
+      void saveStudioWorkingCopy({ draftId: workingDraftId, updatedAt: new Date().toISOString(), course: cloneCourse(course) }).then(() => { if (active) { setAutoSavedCourse(course); setAutoSaveState("saved"); } }).catch(() => { if (active) setAutoSaveState("error"); });
     }, AUTOSAVE_DELAY_MS);
-    return () => window.clearTimeout(timeout);
+    return () => { active = false; window.clearTimeout(timeout); };
   }, [course, draftId, hydrated, space, studioStarted]);
 
   function openProductGuide(audience: ProductGuideAudience) {
@@ -592,6 +617,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   function loadLanguage(pack: LanguagePack) {
+    if (!confirmEditorReplacement(t("载入语言示例", "Loading a language sample"))) return;
     const next = sampleCourse(pack.id, languageName(pack, teachingLocale));
     setLanguage(pack.id);
     setStudioStarted(true);
@@ -1437,6 +1463,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     const pending = articleForm.text.trim().length >= 20 ? [{ id: crypto.randomUUID(), title: articleForm.title.trim() || t("粘贴素材", "Pasted material"), text: articleForm.text.trim(), kind: articleForm.kind, sourceLabel: t("粘贴文本", "Pasted text") } satisfies CourseMaterial] : [];
     const materials = [...articleMaterials, ...pending];
     if (!materials.length) { setArticleError(t("请粘贴、上传或导入至少一份素材", "Paste, upload, or import at least one material")); return; }
+    if (!confirmEditorReplacement(t("素材生成课程", "Creating a course from materials"))) return;
     setArticleBusy(true); setArticleError("");
     try {
       let next = createCourseDraftFromMaterials({ languageId: pack.id, languageName: languageName(pack, appLocale), locale: appLocale, title: articleForm.title, materials });
@@ -1498,7 +1525,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   }
 
   function applyCourseTemplate(templateId: CourseTemplateId) {
-    if (!window.confirm(t("应用模板会替换当前编辑器内容，尚未保存的修改将丢失。继续吗？", "Applying a template replaces the editor contents and discards unsaved changes. Continue?"))) return;
+    if (!confirmEditorReplacement(t("应用模板", "Applying a template"))) return;
     const next = createCourseFromTemplate(templateId, language, appLocale);
     setDraftId(crypto.randomUUID());
     setSelectedStudioLessonId(next.lessons[0]?.id ?? "");
@@ -1619,15 +1646,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     return <>{renderLibraryScreen(true)}{productGuide}</>;
   }
   if (learningView === "drafts") {
-    return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} hasUnsavedChanges={studioStarted && !history.some((item) => {
-      if (item.draftId !== draftId) return false;
-      try {
-        const savedCourse = validateCourse(item.payload).course;
-        if (!savedCourse) return false;
-        ensureCourseUnits(savedCourse, appLocale);
-        return JSON.stringify(savedCourse) === JSON.stringify(JSON.parse(source));
-      } catch { return false; }
-    })} onRestore={restoreFromDraftManager} onDelete={deleteLocalDraft} onImport={importDraftFile} onExport={exportDraftRevision} />{productGuide}</>;
+    return <><DraftManager history={history} locale={appLocale} notice={notice} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} hasUnsavedChanges={hasUnsavedChanges} onRestore={restoreFromDraftManager} onDelete={deleteLocalDraft} onImport={importDraftFile} onExport={exportDraftRevision} />{productGuide}</>;
   }
   if (learningView === "languages") {
     return <><LanguagePackManager packs={languagePacks} builtInIds={BUILT_IN_LANGUAGE_IDS} locale={appLocale} notice={notice} usageFor={usageForLanguagePack} onLocaleChange={changeAppLocale} onBack={() => setLearningView("studio")} onCreate={() => { setLearningView("studio"); setLanguageOpen(true); }} onImport={(file) => void importLanguagePackFile(file)} onExport={exportLanguagePack} onDelete={(pack) => void deleteLanguagePack(pack)} />{productGuide}</>;
@@ -1707,7 +1726,8 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
         <div className="status-strip">
           <div><ShieldCheck size={16} /><span>{notice}</span></div>
           <span className="schema-pill">Schema v{course.schemaVersion}</span>
-          {course.manifest.status === "draft" && <span role="status" aria-live="polite" className={`autosave-state ${autoSaveState}`}>{autoSaveState === "saving" ? t("自动保存中…", "Auto-saving…") : autoSaveState === "error" ? t("自动保存失败", "Auto-save failed") : autoSaveState === "saved" ? t("修改已自动保存", "Changes auto-saved") : t("等待自动保存", "Waiting to auto-save")}</span>}
+          {course.manifest.status === "draft" && <span role="status" aria-live="polite" className={`autosave-state ${autoSaveState}`}>{hasUnappliedJson ? t("JSON 尚未应用；自动保存仅包含已应用内容", "JSON not applied; auto-save includes only applied content") : autoSaveState === "saving" ? t("工作副本保存中…", "Saving working copy…") : autoSaveState === "error" ? t("工作副本自动保存失败，请保存草稿", "Working copy auto-save failed; save a draft") : autoSaveState === "saved" && autoSavedCourse === course ? t("工作副本已自动保存", "Working copy auto-saved") : t("工作副本等待自动保存", "Working copy awaiting auto-save")}</span>}
+          {course.manifest.status === "draft" && <span className="revision-save-state" role="status">{savedRevision ? t(`当前内容已保存为修订 ${savedRevision.revision}`, `Current content saved as revision ${savedRevision.revision}`) : t("当前内容尚未保存为修订", "Current content not saved as a revision")}</span>}
         </div>
 
         <div className="work-grid">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -146,6 +146,12 @@ export function LearningPlayer({
   const utterances = currentStep?.utteranceRefs.map((id) => course.utterances.find((item) => item.id === id)).filter(Boolean) ?? [];
   const percent = learningPercent(course, progress);
   const learnerStages = lesson ? buildLearnerStages(lesson, currentStep?.id ?? "", progress.completedStepIds) : [];
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const answerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    stepHeadingRef.current?.focus({ preventScroll: true });
+    stepHeadingRef.current?.scrollIntoView({ block: "start" });
+  }, [currentStep?.id, progress.status]);
   const activeStageIndex = Math.max(0, learnerStages.findIndex((stage) => stage.status === "active"));
   const activeStage = learnerStages[activeStageIndex];
   const targetForms = knowledge.map((item) => item?.form.trim()).filter(Boolean) as string[];
@@ -366,7 +372,7 @@ export function LearningPlayer({
   }
 
   function tryAgain() {
-    setResponse(undefined);
+    requestAnimationFrame(() => answerRef.current?.querySelector<HTMLElement>("textarea, input, button")?.focus());
     setShowSupport(true);
     setFeedback(undefined);
     setEvaluating(false);
@@ -390,7 +396,7 @@ export function LearningPlayer({
         <section className="completion-card">
           <div className="completion-mark"><CheckCircle2 size={38} /></div>
           <span className="kicker">LESSON COMPLETE</span>
-          <h1>{c("本课学习完成", "Lesson complete")}</h1>
+          <h1 ref={stepHeadingRef} tabIndex={-1}>{c("本课学习完成", "Lesson complete")}</h1>
           <p>{displayText(lesson?.title, teachingLocale)} · {c("本课学习路径已完成", "Lesson path completed")}</p>
           <div className="completion-stats">
             <div><strong>{mastered.length}</strong><span>{c("已记录知识点", "Knowledge items")}</span></div>
@@ -443,7 +449,7 @@ export function LearningPlayer({
         </aside>
 
         <article className="learning-card">
-          <div className="learning-heading"><span className="phase-badge">{c(...learnerStageNames[learnerStages[activeStageIndex]?.id ?? "learn"])} · {phaseNames[currentStep.phase] ? c(...phaseNames[currentStep.phase]) : currentStep.phase}</span><h1>{displayText(currentStep.title, teachingLocale)}</h1><p>{exercise ? displayText(exercise.prompt, teachingLocale) : c("阅读并理解下面的课程内容，然后继续。", "Read and understand the lesson content, then continue.")}</p></div>
+          <div className="learning-heading"><span className="phase-badge">{c(...learnerStageNames[learnerStages[activeStageIndex]?.id ?? "learn"])} · {phaseNames[currentStep.phase] ? c(...phaseNames[currentStep.phase]) : currentStep.phase}</span><h1 ref={stepHeadingRef} tabIndex={-1}>{displayText(currentStep.title, teachingLocale)}</h1><p>{exercise ? displayText(exercise.prompt, teachingLocale) : c("阅读并理解下面的课程内容，然后继续。", "Read and understand the lesson content, then continue.")}</p></div>
 
           {(currentStep.phase !== "diagnostic" || !exercise || showSupport || feedback?.kind === "success" || feedback?.kind === "review") && (knowledge.length > 0 || utterances.length > 0) && (
             <div className="learning-content">
@@ -452,7 +458,7 @@ export function LearningPlayer({
             </div>
           )}
 
-          {exercise && activeResponse && <ExerciseRenderer exercise={exercise} response={activeResponse} locale={locale} onChange={setResponse} onInteraction={() => setFeedback(undefined)} />}
+          <div ref={answerRef}>{exercise && activeResponse && <ExerciseRenderer exercise={exercise} response={activeResponse} locale={locale} onChange={setResponse} onInteraction={() => setFeedback(undefined)} />}</div>
 
           {showSupport && exercise?.guidance && <div className="support-card"><Lightbulb size={17} /><p>{displayText(exercise.guidance, teachingLocale)}</p></div>}
 
@@ -481,10 +487,10 @@ export function LearningPlayer({
             </>}
           </section>}
 
-          {feedback && <div className={`learning-feedback ${feedback.kind}`}>
+          <div role="status" aria-live="polite" aria-atomic="true">{feedback && <div className={`learning-feedback ${feedback.kind}`}>
             {feedback.kind === "success" ? <CheckCircle2 size={21} /> : feedback.kind === "review" ? <Sparkles size={21} /> : <CircleAlert size={21} />}
             <div><span className={`feedback-source ${feedback.source ?? "local"}`}>{feedback.source === "ai" ? c("AI 参考 · 不自动评分", "AI reference · no automatic grading") : c("本地规则", "Local rules")}</span><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.detail && <small>{feedback.kind === "review" ? feedback.detail : c(`AI 未使用：${feedback.detail}`, `AI not used: ${feedback.detail}`)}</small>}</div>
-          </div>}
+          </div>}</div>
 
           <footer className="learning-actions">
             <div className="learning-support-actions">
