@@ -327,7 +327,7 @@ test("first course starts immediately and a personal plan can be added later", a
   await page.getByRole("button", { name: "返回学习首页" }).click();
 
   await page.getByRole("button", { name: "一键开始学习" }).first().click();
-  await expect(page.locator(".learning-content")).toHaveCount(0);
+  await expect(page.locator(".learning-content")).toBeHidden();
   await page.getByRole("button", { name: "查看提示", exact: true }).click();
   await expect(page.locator(".learning-content")).toBeVisible();
 
@@ -416,7 +416,7 @@ test("a non-technical author can create a new language, save a draft, and previe
   if (testInfo.project.name.startsWith("mobile")) {
     for (const name of ["保存草稿", "校验并发布", "可视化", "JSON", "基本信息", "查看发布检查"]) {
       const box = await page.getByRole("button", { name, exact: true }).boundingBox();
-      expect(box?.height, name).toBeGreaterThanOrEqual(44);
+      expect(Number(box?.height.toFixed(3)), name).toBeGreaterThanOrEqual(44);
     }
   }
   await page.getByRole("button", { name: "查看发布检查", exact: true }).click();
@@ -897,4 +897,41 @@ test("learners keep answers on retry and focus follows the next activity", async
   await page.getByRole("button", { name: "继续下一步", exact: true }).click();
   await expect(heading).toBeFocused();
   await expect(page.getByRole("radio")).toHaveCount(0);
+});
+
+
+test("saving and exiting preserves an unfinished answer, including offline", async ({ page, context }, testInfo) => {
+  await page.goto(origin + "/learn");
+  await dismissFirstUseGuide(page);
+  await page.getByRole("button", { name: "一键开始学习" }).first().click();
+  await expect(page.locator(".learning-reference")).not.toHaveAttribute("open", "");
+  const first = page.getByRole("radio").first();
+  await expect(first).toBeVisible();
+  await first.click();
+  await page.locator(".learning-reference summary").click();
+  await expect(page.locator(".learning-content")).toBeVisible();
+  await page.locator(".learning-reference summary").click();
+  await expectResponsiveDocument(page);
+  await page.locator(".learning-card").screenshot({ path: testInfo.outputPath("focused-exercise.png") });
+  await page.evaluate(() => {
+    const original = IDBDatabase.prototype.transaction;
+    Object.assign(window, { restoreTransactions: () => { IDBDatabase.prototype.transaction = original; } });
+    IDBDatabase.prototype.transaction = function (...args: Parameters<IDBDatabase["transaction"]>) {
+      if (args[1] === "readwrite" && Array.from(typeof args[0] === "string" ? [args[0]] : args[0]).includes("courseRecords")) throw new DOMException("Simulated storage failure", "QuotaExceededError");
+      return original.apply(this, args);
+    };
+  });
+  await page.getByRole("button", { name: "保存并退出", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("保存失败");
+  await expect(first).toHaveAttribute("aria-checked", "true");
+  await page.evaluate(() => (window as unknown as { restoreTransactions: () => void }).restoreTransactions());
+  await context.setOffline(true);
+  await page.getByRole("button", { name: "保存并退出", exact: true }).click();
+  await expect(page.locator(".learning-card")).toHaveCount(0);
+  await context.setOffline(false);
+  await page.reload();
+  await page.getByRole("button", { name: "继续任务", exact: true }).first().click();
+  await expect(first).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(".learning-heading h1")).toContainText("检查已有知识");
+  await expect(page.getByText("已恢复上次未提交的答案，请确认后提交。")).toBeVisible();
 });

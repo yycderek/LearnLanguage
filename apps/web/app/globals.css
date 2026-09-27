@@ -1880,3 +1880,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .draft-confirm-target { font-weight: 600; }
 .draft-confirm-dialog button { min-height: 44px; font-size: 14px; }
 .draft-confirm-dialog .dialog-footer { flex-wrap: wrap; }
+
+.learning-reference { margin: 0 20px 16px; }
+.learning-reference > summary { min-height: 44px; padding: 12px 0; cursor: pointer; color: var(--primary); font-size: 14px; font-weight: 600; }
+.learning-reference .learning-content { padding: 12px 0; }
+.learning-save-note, .learning-save-error { margin: 16px 20px; font-size: 13px; line-height: 1.6; }
+.learning-save-note { color: var(--muted); }
+.learning-save-error { color: #9b493a; }
+
+.pwa-status-stack { pointer-events: none; }
+.pwa-status-stack button { pointer-events: auto; }

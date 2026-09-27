@@ -121,15 +121,31 @@ export function LearningPlayer({
   aiSettings?: AiSettings;
   pronunciationPreference?: PronunciationPreference;
   onConfigureAi?: () => void;
-  onProgress: (progress: LearningProgress) => void;
+  onProgress: (progress: LearningProgress) => Promise<boolean>;
   onExit: () => void;
 }) {
   const teachingLocale = locale;
   const uiLocale = locale;
   const c = (chinese: string, english: string) => uiText(locale, chinese, english);
   const [progress, setProgress] = useState(initialProgress);
-  const [response, setResponse] = useState<ExerciseResponse>();
-  const [showSupport, setShowSupport] = useState(false);
+  const [response, setResponse] = useState<ExerciseResponse>(() => {
+    const pending = initialProgress.pendingAnswer;
+    const step = course.lessons.find((item) => item.id === initialProgress.lessonId)?.steps.find((item) => item.id === initialProgress.currentStepId);
+    const task = course.exercises.find((item) => item.id === pending?.exerciseId);
+    if (!pending || pending.stepId !== step?.id || !step.exerciseRefs.includes(pending.exerciseId) || !task) return undefined;
+    const answer = pending.response;
+    if (!answer || answer.kind !== createExerciseResponse(task).kind) return undefined;
+    if (answer.kind === "text") return typeof answer.value === "string" ? answer : undefined;
+    const indexes = answer.kind === "selection" ? answer.selected : answer.order;
+    if (!Array.isArray(indexes) || indexes.some((index) => !Number.isInteger(index) || index < 0 || index >= (task.options?.length ?? 0)) || new Set(indexes).size !== indexes.length) return undefined;
+    if (answer.kind === "ordering" && indexes.length !== task.options?.length) return undefined;
+    return answer;
+  });
+  const [resumedAnswer] = useState(Boolean(response));
+  const [referenceOpen, setReferenceOpen] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [showSupport, setShowSupport] = useState(Boolean(initialProgress.pendingAnswer?.usedSupport));
   const [feedback, setFeedback] = useState<Feedback>();
   const [evaluating, setEvaluating] = useState(false);
   const [reviewPlanOpen, setReviewPlanOpen] = useState(false);
@@ -164,12 +180,34 @@ export function LearningPlayer({
 
   function persist(next: LearningProgress) {
     setProgress(next);
-    onProgress(next);
+    void onProgress(next).then((saved) => setSaveError(!saved));
   }
+
+  async function saveAndExit(afterSave = onExit) {
+    if (exiting || evaluating || tutorBusy) return;
+    setExiting(true);
+    setSaveError(false);
+    const next: LearningProgress = { ...progress, updatedAt: new Date().toISOString() };
+    if (currentStep && exercise && activeResponse) next.pendingAnswer = { stepId: currentStep.id, exerciseId: exercise.id, response: activeResponse, usedSupport: showSupport };
+    else delete next.pendingAnswer;
+    try {
+      if (await onProgress(next)) afterSave();
+      else setSaveError(true);
+    } catch { setSaveError(true); }
+    finally { setExiting(false); }
+  }
+
+  useEffect(() => {
+    if (!response || preview) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [response, preview]);
 
   function resetStepUi() {
     setResponse(undefined);
     setShowSupport(false);
+    setReferenceOpen(false);
     setFeedback(undefined);
     setEvaluating(false);
     setTutorOpen(false);
@@ -374,6 +412,7 @@ export function LearningPlayer({
   function tryAgain() {
     requestAnimationFrame(() => answerRef.current?.querySelector<HTMLElement>("textarea, input, button")?.focus());
     setShowSupport(true);
+    setReferenceOpen(true);
     setFeedback(undefined);
     setEvaluating(false);
   }
@@ -390,10 +429,11 @@ export function LearningPlayer({
     return (
       <main className="learner-shell completion-shell">
         <header className="learner-topbar">
-          <button className="learner-back" onClick={onExit}><ArrowLeft size={17} />{c("返回学习首页", "Back to learning home")}</button>
+          <button className="learner-back" disabled={exiting} onClick={() => void saveAndExit()}><ArrowLeft size={17} />{c("返回学习首页", "Back to learning home")}</button>
           <span className="device-pill">{preview ? c("预览进度不会保存", "Preview progress is not saved") : c("进度已保存到当前设备", "Progress saved on this device")}</span>
         </header>
         <section className="completion-card">
+          {saveError && <p role="alert">{c("保存失败，请重试返回操作，暂勿关闭页面。", "Save failed. Retry before closing this page.")}</p>}
           <div className="completion-mark"><CheckCircle2 size={38} /></div>
           <span className="kicker">LESSON COMPLETE</span>
           <h1 ref={stepHeadingRef} tabIndex={-1}>{c("本课学习完成", "Lesson complete")}</h1>
@@ -419,7 +459,7 @@ export function LearningPlayer({
               })}
             </div>
           )}
-          <div className="completion-actions"><button className="outline-large" onClick={restart}><RotateCcw size={17} />{c("重新学习", "Learn again")}</button><button className="learner-primary" onClick={onExit}>{c("完成并返回", "Finish and return")}<ArrowRight size={17} /></button></div>
+          <div className="completion-actions"><button className="outline-large" onClick={restart}><RotateCcw size={17} />{c("重新学习", "Learn again")}</button><button className="learner-primary" disabled={exiting} onClick={() => void saveAndExit()}>{c("完成并返回", "Finish and return")}<ArrowRight size={17} /></button></div>
         </section>
       </main>
     );
@@ -430,7 +470,7 @@ export function LearningPlayer({
   return (
     <main className="learner-shell">
       <header className="learner-topbar">
-        <button className="learner-back" onClick={onExit}><ArrowLeft size={17} />{c("保存并退出", "Save and exit")}</button>
+        <button className="learner-back" disabled={exiting || evaluating || tutorBusy} onClick={() => void saveAndExit()}><ArrowLeft size={17} />{exiting ? c("正在保存…", "Saving…") : c("保存并退出", "Save and exit")}</button>
         <div className="learner-course-title"><span>{displayText(course.manifest.title, teachingLocale)}</span><strong>{displayText(lesson.title, teachingLocale)}</strong></div>
         <span className="device-pill">{preview ? c("Studio 预览 · 不写入学习档案", "Studio preview · does not change your profile") : c("设备本地进度", "Device-local progress")}</span>
       </header>
@@ -448,15 +488,27 @@ export function LearningPlayer({
           })}
         </aside>
 
-        <article className="learning-card">
+        <article className="learning-card" inert={exiting}>
           <div className="learning-heading"><span className="phase-badge">{c(...learnerStageNames[learnerStages[activeStageIndex]?.id ?? "learn"])} · {phaseNames[currentStep.phase] ? c(...phaseNames[currentStep.phase]) : currentStep.phase}</span><h1 ref={stepHeadingRef} tabIndex={-1}>{displayText(currentStep.title, teachingLocale)}</h1><p>{exercise ? displayText(exercise.prompt, teachingLocale) : c("阅读并理解下面的课程内容，然后继续。", "Read and understand the lesson content, then continue.")}</p></div>
 
-          {(currentStep.phase !== "diagnostic" || !exercise || showSupport || feedback?.kind === "success" || feedback?.kind === "review") && (knowledge.length > 0 || utterances.length > 0) && (
+          {resumedAnswer && initialProgress.pendingAnswer?.stepId === currentStep.id && <p className="learning-save-note" role="status">{c("已恢复上次未提交的答案，请确认后提交。", "Your unfinished answer was restored. Review it before submitting.")}</p>}
+          <p className="learning-save-note">{preview ? c("预览不会写入学习档案", "Preview does not update learning records") : c("未提交答案可通过“保存并退出”保留；不计为完成。", "Save and exit keeps your unsubmitted answer without marking it complete.")}</p>
+          {saveError && <p className="learning-save-error" role="alert">{c("保存失败，答案仍在当前页面。请重试“保存并退出”，暂勿关闭页面。", "Save failed. Your answer remains on this page. Retry Save and exit before closing it.")}</p>}
+
+          {(knowledge.length > 0 || utterances.length > 0) && (exercise ? (
+            <details className="learning-reference" key={currentStep.id} open={referenceOpen} onToggle={(event) => { setReferenceOpen(event.currentTarget.open); if (event.currentTarget.open) setShowSupport(true); }}>
+              <summary>{c("查看本题资料与例句", "Reference and examples for this question")}</summary>
             <div className="learning-content">
               {knowledge.length > 0 && <div className="knowledge-learning-grid">{knowledge.map((item) => item && <div className="knowledge-learning-card" key={item.id}><span>{item.kind}</span><strong>{item.form}</strong>{(showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.meaning, teachingLocale)}</p>}</div>)}</div>}
               {utterances.map((item) => item && <div className="utterance-learning-card" key={item.id}><BookOpenCheck size={18} /><div className="utterance-learning-copy"><strong>{item.text}</strong>{item.translation && (showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.translation, teachingLocale)}</p>}<PronunciationControls text={item.text} languageId={course.manifest.languageId} locale={locale} preference={pronunciationPreference} /></div></div>)}
             </div>
-          )}
+            </details>
+          ) : (
+            <div className="learning-content">
+              {knowledge.length > 0 && <div className="knowledge-learning-grid">{knowledge.map((item) => item && <div className="knowledge-learning-card" key={item.id}><span>{item.kind}</span><strong>{item.form}</strong>{(showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.meaning, teachingLocale)}</p>}</div>)}</div>}
+              {utterances.map((item) => item && <div className="utterance-learning-card" key={item.id}><BookOpenCheck size={18} /><div className="utterance-learning-copy"><strong>{item.text}</strong>{item.translation && (showSupport || currentStep.supportLevel === "full") && <p>{displayText(item.translation, teachingLocale)}</p>}<PronunciationControls text={item.text} languageId={course.manifest.languageId} locale={locale} preference={pronunciationPreference} /></div></div>)}
+            </div>
+          ))}
 
           <div ref={answerRef}>{exercise && activeResponse && <ExerciseRenderer exercise={exercise} response={activeResponse} locale={locale} onChange={setResponse} onInteraction={() => setFeedback(undefined)} />}</div>
 
@@ -469,7 +521,7 @@ export function LearningPlayer({
               <div><span><Bot size={19} /></span><div><small>OPTIONAL AI TUTOR</small><h2 id="ai-tutor-title">{c("可选 AI 学习导师", "Optional AI tutor")}</h2></div></div>
               <button type="button" onClick={() => setTutorOpen(false)} aria-label={c("关闭 AI 导师", "Close AI tutor")}><X size={17} /></button>
             </header>
-            {!aiSettings ? <div className="ai-tutor-empty"><MessageCircleQuestion size={24} /><div><strong>{c("需要先配置个人 AI", "Configure Personal AI first")}</strong><p>{c("课程和本地练习不依赖 AI。配置后，导师可以解释当前步骤、提供提示和回答问题。", "Courses and local exercises do not require AI. Once configured, the tutor can explain this step, give hints, and answer questions.")}</p></div>{onConfigureAi && <button type="button" onClick={onConfigureAi}>{c("打开 AI 设置", "Open AI settings")}</button>}</div> : <>
+            {!aiSettings ? <div className="ai-tutor-empty"><MessageCircleQuestion size={24} /><div><strong>{c("需要先配置个人 AI", "Configure Personal AI first")}</strong><p>{c("课程和本地练习不依赖 AI。配置后，导师可以解释当前步骤、提供提示和回答问题。", "Courses and local exercises do not require AI. Once configured, the tutor can explain this step, give hints, and answer questions.")}</p></div>{onConfigureAi && <button type="button" onClick={() => void saveAndExit(onConfigureAi)}>{c("打开 AI 设置", "Open AI settings")}</button>}</div> : <>
               <p className="ai-tutor-boundary">{c("只发送当前课节内容、当前回答和你主动输入的问题。回复只作参考，不自动评分，也不改变进度。", "Only this lesson context, the current response, and questions you enter are sent. Replies are reference only: no automatic grading or progress changes.")}</p>
               <div className="ai-tutor-shortcuts">
                 <button type="button" disabled={tutorBusy} onClick={() => void askTutor("explain")}><BookOpenCheck size={15} />{c("解释本步", "Explain this step")}</button>
@@ -494,7 +546,7 @@ export function LearningPlayer({
 
           <footer className="learning-actions">
             <div className="learning-support-actions">
-              {!showSupport && (exercise || currentStep.supportLevel !== "none") && <button className="support-button" onClick={() => setShowSupport(true)}><Eye size={16} />{c("查看提示", "View support")}</button>}
+              {!showSupport && (exercise || currentStep.supportLevel !== "none") && <button className="support-button" onClick={() => { setShowSupport(true); setReferenceOpen(true); }}><Eye size={16} />{c("查看提示", "View support")}</button>}
               <button className={`tutor-button ${tutorOpen ? "active" : ""}`} type="button" onClick={() => setTutorOpen((open) => !open)}><Bot size={16} />{c("AI 导师", "AI tutor")}</button>
             </div>
             {feedback?.diagnosticAction === "skip" ? <button className="learner-primary" onClick={() => advance("deterministic", true, feedback.nextStepId, 1)}>{c("跳过并完成本课", "Skip and complete lesson")}<ArrowRight size={17} /></button> : feedback?.diagnosticAction === "learn" ? <button className="learner-primary" onClick={() => advance("deterministic", false, feedback.nextStepId, 0)}>{c("开始学习本课", "Start this lesson")}<ArrowRight size={17} /></button> : feedback?.kind === "success" ? <button className="learner-primary" onClick={() => advance("deterministic")}>{c("继续下一步", "Continue")}<ArrowRight size={17} /></button> : feedback?.kind === "retry" ? <button className="learner-primary retry-button" onClick={tryAgain}><RotateCcw size={16} />{c("根据提示重试", "Try again with support")}</button> : feedback?.kind === "review" ? <div className="ai-review-actions"><button className="support-button" onClick={tryAgain}><RotateCcw size={16} />{c("继续修改", "Keep editing")}</button><button className="learner-primary" onClick={() => advance("self")}>{c("我确认已完成", "I confirm completion")}<ArrowRight size={17} /></button></div> : capabilityResolution.mode === "disabled" ? <button className="learner-primary" onClick={submitAnswer}>{c("跳过不兼容练习", "Skip incompatible exercise")}<ArrowRight size={17} /></button> : <button className="learner-primary" onClick={submitAnswer} disabled={evaluating}>{evaluating ? <><Sparkles size={16} />{c("AI 反馈中…", "Getting AI feedback…")}</> : exercise ? <><ListChecks size={16} />{c("提交答案", "Submit answer")}</> : <><Sparkles size={16} />{c("完成并继续", "Complete and continue")}</>}</button>}

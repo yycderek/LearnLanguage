@@ -1,3 +1,4 @@
+import type { ExerciseResponse } from "./exercise-response.ts";
 import type { CoursePack } from "@learn-language/protocol";
 import type { EvaluationSource } from "@learn-language/protocol";
 import {
@@ -50,6 +51,7 @@ export interface LearningProgress {
   lessonId: string;
   status: "active" | "completed";
   currentStepId: string | null;
+  pendingAnswer?: { stepId: string; exerciseId: string; response: ExerciseResponse; usedSupport: boolean };
   completedStepIds: string[];
   attemptCounts: Record<string, number>;
   mastery: Record<string, KnowledgeProgress>;
@@ -205,6 +207,7 @@ export function submitLearningStep(
     ...(input.nextStepId ? { nextStepId: input.nextStepId } : step.next.length > 1 && step.next[0] ? { nextStepId: step.next[0] } : {}),
   });
   const next = JSON.parse(JSON.stringify(progress)) as LearningProgress;
+  if (input.decision === "advance") delete next.pendingAnswer;
   next.updatedAt = now;
   next.status = transition.state.status;
   next.currentStepId = transition.state.currentStepId;

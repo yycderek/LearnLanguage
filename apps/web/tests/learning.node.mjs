@@ -156,3 +156,19 @@ test("a compatible course update keeps previously started lessons unlocked", () 
   assert.equal(lessonIsUnlocked(course, record, course.lessons.findIndex((lesson) => lesson.id === "basic-order")), true);
   assert.equal(lessonIsUnlocked(course, record, course.lessons.findIndex((lesson) => lesson.id === "drink-details")), false);
 });
+
+
+test("unfinished answers survive record storage without becoming evidence and clear on advance", () => {
+  const course = sampleCourse("en");
+  const progress = startLearning(course);
+  const pendingAnswer = { stepId: progress.currentStepId, exerciseId: course.lessons[0].steps[0].exerciseRefs[0], response: { kind: "selection", selected: [0] }, usedSupport: false };
+  const pending = { ...progress, pendingAnswer };
+  const record = updateCourseLearningRecord(createCourseLearningRecord(course), pending);
+  assert.deepEqual(JSON.parse(JSON.stringify(record)).lessonProgress[progress.lessonId].pendingAnswer, pendingAnswer);
+  assert.deepEqual(record.mastery, {});
+  assert.deepEqual(record.completedLessonIds, []);
+  assert.deepEqual(pending.events, progress.events);
+  const advanced = submitLearningStep(course, pending, { decision: "advance" });
+  assert.equal(advanced.pendingAnswer, undefined);
+  assert.deepEqual(pending.pendingAnswer, pendingAnswer);
+});

@@ -1356,16 +1356,22 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     return plan;
   }
 
-  function storeLessonProgress(progress: LearningProgress) {
+  async function storeLessonProgress(progress: LearningProgress) {
     const activeRecords = learningContext === "preview" ? previewRecordsByCourse : recordsByCourse;
     const current = activeRecords[progress.courseId] ?? createCourseLearningRecord(course);
     const next = updateCourseLearningRecord(current, progress);
     if (learningContext === "preview") {
       setPreviewRecordsByCourse((records) => ({ ...records, [next.courseId]: next }));
-      return;
+      return true;
     }
     setRecordsByCourse((records) => ({ ...records, [next.courseId]: next }));
-    void persistLearningState(next, progress).catch(() => setNotice(t("学习事件保存失败；当前页面中的进度仍然可用", "Learning events could not be saved; progress remains available on this page")));
+    try {
+      await persistLearningState(next, progress);
+      return true;
+    } catch {
+      setNotice(t("学习事件保存失败；当前页面中的进度仍然可用", "Learning events could not be saved; progress remains available on this page"));
+      return false;
+    }
   }
 
   function openLesson(lessonId: string, restart = false) {
