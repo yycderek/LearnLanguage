@@ -1890,3 +1890,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 .pwa-status-stack { pointer-events: none; }
 .pwa-status-stack button { pointer-events: auto; }
+
+.learning-next-action { margin: 20px 26px; padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; background: white; border: 1px solid var(--line); border-radius: 14px; }
+.learning-next-action h1 { margin: 0; font-size: 24px; line-height: 1.35; }
+.learning-next-action p { margin: 8px 0 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.learning-next-buttons { display: flex; flex-wrap: wrap; gap: 10px; flex-shrink: 0; }
+.learning-next-buttons button { min-height: 44px; font-size: 14px; }
+.feedback-connection-details > summary { min-height: 44px; padding: 12px 0; cursor: pointer; font-size: 14px; }
+.feedback-connection-details p { overflow-wrap: anywhere; }
+@media (max-width: 900px) { .learning-next-action { margin: 16px; padding: 20px; flex-direction: column; align-items: stretch; } .learning-next-buttons button { width: 100%; } .learning-next-buttons { flex-direction: column; } }

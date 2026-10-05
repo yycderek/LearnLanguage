@@ -52,6 +52,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { mostRecentActiveLesson } from "@/lib/learning-presentation";
 import { LearningPlayer } from "@/app/learning-player";
 import { LearningDashboard } from "@/app/learning-dashboard";
 import { LearningPlanSetup } from "@/app/learning-plan-setup";
@@ -809,7 +810,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
     const existingPlan = plansByCourse[selected.manifest.id];
 
     const record = existingRecord ?? createCourseLearningRecord(selected);
-    const activeLesson = selected.lessons.find((lesson) => record.lessonProgress[lesson.id]?.status === "active");
+    const activeLesson = mostRecentActiveLesson(selected, record);
     const plannedLesson = existingPlan && record.completedLessonIds.length === 0
       ? selected.lessons.find((lesson) => lesson.id === existingPlan.startingLessonId)
       : undefined;
@@ -1597,7 +1598,7 @@ export function CourseStudio({ space = "studio" }: { space?: "learn" | "studio" 
   const currentAgenda = hydrated && currentPlan ? courseAdaptiveAgenda(course, currentRecord, currentPlan) : undefined;
   const currentPercent = courseLearningPercent(course, currentRecord);
   const dueReviewCount = currentRecord ? reviewsDue(currentRecord).length : 0;
-  const ongoingLesson = course.lessons.find((lesson) => currentRecord?.lessonProgress[lesson.id]?.status === "active");
+  const ongoingLesson = mostRecentActiveLesson(course, currentRecord);
   const selectedProgress = selectedLessonId ? currentRecord?.lessonProgress[selectedLessonId] : undefined;
   const productGuide = <ProductGuide key={`${guideAudience}:${guideOpen ? "open" : "closed"}`} open={guideOpen} audience={guideAudience} locale={appLocale} onClose={closeProductGuide} />;
 

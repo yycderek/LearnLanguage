@@ -1,3 +1,4 @@
+import type { CourseLearningRecord } from "./learning.ts";
 import type { CoursePack, LessonPhase } from "./course.ts";
 
 export type LearnerStageId = "learn" | "practice" | "use";
@@ -49,4 +50,12 @@ export function buildLearnerStages(
       ? "completed"
       : index === activeIndex ? "active" : "upcoming",
   }));
+}
+
+export function mostRecentActiveLesson(course: CoursePack, record?: CourseLearningRecord) {
+  return course.lessons.filter((lesson) => {
+    const progress = record?.lessonProgress[lesson.id];
+    return progress?.status === "active" && progress.courseVersion === course.manifest.version
+      && lesson.steps.some((step) => step.id === progress.currentStepId);
+  }).sort((a, b) => (Date.parse(record!.lessonProgress[b.id].updatedAt) || 0) - (Date.parse(record!.lessonProgress[a.id].updatedAt) || 0))[0];
 }

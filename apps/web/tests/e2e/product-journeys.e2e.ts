@@ -75,7 +75,7 @@ async function readDevicePreference(page: Page, key: string) {
   }), key);
 }
 
-async function acceptanceCourse(version: string) {
+async function acceptanceCourse(version: string, openTask = false) {
   const draft = sampleCourse("en");
   draft.manifest.id = "community.en.acceptance";
   draft.manifest.version = version;
@@ -85,6 +85,13 @@ async function acceptanceCourse(version: string) {
   draft.manifest.visibility = "community";
   draft.manifest.source = { kind: "original", title: "LearnLanguage acceptance fixture" };
   draft.manifest.license = { id: "CC-BY-4.0", attribution: "Acceptance Author" };
+  if (openTask) {
+    const step = draft.lessons[0].steps[0];
+    step.phase = "independent-task";
+    delete step.diagnostic;
+    step.knowledgeRefs = [];
+    draft.exercises[0] = { id: step.exerciseRefs[0], kind: "free-response", prompt: { "zh-CN": "介绍你自己", en: "Introduce yourself" }, knowledgeRefs: [], utteranceRefs: [] };
+  }
   return publishCourseDraft(draft);
 }
 
@@ -930,8 +937,60 @@ test("saving and exiting preserves an unfinished answer, including offline", asy
   await expect(page.locator(".learning-card")).toHaveCount(0);
   await context.setOffline(false);
   await page.reload();
-  await page.getByRole("button", { name: "继续任务", exact: true }).first().click();
+  await expect(page.locator(".learning-next-action")).toContainText("已保存未提交答案");
+  await expect(page.getByRole("button", { name: "继续上次学习", exact: true })).toBeInViewport();
+  await page.locator(".learning-next-action").screenshot({ path: testInfo.outputPath("resume-action.png") });
+  await page.getByRole("button", { name: "继续上次学习", exact: true }).click();
   await expect(first).toHaveAttribute("aria-checked", "true");
   await expect(page.locator(".learning-heading h1")).toContainText("检查已有知识");
   await expect(page.getByText("已恢复上次未提交的答案，请确认后提交。")).toBeVisible();
 });
+
+
+for (const useAi of [false, true]) {
+  test(`open responses require self-assessment${useAi ? " after AI failure and retry" : " without AI"}`, async ({ page }, testInfo) => {
+    let feedbackRequests = 0;
+    await page.route(`${origin}/api/ai`, async (route) => {
+      const body = route.request().postDataJSON() as { action: string };
+      if (body.action === "test") return route.fulfill({ json: { text: "Connected" } });
+      feedbackRequests++;
+      if (feedbackRequests === 1) return route.fulfill({ status: 503, json: { error: "Test service unavailable" } });
+      return route.fulfill({ json: { text: JSON.stringify({ verdict: "pass", title: "表达清楚", message: "请对照题目自行确认。" }) } });
+    });
+    await page.goto(origin + "/learn");
+    await dismissFirstUseGuide(page);
+    if (useAi) {
+      await page.getByRole("button", { name: "设置", exact: true }).click();
+      await page.getByRole("button", { name: "配置 AI" }).click();
+      const settings = page.getByRole("dialog", { name: "选择你使用的 AI" });
+      await settings.getByLabel("模型 ID").fill("test-model");
+      await settings.getByLabel("API 密钥（兼容服务可不填）").fill("test-key");
+      await settings.getByRole("button", { name: "保存设置" }).click();
+      await page.getByRole("button", { name: "返回学习首页", exact: true }).click();
+    }
+    const course = await acceptanceCourse("1.0.0", true);
+    page.once("dialog", (dialog) => void dialog.accept());
+    await page.getByLabel("选择文件", { exact: true }).setInputFiles({ name: "open-task.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(course)) });
+    const card = page.locator(".library-course-card").filter({ hasText: "验收英语课程" });
+    await card.getByRole("button", { name: "进入学习", exact: true }).click();
+    await page.locator(".learning-next-action").getByRole("button", { name: "开始本课", exact: true }).click();
+    const answer = page.getByRole("textbox", { name: "你的回应", exact: true });
+    await answer.fill("Hello, my name is Alex.");
+    await page.getByRole("button", { name: "提交答案", exact: true }).click();
+    await expect(page.locator(".learning-feedback.review")).toBeVisible();
+    await expect(page.getByRole("button", { name: "继续下一步", exact: true })).toHaveCount(0);
+    if (useAi) {
+      await expect(page.getByText("AI 暂不可用，请自行确认", { exact: true })).toBeVisible();
+      await expect(page.locator(".feedback-connection-details")).not.toHaveAttribute("open", "");
+      await page.getByRole("button", { name: "重试 AI 反馈", exact: true }).click();
+      await expect(page.getByText("表达清楚", { exact: true })).toBeVisible();
+      expect(feedbackRequests).toBe(2);
+    }
+    await expect(answer).toHaveValue("Hello, my name is Alex.");
+    await expectResponsiveDocument(page);
+    await page.locator(".learning-feedback").screenshot({ path: testInfo.outputPath("open-response-feedback.png") });
+    await page.getByRole("button", { name: "继续修改", exact: true }).click();
+    await expect(answer).toHaveValue("Hello, my name is Alex.");
+    await expect(answer).toBeFocused();
+  });
+}

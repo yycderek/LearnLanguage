@@ -345,7 +345,7 @@ export function LearningPlayer({
         const detail = error instanceof Error ? error.message : c("AI 服务暂时不可用。", "The AI service is temporarily unavailable.");
         const usesTargetLanguage = targetForms.length === 0 || targetForms.some((form) => normalized.includes(form));
         if (usesTargetLanguage) {
-          setFeedback({ kind: "success", title: c("本地规则判定通过", "Passed by local rules"), message: c("回答包含本课目标表达，可以继续下一步。", "Your answer contains the target expression. You can continue."), source: "local", detail });
+          setFeedback({ kind: "review", title: c("AI 暂不可用，请自行确认", "AI unavailable; review your answer"), message: c("本地检查不能完整判断开放题。请对照题目与提示，继续修改或确认已完成。", "Local checks cannot fully assess an open response. Compare your answer with the task and support, then revise or confirm completion."), source: "local", detail });
         } else {
           retry(exercise.guidance ? displayText(exercise.guidance, teachingLocale) : c("尝试加入本课的关键词或句型后再提交。", "Add a keyword or pattern from this lesson and submit again."), c("请根据提示再试一次", "Try again with the support"), "local", detail);
         }
@@ -356,7 +356,7 @@ export function LearningPlayer({
     }
     const usesTargetLanguage = targetForms.length === 0 || targetForms.some((form) => normalized.includes(form));
     if (usesTargetLanguage) {
-      setFeedback({ kind: "success", title: c("任务完成", "Task complete"), message: c("回答使用了本课目标表达，可以继续下一步。", "Your answer uses the target expression. You can continue."), source: "local" });
+      setFeedback({ kind: "review", title: c("请确认是否完成题目要求", "Check whether you met the task"), message: c("这道开放题没有标准答案。本地检查不能完整判断表达，请对照题目和提示自行确认。", "This open response has no answer key. Local checks cannot fully assess it; review the task and support before confirming."), source: "local" });
     } else {
       retry(exercise.guidance ? displayText(exercise.guidance, teachingLocale) : c("尝试加入本课的关键词或句型后再提交。", "Add a keyword or pattern from this lesson and submit again."));
     }
@@ -541,7 +541,7 @@ export function LearningPlayer({
 
           <div role="status" aria-live="polite" aria-atomic="true">{feedback && <div className={`learning-feedback ${feedback.kind}`}>
             {feedback.kind === "success" ? <CheckCircle2 size={21} /> : feedback.kind === "review" ? <Sparkles size={21} /> : <CircleAlert size={21} />}
-            <div><span className={`feedback-source ${feedback.source ?? "local"}`}>{feedback.source === "ai" ? c("AI 参考 · 不自动评分", "AI reference · no automatic grading") : c("本地规则", "Local rules")}</span><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.detail && <small>{feedback.kind === "review" ? feedback.detail : c(`AI 未使用：${feedback.detail}`, `AI not used: ${feedback.detail}`)}</small>}</div>
+            <div><span className={`feedback-source ${feedback.source ?? "local"}`}>{feedback.source === "ai" ? c("AI 参考 · 不自动评分", "AI reference · no automatic grading") : feedback.kind === "review" && !feedback.diagnosticAction ? c("需要自行确认", "Self-assessment needed") : c("本地规则", "Local rules")}</span><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.detail && (feedback.source === "ai" ? <small>{feedback.detail}</small> : <><p>{c("AI 反馈暂时不可用，答案已保留。可按提示继续，或重试 AI。", "AI feedback is unavailable; your answer is kept. Continue with the support or retry AI.")}</p><details className="feedback-connection-details"><summary>{c("查看连接问题", "Connection details")}</summary><p>{feedback.detail}</p></details>{aiSettings && <button type="button" className="support-button" disabled={evaluating} onClick={() => void submitAnswer()}>{c("重试 AI 反馈", "Retry AI feedback")}</button>}</>)}</div>
           </div>}</div>
 
           <footer className="learning-actions">

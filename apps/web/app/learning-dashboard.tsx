@@ -29,7 +29,7 @@ import type { AdaptiveLearningAgenda } from "@learn-language/application/adaptiv
 import { displayText, type CoursePack } from "@/lib/course";
 import { dateLocale, uiText, type AppLocale } from "@/lib/i18n";
 import type { LanguagePack } from "@/lib/language-pack";
-import { buildLearnerStages, type LearnerStageId } from "@/lib/learning-presentation";
+import { mostRecentActiveLesson, buildLearnerStages, type LearnerStageId } from "@/lib/learning-presentation";
 import {
   courseLearningPercent,
   learningPercent,
@@ -86,7 +86,7 @@ export function LearningDashboard({
   const due = record ? reviewsDue(record).sort((left, right) => Date.parse(left.dueAt) - Date.parse(right.dueAt)) : [];
   const dueIds = new Set(due.map((task) => task.id));
   const completedLessons = course.lessons.filter((lesson) => record?.completedLessonIds.includes(lesson.id));
-  const ongoing = course.lessons.find((lesson) => record?.lessonProgress[lesson.id]?.status === "active");
+  const ongoing = mostRecentActiveLesson(course, record);
   const agendaLessonItem = agenda?.items.find((item) => item.kind !== "review");
   const agendaLesson = agendaLessonItem && "lessonId" in agendaLessonItem
     ? course.lessons.find((lesson) => lesson.id === agendaLessonItem.lessonId)
@@ -94,6 +94,7 @@ export function LearningDashboard({
   const firstIncompleteIndex = course.lessons.findIndex((lesson, index) => lessonIsUnlocked(course, record, index) && !record?.completedLessonIds.includes(lesson.id));
   const focusLesson = ongoing ?? agendaLesson ?? course.lessons[firstIncompleteIndex >= 0 ? firstIncompleteIndex : Math.max(0, course.lessons.length - 1)];
   const focusProgress = focusLesson ? record?.lessonProgress[focusLesson.id] : undefined;
+  const resumeStep = ongoing?.steps.find((step) => step.id === focusProgress?.currentStepId);
   const focusCompleted = focusLesson ? record?.completedLessonIds.includes(focusLesson.id) === true : false;
   const focusStages = focusLesson ? buildLearnerStages(
     focusLesson,
@@ -162,6 +163,20 @@ export function LearningDashboard({
             <button type="button" onClick={() => document.getElementById("course-outline")?.scrollIntoView({ behavior: "smooth", block: "start" })}><BarChart3 size={15} />{c("学习进度", "Progress")}</button>
           </nav>
         )}
+
+        {focusLesson && <section className="learning-next-action" aria-labelledby="learning-next-title">
+          <div>
+            <h1 id="learning-next-title">{ongoing ? c("接着上次学习", "Pick up where you left off") : focusCompleted ? c("本课程课节已完成", "Course lessons completed") : c("开始下一课", "Start your next lesson")}</h1>
+            {!focusCompleted && <p>{displayText(focusLesson.title, teachingLocale)}</p>}
+            {resumeStep && <p>{c("上次停在：", "Last activity: ")}{displayText(resumeStep.title, teachingLocale)}{focusProgress?.pendingAnswer && c(" · 已保存未提交答案", " · Unfinished answer saved")}</p>}
+            {focusCompleted && <p>{due.length ? c("有到期复习，可以巩固学过的内容。", "Reviews are due. Revisit what you have learned.") : c("当前没有到期复习，可回顾已学课节或选择其他课程。", "No reviews are due. Revisit a lesson or choose another course.")}</p>}
+          </div>
+          <div className="learning-next-buttons">
+            {!focusCompleted && <button className="learner-primary" onClick={() => onStartLesson(focusLesson.id)}>{ongoing ? c("继续上次学习", "Resume learning") : c("开始本课", "Start lesson")}<ArrowRight size={17} /></button>}
+            {due.length > 0 && <button className={focusCompleted ? "learner-primary" : "outline-large"} onClick={() => onStartReview(due)}>{c(`复习到期内容（${due.length}）`, `Review due items (${due.length})`)}</button>}
+            {focusCompleted && due.length === 0 && onOpenLibrary && <button className="outline-large" onClick={onOpenLibrary}>{c("选择其他课程", "Choose another course")}</button>}
+          </div>
+        </section>}
 
         {!preview && onOpenPlan && (
           <section className={`learning-plan-summary-card ${learningPlan ? "" : "empty"}`}>
